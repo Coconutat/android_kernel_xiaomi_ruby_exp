@@ -8183,37 +8183,50 @@ static int priv_driver_set_wow(IN struct net_device *prNetDev, IN char *pcComman
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou32(apcArgv[1], 0, &Enable);
+	if (i4Argc >= 2) {
+		u4Ret = kalkStrtou32(apcArgv[1], 0, &Enable);
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	DBGLOG(INIT, INFO, "CMD set_wow_enable = %d\n", Enable);
-	DBGLOG(INIT, INFO, "Scenario ID %d\n", pWOW_CTRL->ucScenarioId);
-	DBGLOG(INIT, INFO, "ucBlockCount %d\n", pWOW_CTRL->ucBlockCount);
-	DBGLOG(INIT, INFO, "interface %d\n", pWOW_CTRL->astWakeHif[0].ucWakeupHif);
-	DBGLOG(INIT, INFO, "gpio_pin %d\n", pWOW_CTRL->astWakeHif[0].ucGpioPin);
-	DBGLOG(INIT, INFO, "gpio_level 0x%x\n", pWOW_CTRL->astWakeHif[0].ucTriggerLvl);
-	DBGLOG(INIT, INFO, "gpio_timer %d\n", pWOW_CTRL->astWakeHif[0].u4GpioInterval);
+		DBGLOG(INIT, INFO, "CMD set_wow_enable = %d\n",
+			Enable);
+		DBGLOG(INIT, INFO, "Scenario ID %d\n",
+			pWOW_CTRL->ucScenarioId);
+		DBGLOG(INIT, INFO, "ucBlockCount %d\n",
+			pWOW_CTRL->ucBlockCount);
+		DBGLOG(INIT, INFO, "interface %d\n",
+			pWOW_CTRL->astWakeHif[0].ucWakeupHif);
+		DBGLOG(INIT, INFO, "gpio_pin %d\n",
+			pWOW_CTRL->astWakeHif[0].ucGpioPin);
+		DBGLOG(INIT, INFO, "gpio_level 0x%x\n",
+			pWOW_CTRL->astWakeHif[0].ucTriggerLvl);
+		DBGLOG(INIT, INFO, "gpio_timer %d\n",
+			pWOW_CTRL->astWakeHif[0].u4GpioInterval);
 
-	if (Enable == 1) {
-		DBGLOG(INIT, EVENT, "Rekey offload  wow enable<%d>\n", Enable);
-		setRekeyOffloadEnterWow(prGlueInfo);
-	} else if (Enable == 0) {
-		DBGLOG(INIT, EVENT, "FW offload Leave wow <%d>\n", Enable);
-		disableFWOffloadLeaveWow(prGlueInfo);
-	}
+		if (Enable == 1) {
+			DBGLOG(INIT, EVENT,
+				"Rekey offload  wow enable<%d>\n", Enable);
+			setRekeyOffloadEnterWow(prGlueInfo);
+		} else if (Enable == 0) {
+			DBGLOG(INIT, EVENT,
+				"FW offload Leave wow <%d>\n", Enable);
+			disableFWOffloadLeaveWow(prGlueInfo);
+		}
 
-	kalWowProcess(prGlueInfo, Enable);
+		kalWowProcess(prGlueInfo, Enable);
 
 #if defined(_HIF_USB)
-	if (Enable)
-		glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
-	else
-		glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_LINK_UP);
+		if (Enable)
+			glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
+		else
+			glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_LINK_UP);
 #endif
 
-	return 0;
+		return 0;
+	} else
+		return -1;
 }
 
 static int priv_driver_set_wow_enable(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
@@ -8232,16 +8245,20 @@ static int priv_driver_set_wow_enable(IN struct net_device *prNetDev, IN char *p
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou8(apcArgv[1], 0, &ucEnable);
+	if (i4Argc >= 2) {
+		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucEnable);
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	pWOW_CTRL->fgWowEnable = ucEnable;
+		pWOW_CTRL->fgWowEnable = ucEnable;
 
-	DBGLOG(PF, INFO, "WOW enable %d\n", pWOW_CTRL->fgWowEnable);
+		DBGLOG(PF, INFO, "WOW enable %d\n", pWOW_CTRL->fgWowEnable);
 
-	return 0;
+		return 0;
+	} else
+		return -1;
 }
 
 static int priv_driver_set_wow_par(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
@@ -8261,7 +8278,7 @@ static int priv_driver_set_wow_par(IN struct net_device *prNetDev, IN char *pcCo
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	if (i4Argc > 3) {
+	if (i4Argc >= 7) {
 
 		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucWakeupHif);
 		if (u4Ret)
@@ -8857,17 +8874,22 @@ static int priv_driver_set_adv_pws(IN struct net_device *prNetDev, IN char *pcCo
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou8(apcArgv[1], 0, &ucAdvPws);
+	if (i4Argc >= 2) {
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucAdvPws);
 
-	prGlueInfo->prAdapter->rWifiVar.ucAdvPws = ucAdvPws;
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	DBGLOG(INIT, INFO, "AdvPws:%d\n",
-	       prGlueInfo->prAdapter->rWifiVar.ucAdvPws);
+		prGlueInfo->prAdapter->rWifiVar.ucAdvPws = ucAdvPws;
 
-	return 0;
+		DBGLOG(INIT, INFO, "AdvPws:%d\n",
+		       prGlueInfo->prAdapter->rWifiVar.ucAdvPws);
+
+		return 0;
+	} else
+		return -1;
 
 }
 

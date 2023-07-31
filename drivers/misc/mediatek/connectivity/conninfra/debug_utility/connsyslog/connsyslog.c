@@ -231,7 +231,7 @@ static int connlog_emi_init(struct connlog_dev* handler, phys_addr_t emiaddr, un
 	}
 
 	if (emiaddr == 0) {
-		pr_err("[%s] consys emi memory address invalid emi_addr=%p emi_size=%d\n",
+		pr_notice("[%s] consys emi memory address invalid emi_addr=%llx emi_size=%d\n",
 			type_to_title[conn_type], emiaddr, emi_size);
 		return -1;
 	}
@@ -257,9 +257,8 @@ static int connlog_emi_init(struct connlog_dev* handler, phys_addr_t emiaddr, un
 	handler->log_offset.emi_idx = emi_offset_table[conn_type].emi_idx;
 
 	if (handler->virAddrEmiLogBase) {
-		pr_info("[%s] EMI mapping OK virtual(0x%p) (0x%x) physical(0x%x) size=%d\n",
+		pr_info("[%s] EMI mapping OK virtual(0x%p) physical(0x%x) size=%d\n",
 			type_to_title[conn_type],
-			handler->virAddrEmiLogBase,
 			handler->virAddrEmiLogBase,
 			(unsigned int)handler->phyAddrEmiBase,
 			handler->emi_size);
@@ -749,7 +748,7 @@ static void connlog_log_data_handler(struct work_struct *work)
 
 	for (i = 0; i < handler->block_num; i++) {
 		conn_type_block = handler->block_type[i];
-		if (conn_type_block < 0 || conn_type_block >= CONN_DEBUG_TYPE_END) {
+		if (conn_type_block >= CONN_DEBUG_TYPE_END) {
 			pr_notice("%s conn_type %d is invalid\n", __func__, conn_type_block);
 			return;
 		}
@@ -1211,7 +1210,7 @@ int connsys_log_init(int conn_type)
 
 	log_start_addr = emi_config->log_offset + gPhyEmiBase;
 	log_size = emi_config->log_size;
-	pr_info("%s init. Base=%p size=%d\n",
+	pr_info("%s init. Base=%llx size=%d\n",
 		type_to_title[conn_type], log_start_addr, log_size);
 
 	// Check if emi layout contains mcu block
@@ -1510,7 +1509,7 @@ EXPORT_SYMBOL(connsys_dedicated_log_path_blank_state_changed);
 int connsys_dedicated_log_path_apsoc_init(phys_addr_t emiaddr, const struct connlog_emi_config* config)
 {
 	if (gPhyEmiBase != 0 || emiaddr == 0) {
-		pr_err("Connsys log double init or invalid parameter(emiaddr=%p)\n", emiaddr);
+		pr_notice("Connsys log double init or invalid parameter(emiaddr=%llx)\n", emiaddr);
 		return -1;
 	}
 

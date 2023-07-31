@@ -1218,16 +1218,8 @@ static INT32 opfunc_pwr_on(P_WMT_OP pWmtOp)
 	iRet = wmt_core_stp_init();
 	if (iRet) {
 		WMT_ERR_FUNC("WMT-CORE: wmt_core_stp_init fail (%d)\n", iRet);
-		osal_assert(0);
-		if (mtk_wcn_stp_assert_flow_get() == 0) {
-			iErrHandle = wmt_core_stp_deinit();
-			if (iErrHandle)
-				WMT_ERR_FUNC("wmt_core_stp_deinit() failed, Err=%d\n", iErrHandle);
-			iErrHandle = opfunc_pwr_off(pWmtOp);
-			if (iErrHandle)
-				WMT_ERR_FUNC("opfunc_pwr_off fail, Err=%d\n", iErrHandle);
-		}
-		return (iErrHandle) ? iErrHandle : iRet;
+		wmt_lib_trigger_assert(WMTDRV_TYPE_WMT, 46);
+		return iRet;
 	}
 
 	WMT_DBG_FUNC("WMT-CORE: WMT [FUNC_ON]\n");

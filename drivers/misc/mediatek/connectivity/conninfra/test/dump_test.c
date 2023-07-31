@@ -171,7 +171,7 @@ static int coredump_test_init(void)
 		return 2;
 	}
 
-	pr_info("emi_addr=%p, size=%d", emi_addr, emi_size);
+	pr_info("emi_addr=%llx, size=%d", emi_addr, emi_size);
 
 	g_dumpCtx = connsys_coredump_init(
 		CONN_DEBUG_TYPE_WIFI, &g_cb);

@@ -276,8 +276,7 @@ static int opfunc_power_on_internal(unsigned int drv_type)
 	}
 
 	/* Check abnormal state */
-	if ((g_conninfra_ctx.drv_inst[drv_type].drv_status < DRV_STS_POWER_OFF)
-	    || (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX)) {
+	if (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX) {
 		pr_err("func(%d) status[0x%x] abnormal\n", drv_type,
 				g_conninfra_ctx.drv_inst[drv_type].drv_status);
 		return -EINVAL;
@@ -359,8 +358,7 @@ static int opfunc_power_off_internal(unsigned int drv_type)
 	}
 
 	/* Check abnormal state */
-	if ((g_conninfra_ctx.drv_inst[drv_type].drv_status < DRV_STS_POWER_OFF)
-	    || (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX)) {
+	if (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX) {
 		pr_err("func(%d) status[0x%x] abnormal\n", drv_type,
 			g_conninfra_ctx.drv_inst[drv_type].drv_status);
 		osal_unlock_sleepable_lock(&infra_ctx->core_lock);
@@ -1702,7 +1700,7 @@ static inline char* conninfra_core_spi_subsys_string(enum sys_spi_subsystem subs
 		"SYS_SPI_MAX"
 	};
 
-	if (subsystem < 0 || subsystem > SYS_SPI_MAX)
+	if (subsystem > SYS_SPI_MAX)
 		return "UNKNOWN";
 
 	return subsys_name[subsystem];
@@ -1841,7 +1839,7 @@ int conninfra_core_subsys_ops_reg(enum consys_drv_type type,
 	struct conninfra_ctx *infra_ctx = &g_conninfra_ctx;
 	int ret, trigger_pre_cal = 0;
 
-	if (type < CONNDRV_TYPE_BT || type >= CONNDRV_TYPE_MAX)
+	if (type >= CONNDRV_TYPE_MAX)
 		return -1;
 
 	spin_lock_irqsave(&g_conninfra_ctx.infra_lock, flag);
@@ -1880,7 +1878,7 @@ int conninfra_core_subsys_ops_unreg(enum consys_drv_type type)
 {
 	unsigned long flag;
 
-	if (type < CONNDRV_TYPE_BT || type >= CONNDRV_TYPE_MAX)
+	if (type >= CONNDRV_TYPE_MAX)
 		return -1;
 	spin_lock_irqsave(&g_conninfra_ctx.infra_lock, flag);
 	memset(&g_conninfra_ctx.drv_inst[type].ops_cb, 0,

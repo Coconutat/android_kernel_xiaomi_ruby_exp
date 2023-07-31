@@ -95,6 +95,9 @@ EXPORT_SYMBOL(gConEmiSize);
 #endif
 
 UINT32 gps_lna_pin_num = 0xffffffff;
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 fm_lna_pin_num = 0xffffffff;
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
 
 INT32 chip_reset_status = -1;
 static INT32 wifi_ant_swap_gpio_pin_num;
@@ -467,6 +470,20 @@ static INT32 mtk_wmt_probe(struct platform_device *pdev)
 						   gps_lna_pin_num, pinmux);
 			}
 		}
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+		pinctl_node = of_parse_phandle(pdev->dev.of_node, "pinctrl-4", 0);
+		if (pinctl_node) {
+			pins_node = of_get_child_by_name(pinctl_node, "pins_cmd_dat");
+			if (pins_node) {
+				pin_ret = of_property_read_u32(pins_node, "pinmux", &pinmux);
+				if (pin_ret)
+					pin_ret = of_property_read_u32(pins_node, "pins", &pinmux);
+				fm_lna_pin_num = (pinmux >> 8) & 0xff;
+				WMT_PLAT_PR_INFO("FM LNA gpio pin number:%d, pinmux:0x%08x.\n",
+						   fm_lna_pin_num, pinmux);
+			}
+		}
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	}
 
 	wifi_ant_swap_gpio_pin_num = of_get_named_gpio(pdev->dev.of_node, "wifi_ant_swap_gpio", 0);
@@ -1221,6 +1238,12 @@ UINT32 mtk_consys_get_gps_lna_pin_num(VOID)
 	return gps_lna_pin_num;
 }
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 mtk_consys_get_fm_lna_pin_num(VOID)
+{
+	return fm_lna_pin_num;
+}
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 INT32 mtk_wcn_consys_reg_ctrl(UINT32 is_write, enum CONSYS_BASE_ADDRESS_INDEX index, UINT32 offset,
 		PUINT32 value)
 {

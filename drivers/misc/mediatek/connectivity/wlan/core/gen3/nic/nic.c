@@ -4056,7 +4056,7 @@ WLAN_STATUS nicSetUapsdParam(IN P_ADAPTER_T prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(prUapsdParams);
 
-	if (eNetworkTypeIdx >= NETWORK_TYPE_NUM) {
+	if ((eNetworkTypeIdx >= NETWORK_TYPE_NUM) || (eNetworkTypeIdx < 0)) {
 		DBGLOG(NIC, ERROR, "nicSetUApsdParam Invalid eNetworkTypeIdx\n");
 		return WLAN_STATUS_FAILURE;
 	}

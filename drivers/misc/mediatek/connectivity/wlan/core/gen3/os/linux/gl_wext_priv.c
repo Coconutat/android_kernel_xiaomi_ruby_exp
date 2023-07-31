@@ -2489,7 +2489,7 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 #define CMD_RM_IT		"RM-IT"
 #define CMD_DUMP_UAPSD		"dumpuapsd"
 #define CMD_FW_EVENT		"FW-EVENT "
-#define CMD_O_SAR		"O-SAR-ENABLE"
+#define CMD_O_SAR		"O-SAR-ENABLE "
 #define CMD_FW_PARAM            "set_fw_param "
 #define CMD_RSSI_DISCONNECT	"DISCONRSSI"
 #define PRIV_CMD_SIZE 512

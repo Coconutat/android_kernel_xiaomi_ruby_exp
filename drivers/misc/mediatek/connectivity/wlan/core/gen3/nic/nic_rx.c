@@ -940,6 +940,16 @@ VOID nicRxProcessForwardPkt(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 
 		/* send into TX queue */
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_QM_TX_QUEUE);
+		if (prMsduInfo->ucBssIndex > 4) {
+			DBGLOG(QM, INFO,
+				"Invalid bssidx:%u\n", prMsduInfo->ucBssIndex);
+			if (prMsduInfo->pfTxDoneHandler != NULL)
+				prMsduInfo->pfTxDoneHandler(prAdapter,
+				prMsduInfo,
+				TX_RESULT_DROPPED_IN_DRIVER);
+			nicTxReturnMsduInfo(prAdapter, prMsduInfo);
+			return;
+		}
 		prRetMsduInfoList = qmEnqueueTxPackets(prAdapter, prMsduInfo);
 		KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_QM_TX_QUEUE);
 

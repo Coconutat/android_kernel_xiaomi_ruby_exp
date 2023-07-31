@@ -167,7 +167,8 @@ VOID HifDmaInit(GL_HIF_INFO_T *HifInfo)
 	 * from IOTLB, device can only perform DMA to the bounce buffer, kernel
 	 * does the extra copy between bounce buffer and VA is needed.)
 	 */
-	dma_set_mask(HifInfo->Dev, DMA_BIT_MASK(36));
+	if (!dma_set_mask(HifInfo->Dev, DMA_BIT_MASK(36)))
+		DBGLOG(INIT, TRACE, "DMA mask set 36bit\n");
 
 	/* IO remap DMA register memory */
 #ifdef CONFIG_OF

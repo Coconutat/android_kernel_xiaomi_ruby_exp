@@ -2791,6 +2791,11 @@ int hif_thread(void *data)
 
 	prGlueInfo->u4HifThreadPid = KAL_GET_CURRENT_THREAD_ID();
 
+	if (!prGlueInfo->prAdapter) {
+		DBGLOG(INIT, WARN, "%s:%u ADAPTER NULL\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
+		return 0;
+	}
+
 	set_user_nice(current, prGlueInfo->prAdapter->rWifiVar.cThreadNice);
 
 	while (TRUE) {
@@ -4320,6 +4325,10 @@ INT_32 kalRequestFirmware(const PUINT_8 pucPath, PUINT_8 pucData, UINT_32 u4Size
 		DBGLOG(INIT, INFO, "kalRequestFirmware %s Fail, errno[%d]!!\n", pucPath, ret);
 		pucData = NULL;
 		*pu4ReadSize = 0;
+		if (fw) {
+			release_firmware(fw);
+			fw = NULL;
+		}
 		return ret;
 	}
 

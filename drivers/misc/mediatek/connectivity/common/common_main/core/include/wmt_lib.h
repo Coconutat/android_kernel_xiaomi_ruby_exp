@@ -468,6 +468,9 @@ extern UINT32 wmt_lib_jtag_flag_set(UINT32 en);
 #endif
 
 UINT32 wmt_lib_get_gps_lna_pin_num(VOID);
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 wmt_lib_get_fm_lna_pin_num(VOID);
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 extern INT32 wmt_lib_fw_log_ctrl(enum wmt_fw_log_type type, UINT8 onoff, UINT8 level);
 VOID wmt_lib_print_wmtd_op_history(VOID);
 VOID wmt_lib_print_worker_op_history(VOID);

@@ -2913,6 +2913,13 @@ UINT32 wmt_lib_get_gps_lna_pin_num(VOID)
 	return mtk_consys_get_gps_lna_pin_num();
 }
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 wmt_lib_get_fm_lna_pin_num(VOID)
+{
+	return mtk_consys_get_fm_lna_pin_num();
+}
+
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 INT32 wmt_lib_met_ctrl(INT32 met_ctrl, INT32 log_ctrl)
 {
 	P_DEV_WMT p_devwmt;

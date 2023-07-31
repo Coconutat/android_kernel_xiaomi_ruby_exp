@@ -1696,7 +1696,7 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	}
 #if CFG_SUPPORT_802_11K
 	if (prCountryIE) {
-		UINT_8 ucRemainLen = prCountryIE->ucLength - 3;
+		UINT_8 ucRemainLen = (prCountryIE->ucLength > 3)?(prCountryIE->ucLength - 3):0;
 		P_COUNTRY_INFO_SUBBAND_TRIPLET_T prSubBand = &prCountryIE->arCountryStr[0];
 		const UINT_8 ucSubBandSize = (UINT_8)sizeof(COUNTRY_INFO_SUBBAND_TRIPLET_T);
 		INT_8 cNewPwrLimit = RLM_INVALID_POWER_LIMIT;

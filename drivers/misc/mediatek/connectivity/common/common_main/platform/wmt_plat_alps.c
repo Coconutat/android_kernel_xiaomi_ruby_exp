@@ -107,6 +107,9 @@ static INT32 wmt_plat_uart_rx_ctrl(ENUM_PIN_STATE state);
 #if CFG_WMT_LTE_COEX_HANDLING
 static INT32 wmt_plat_tdm_req_ctrl(ENUM_PIN_STATE state);
 #endif
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+static INT32 wmt_plat_fm_lna_ctrl(ENUM_PIN_STATE state);
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 static INT32 wmt_plat_dump_pin_conf(VOID);
 
 
@@ -154,6 +157,9 @@ static const fp_set_pin gfp_set_pin_table[] = {
 #if CFG_WMT_LTE_COEX_HANDLING
 	[PIN_TDM_REQ] = wmt_plat_tdm_req_ctrl,
 #endif
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+	[PIN_FM_LNA] = wmt_plat_fm_lna_ctrl,
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 };
 
 /*******************************************************************************
@@ -1490,6 +1496,62 @@ static INT32 wmt_plat_gps_lna_ctrl(ENUM_PIN_STATE state)
 	return ret;
 }
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+static INT32 wmt_plat_fm_lna_ctrl(ENUM_PIN_STATE state)
+{
+	INT32 ret = -1;
+	struct pinctrl_state *fm_lna_init;
+	struct pinctrl_state *fm_lna_oh;
+	struct pinctrl_state *fm_lna_ol;
+	struct pinctrl *consys_pinctrl;
+
+	WMT_PLAT_PR_DBG("ENTER++\n");
+	consys_pinctrl = mtk_wcn_consys_get_pinctrl();
+	if (!consys_pinctrl) {
+		WMT_PLAT_PR_ERR("get consys pinctrl fail\n");
+		return 0;
+	}
+
+	fm_lna_init = pinctrl_lookup_state(consys_pinctrl, "fm_lna_state_init");
+	if (IS_ERR(fm_lna_init)) {
+		WMT_PLAT_PR_ERR("Cannot find fm lna pin init state!\n");
+		return 0;
+	}
+
+	fm_lna_oh = pinctrl_lookup_state(consys_pinctrl, "fm_lna_state_oh");
+	if (IS_ERR(fm_lna_oh)) {
+		WMT_PLAT_PR_ERR("Cannot find fm lna pin oh state!\n");
+		return 0;
+	}
+
+	fm_lna_ol = pinctrl_lookup_state(consys_pinctrl, "fm_lna_state_ol");
+	if (IS_ERR(fm_lna_ol)) {
+		WMT_PLAT_PR_ERR("Cannot find fm lna pin ol state!\n");
+		return 0;
+	}
+
+	switch (state) {
+	case PIN_STA_INIT:
+	case PIN_STA_DEINIT:
+		pinctrl_select_state(consys_pinctrl, fm_lna_init);
+		WMT_PLAT_PR_DBG("set fm lna to init\n");
+		break;
+	case PIN_STA_OUT_H:
+		pinctrl_select_state(consys_pinctrl, fm_lna_oh);
+		WMT_PLAT_PR_DBG("set fm lna to oh\n");
+		break;
+	case PIN_STA_OUT_L:
+		pinctrl_select_state(consys_pinctrl, fm_lna_ol);
+		WMT_PLAT_PR_DBG("set fm lna to ol\n");
+		break;
+	default:
+		WMT_PLAT_PR_WARN("%d mode not defined for  fm lna pin !!!\n", state);
+		break;
+	}
+
+	return ret;
+}
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 static INT32 wmt_plat_uart_rx_ctrl(ENUM_PIN_STATE state)
 {
 	if (gpio_ctrl_info.gpio_ctrl_state[GPIO_COMBO_URXD_PIN].gpio_num == DEFAULT_PIN_ID) {

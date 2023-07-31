@@ -529,6 +529,9 @@ INT32 mtk_wcn_consys_set_dynamic_dump(PUINT32 buf);
 INT32 mtk_wdt_swsysret_config(INT32 bit, INT32 set_value);
 VOID mtk_wcn_consys_hang_debug(VOID);
 UINT32 mtk_consys_get_gps_lna_pin_num(VOID);
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 mtk_consys_get_fm_lna_pin_num(VOID);
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 INT32 mtk_consys_check_reg_readable(VOID);
 INT32 mtk_consys_check_reg_readable_by_addr(SIZE_T addr);
 VOID mtk_wcn_consys_clock_fail_dump(VOID);

@@ -126,6 +126,9 @@ typedef enum _ENUM_PIN_ID_ {
 #if CFG_WMT_LTE_COEX_HANDLING
 	PIN_TDM_REQ = 14,
 #endif
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+	PIN_FM_LNA = 15,
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	PIN_ID_MAX
 } ENUM_PIN_ID, *P_ENUM_PIN_ID;
 #if 0
