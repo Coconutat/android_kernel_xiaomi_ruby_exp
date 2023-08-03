@@ -132,3 +132,7 @@ kernel_log-*.txt
 Image.gz*
 *.zip
 drivers/input/sensors/smi130/modules.order
+scripts/kconfig/zconf.tab.c
+scripts/basic/fixdep
+scripts/kconfig/conf
+scripts/kconfig/zconf.lex.c
