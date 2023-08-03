@@ -50,14 +50,14 @@ endif
         ccflags-y += -D CFG_CONNADP_BUILD_IN
     endif
     # Do build-in for Makefile checking
-    # export CONFIG_WLAN_DRV_BUILD_IN=y
+    export CONFIG_WLAN_DRV_BUILD_IN=y
 
     ifeq ($(CONFIG_WLAN_DRV_BUILD_IN),y)
 
         # for gen4m options
         export CONFIG_MTK_COMBO_WIFI_HIF=axi
         export MTK_COMBO_CHIP=CONNAC
-        export WLAN_CHIP_ID=6877
+        export WLAN_CHIP_ID=6765
         export MTK_ANDROID_WMT=y
         export MTK_ANDROID_EMI=y
         export WIFI_IP_SET=1
