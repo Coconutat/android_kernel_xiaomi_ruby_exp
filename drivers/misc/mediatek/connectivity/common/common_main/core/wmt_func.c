@@ -704,6 +704,50 @@ INT32 wmt_func_gpsl5_off(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf)
 #endif
 
 #if CFG_FUNC_FM_SUPPORT
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+INT32 wmt_func_fm_pre_ctrl(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf, ENUM_FUNC_STATE funcStatus)
+{
+	UINT32 iRet = 0;
+	WMT_CTRL_DATA ctrlData;
+	UINT32 fm_lna_pin = 0;
+
+	/* sanity check */
+	if (FUNC_ON != funcStatus && FUNC_OFF != funcStatus) {
+		WMT_ERR_FUNC("invalid funcStatus(%d)\n", funcStatus);
+		return -1;
+	}
+
+	/* turn on GPS lna ctrl function */
+	fm_lna_pin = mtk_wmt_get_fm_lna_pin_num();
+	WMT_INFO_FUNC("FM LNA pin number(%d)\n", fm_lna_pin);
+	if (fm_lna_pin)
+	{
+		WMT_INFO_FUNC("host pin used for fm lna\n");
+		/* host LNA ctrl pin needed */
+		ctrlData.ctrlId = WMT_CTRL_FM_LNA_SET;
+		ctrlData.au4CtrlData[0] = funcStatus == FUNC_ON ? 1 : 0;
+		iRet = wmt_ctrl(&ctrlData);
+		if (iRet) {
+			WMT_ERR_FUNC("ctrl host FM_LNA output high fail, ret(%d)\n", iRet);
+			return -3;
+		}
+		WMT_DBG_FUNC("ctrl host fm lna function succeed\n");
+	}
+	return 0;
+
+}
+
+INT32 wmt_func_fm_pre_on(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf)
+{
+	return wmt_func_fm_pre_ctrl(pOps, pConf, FUNC_ON);
+}
+
+INT32 wmt_func_fm_pre_off(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf)
+{
+
+	return wmt_func_fm_pre_ctrl(pOps, pConf, FUNC_OFF);
+}
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 
 INT32 _osal_inline_ wmt_func_fm_ctrl(ENUM_FUNC_STATE funcState)
 {
@@ -721,6 +765,11 @@ INT32 wmt_func_fm_on(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf)
 	INT32 iRet = -1;
 	UINT8 co_clock_type = (pConf->co_clock_flag & 0x0f);
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+	iRet = wmt_func_fm_pre_on(pOps, pConf);
+	if (iRet)
+		WMT_ERR_FUNC("wmt-func:  wmt_func_fm_pre_on failed!\n");
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	if (wmt_detect_get_chip_type() == WMT_CHIP_TYPE_SOC) {
 		if (co_clock_type) {
 			if (!osal_test_bit(WMT_GPS_ON, &gGpsFmState) && !osal_test_bit(WMT_GPSL5_ON, &gGpsFmState)) {
@@ -749,6 +798,11 @@ INT32 wmt_func_fm_off(P_WMT_IC_OPS pOps, P_WMT_GEN_CONF pConf)
 	INT32 iRet = -1;
 	UINT8 co_clock_type = (pConf->co_clock_flag & 0x0f);
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+	iRet = wmt_func_fm_pre_off(pOps, pConf);
+	if (iRet)
+		WMT_ERR_FUNC("wmt-func:  wmt_func_fm_pre_off failed!\n");
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	if (wmt_detect_get_chip_type() == WMT_CHIP_TYPE_SOC) {
 		iRet = wmt_core_func_ctrl_cmd(WMTDRV_TYPE_FM, MTK_WCN_BOOL_FALSE);
 		if (co_clock_type) {

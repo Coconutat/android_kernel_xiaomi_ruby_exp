@@ -114,7 +114,6 @@ static int32_t wifi_standalone_log_mode;
 static uint8_t  driver_resetting;
 static uint8_t  write_processing;
 static uint8_t  pre_cal_ongoing;
-static uint8_t  cal_only_once;
 #endif
 /*******************************************************************
  */
@@ -225,18 +224,6 @@ uint8_t get_pre_cal_status(void)
 	return pre_cal_ongoing;
 }
 EXPORT_SYMBOL(get_pre_cal_status);
-void update_only_once_status(uint8_t fgIsOnce)
-{
-	WIFI_INFO_FUNC("update_only_once_status: %d\n", fgIsOnce);
-	cal_only_once = fgIsOnce;
-}
-EXPORT_SYMBOL(update_only_once_status);
-uint8_t get_only_once_status(void)
-{
-	WIFI_INFO_FUNC("only once status: %d\n", cal_only_once);
-	return cal_only_once;
-}
-EXPORT_SYMBOL(get_only_once_status);
 #endif
 
 int32_t update_wr_mtx_down_up_status(uint8_t ucDownUp, uint8_t ucIsBlocking)

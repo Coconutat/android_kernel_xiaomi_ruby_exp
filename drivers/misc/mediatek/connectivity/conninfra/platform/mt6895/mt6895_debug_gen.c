@@ -11,7 +11,7 @@
  * It should not be modified by hand.
  *
  * Reference debug file,
- * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-12-16)
+ * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-12-28)
  * - [Lxxxn]conn_infra_bus_debug_ctrl.xlsx (Modified date: 2021-10-14)
  */
 
@@ -159,234 +159,336 @@ void consys_print_power_debug_dbg_level_0_mt6895_debug_gen(
 
 	/* A2 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A2", 0x1C00D000 + CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR,
+			"A2", 0x1C00D000 + CONSYS_DBG_GEN_FSM_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR));
+				CONSYS_DBG_GEN_FSM_STA_0_OFFSET_ADDR));
 
 	/* A3 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A3", 0x1C00D000 + CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR,
+			"A3", 0x1C00D000 + CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR));
+				CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR));
 
 	/* A4 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A4", 0x1C00D000 + CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR,
+			"A4", 0x1C00D000 + CONSYS_DBG_GEN_CMD_STA_1_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR));
+				CONSYS_DBG_GEN_CMD_STA_1_OFFSET_ADDR));
 
 	/* A5 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A5", 0x1C00D000 + CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR,
+			"A5", 0x1C00D000 + CONSYS_DBG_GEN_SPI_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR));
+				CONSYS_DBG_GEN_SPI_STA_0_OFFSET_ADDR));
 
 	/* A6 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A6", 0x1C001000 + CONSYS_DBG_GEN_CONN_PWR_CON_OFFSET_ADDR,
-			CONSYS_REG_READ(SPM_REG_BASE +
-				CONSYS_DBG_GEN_CONN_PWR_CON_OFFSET_ADDR));
+			"A6", 0x1C00D000 + CONSYS_DBG_GEN_PI_PO_STA_0_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_PI_PO_STA_0_OFFSET_ADDR));
 
 	/* A7 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A7", 0x10000000 + 0x180,
-			CONSYS_REG_READ(vir_addr_consys_dbg_gen_topckgen_base_mt6895 + 0x180));
+			"A7", 0x1C00D000 + CONSYS_DBG_GEN_M00_REQ_STA_0_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_M00_REQ_STA_0_OFFSET_ADDR));
 
 	/* A8 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A8", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR,
+			"A8", 0x1C00D000 + CONSYS_DBG_GEN_M01_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M01_REQ_STA_0_OFFSET_ADDR));
 
 	/* A9 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A9", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR,
+			"A9", 0x1C00D000 + CONSYS_DBG_GEN_M02_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M02_REQ_STA_0_OFFSET_ADDR));
 
 	/* A10 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A10", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR,
+			"A10", 0x1C00D000 + CONSYS_DBG_GEN_M03_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M03_REQ_STA_0_OFFSET_ADDR));
 
 	/* A11 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A11", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_1_MSB_OFFSET_ADDR,
+			"A11", 0x1C00D000 + CONSYS_DBG_GEN_M04_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_1_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M04_REQ_STA_0_OFFSET_ADDR));
 
 	/* A12 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A12", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_2_LSB_OFFSET_ADDR,
+			"A12", 0x1C00D000 + CONSYS_DBG_GEN_M05_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_2_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M05_REQ_STA_0_OFFSET_ADDR));
 
 	/* A13 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A13", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_2_MSB_OFFSET_ADDR,
+			"A13", 0x1C00D000 + CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_2_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR));
 
 	/* A14 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A14", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_3_LSB_OFFSET_ADDR,
+			"A14", 0x1C00D000 + CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_3_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR));
 
 	/* A15 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A15", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_3_MSB_OFFSET_ADDR,
+			"A15", 0x1C00D000 + CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_3_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR));
 
 	/* A16 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A16", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_4_LSB_OFFSET_ADDR,
+			"A16", 0x1C00D000 + CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_4_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR));
 
 	/* A17 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A17", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_4_MSB_OFFSET_ADDR,
+			"A17", 0x1C00D000 + CONSYS_DBG_GEN_M10_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_4_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M10_REQ_STA_0_OFFSET_ADDR));
 
 	/* A18 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A18", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_5_LSB_OFFSET_ADDR,
+			"A18", 0x1C00D000 + CONSYS_DBG_GEN_M11_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_5_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M11_REQ_STA_0_OFFSET_ADDR));
 
 	/* A19 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A19", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_5_MSB_OFFSET_ADDR,
+			"A19", 0x1C00D000 + CONSYS_DBG_GEN_M12_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_5_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M12_REQ_STA_0_OFFSET_ADDR));
 
 	/* A20 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A20", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_6_LSB_OFFSET_ADDR,
+			"A20", 0x1C00D000 + CONSYS_DBG_GEN_M13_REQ_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_6_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_M13_REQ_STA_0_OFFSET_ADDR));
 
 	/* A21 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A21", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_6_MSB_OFFSET_ADDR,
+			"A21", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_6_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_STA_0_OFFSET_ADDR));
+
+	/* A21 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A21", 0x1C00D000 + CONSYS_DBG_GEN_SPMI_P_STA_0_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SPMI_P_STA_0_OFFSET_ADDR));
 
 	/* A22 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A22", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_7_LSB_OFFSET_ADDR,
-			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_7_LSB_OFFSET_ADDR));
+			"A22", 0x1C001000 + CONSYS_DBG_GEN_CONN_PWR_CON_OFFSET_ADDR,
+			CONSYS_REG_READ(SPM_REG_BASE +
+				CONSYS_DBG_GEN_CONN_PWR_CON_OFFSET_ADDR));
 
 	/* A23 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A23", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_7_MSB_OFFSET_ADDR,
-			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_DEBUG_TRACE_7_MSB_OFFSET_ADDR));
+			"A23", 0x10000000 + 0x180,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_topckgen_base_mt6895 + 0x180));
 
 	/* A24 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A24", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_LSB_OFFSET_ADDR,
+			"A24", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR));
 
 	/* A25 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A25", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_MSB_OFFSET_ADDR,
+			"A25", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR));
 
 	/* A26 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A26", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_LSB_OFFSET_ADDR,
+			"A26", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR));
 
 	/* A27 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A27", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_MSB_OFFSET_ADDR,
+			"A27", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_1_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_1_MSB_OFFSET_ADDR));
 
 	/* A28 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A28", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_LSB_OFFSET_ADDR,
+			"A28", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_2_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_2_LSB_OFFSET_ADDR));
 
 	/* A29 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A29", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_MSB_OFFSET_ADDR,
+			"A29", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_2_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_2_MSB_OFFSET_ADDR));
 
 	/* A30 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A30", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_LSB_OFFSET_ADDR,
+			"A30", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_3_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_3_LSB_OFFSET_ADDR));
 
 	/* A31 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A31", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_MSB_OFFSET_ADDR,
+			"A31", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_3_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_3_MSB_OFFSET_ADDR));
 
 	/* A32 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A32", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_LSB_OFFSET_ADDR,
+			"A32", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_4_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_4_LSB_OFFSET_ADDR));
 
 	/* A33 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A33", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_MSB_OFFSET_ADDR,
+			"A33", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_4_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_4_MSB_OFFSET_ADDR));
 
 	/* A34 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A34", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_LSB_OFFSET_ADDR,
+			"A34", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_5_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_5_LSB_OFFSET_ADDR));
 
 	/* A35 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A35", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_MSB_OFFSET_ADDR,
+			"A35", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_5_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_5_MSB_OFFSET_ADDR));
 
 	/* A36 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A36", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_LSB_OFFSET_ADDR,
+			"A36", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_6_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_6_LSB_OFFSET_ADDR));
 
 	/* A37 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A37", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_MSB_OFFSET_ADDR,
+			"A37", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_6_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_6_MSB_OFFSET_ADDR));
 
 	/* A38 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A38", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_LSB_OFFSET_ADDR,
+			"A38", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_7_LSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_LSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_7_LSB_OFFSET_ADDR));
 
 	/* A39 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A39", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_MSB_OFFSET_ADDR,
+			"A39", 0x1C00D000 + CONSYS_DBG_GEN_DEBUG_TRACE_7_MSB_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
-				CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_MSB_OFFSET_ADDR));
+				CONSYS_DBG_GEN_DEBUG_TRACE_7_MSB_OFFSET_ADDR));
 
 	/* A40 */
 	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
-			"A40", 0x1C00D000 + CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR,
+			"A40", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_LSB_OFFSET_ADDR));
+
+	/* A41 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A41", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_0_MSB_OFFSET_ADDR));
+
+	/* A42 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A42", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_LSB_OFFSET_ADDR));
+
+	/* A43 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A43", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_1_MSB_OFFSET_ADDR));
+
+	/* A44 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A44", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_LSB_OFFSET_ADDR));
+
+	/* A45 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A45", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_2_MSB_OFFSET_ADDR));
+
+	/* A46 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A46", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_LSB_OFFSET_ADDR));
+
+	/* A47 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A47", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_3_MSB_OFFSET_ADDR));
+
+	/* A48 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A48", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_LSB_OFFSET_ADDR));
+
+	/* A49 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A49", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_4_MSB_OFFSET_ADDR));
+
+	/* A50 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A50", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_LSB_OFFSET_ADDR));
+
+	/* A51 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A51", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_5_MSB_OFFSET_ADDR));
+
+	/* A52 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A52", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_LSB_OFFSET_ADDR));
+
+	/* A53 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A53", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_6_MSB_OFFSET_ADDR));
+
+	/* A54 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A54", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_LSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_LSB_OFFSET_ADDR));
+
+	/* A55 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A55", 0x1C00D000 + CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_MSB_OFFSET_ADDR,
+			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
+				CONSYS_DBG_GEN_SYS_TIMER_LATCH_7_MSB_OFFSET_ADDR));
+
+	/* A56 */
+	update_debug_read_info_mt6895_debug_gen(pdbg_level_0_info,
+			"A56", 0x1C00D000 + CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR,
 			CONSYS_REG_READ(vir_addr_consys_dbg_gen_srclkenrc_base_mt6895 +
 				CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR));
 }

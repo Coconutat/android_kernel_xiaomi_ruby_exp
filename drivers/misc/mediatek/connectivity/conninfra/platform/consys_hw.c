@@ -253,7 +253,7 @@ int _consys_hw_pwr_on_rollback(enum conninfra_pwr_on_rollback_type type)
 				pr_err("[%s] turn off VCN control fail, ret=%d\n", __func__, ret);
 			break;
 		default:
-			pr_err("[%s] wrong type: %d", type);
+			pr_notice("[%s] wrong type: %u", __func__, type);
 			break;
 	}
 	return 0;
@@ -861,7 +861,7 @@ int consys_hw_init(struct conninfra_dev_cb *dev_cb)
 	conninfra_pm_notifier.notifier_call = conninfra_pm_notifier_callback;
 	ret = register_pm_notifier(&conninfra_pm_notifier);
 	if (ret < 0)
-		pr_notice("%s register_pm_notifier fail %d\n", ret);
+		pr_notice("%s register_pm_notifier fail %d\n", __func__, ret);
 
 	pr_info("[consys_hw_init] result [%d]\n", iRet);
 

@@ -239,10 +239,10 @@ static int emi_tc(int par1, int par2, int par3)
 	pr_info("[%s] start", __func__);
 	conninfra_get_phy_addr(&addr, &size);
 	if (addr == 0 || size == 0) {
-		pr_notice("[%s] fail! addr=[%p] size=[%u]", __func__, addr, size);
+		pr_notice("[%s] fail! addr=[%llx] size=[%u]", __func__, addr, size);
 		ret = -1;
 	} else
-		pr_info("[%s] pass. addr=[%p] size=[%u]", __func__, addr, size);
+		pr_info("[%s] pass. addr=[%llx] size=[%u]", __func__, addr, size);
 
 	pr_info("[%s] end", __func__);
 

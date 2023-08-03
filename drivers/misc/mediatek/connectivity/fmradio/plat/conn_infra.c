@@ -911,7 +911,8 @@ static bool drv_set_own(void)
 {
 	struct fm_spi_interface *si = &fm_wcn_ops.si;
 	struct fm_ext_interface *ei = &fm_wcn_ops.ei;
-	unsigned int val, hw_id, tmp1, tmp2, i;
+	unsigned int val = 0, hw_id = 0, i = 0;
+	unsigned int tmp1 = 0, tmp2 = 0;
 	int ret = 0;
 
 	ret = FM_LOCK(fm_wcn_ops.own_lock);

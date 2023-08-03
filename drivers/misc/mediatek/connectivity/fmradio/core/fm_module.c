@@ -712,41 +712,6 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-	case FM_IOCTL_FM_SET_STATUS:{
-			struct fm_status_t fm_stat;
-
-			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_FM_SET_STATUS");
-
-			if (copy_from_user(&fm_stat, (void *)arg, sizeof(struct fm_status_t))) {
-				ret = -EFAULT;
-				goto out;
-			}
-
-			fm_set_stat(fm, fm_stat.which, fm_stat.stat);
-
-			break;
-		}
-
-	case FM_IOCTL_FM_GET_STATUS:{
-			struct fm_status_t fm_stat;
-
-			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_FM_GET_STATUS");
-
-			if (copy_from_user(&fm_stat, (void *)arg, sizeof(struct fm_status_t))) {
-				ret = -EFAULT;
-				goto out;
-			}
-
-			fm_get_stat(fm, fm_stat.which, &fm_stat.stat);
-
-			if (copy_to_user((void *)arg, &fm_stat, sizeof(struct fm_status_t))) {
-				ret = -EFAULT;
-				goto out;
-			}
-
-			break;
-		}
-
 	case FM_IOCTL_RDS_ONOFF:{
 			unsigned short rdson_off = 0;
 

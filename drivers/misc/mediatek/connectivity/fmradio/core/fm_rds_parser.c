@@ -1719,14 +1719,14 @@ static signed int rds_retrieve_g14(unsigned short *block_data, unsigned char Sub
 		/* Type A */
 		PS_Num = block_data[1] & 0x000F; /* variant code */
 
-		if (PS_Num >= 0 && PS_Num < 4) { /* variant code = 0~3 represent PS */
+		if (PS_Num < 4) { /* variant code = 0~3 represent PS */
 			for (indx = 0; indx < 2; indx++) {
 				pstRDSData->PS_ON[2 * PS_Num] = block_data[2] >> 8;
-				pstRDSData->PS_ON[2 * PS_Num + 1] = block_data[2] & 0xFF;
+				pstRDSData->PS_ON[2 * PS_Num + 1] = (unsigned char) (block_data[2] & 0xFF);
 			}
 
 			goto out;
-		} else if (PS_Num < 0 || PS_Num > 4)	/* variant code > 4 */
+		} else if (PS_Num > 4)	/* variant code > 4 */
 			goto out;
 
 		/* variant code = 4 represent AF(ON) */

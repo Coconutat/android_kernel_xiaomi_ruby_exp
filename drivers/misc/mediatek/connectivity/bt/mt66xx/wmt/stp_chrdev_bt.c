@@ -113,17 +113,37 @@ void bthost_debug_init(void)
 void bthost_debug_print(void)
 {
 	uint32_t i = 0;
-	for (i = 0; i < BTHOST_INFO_MAX; i++){
-		if (bthost_info_table[i].id == 0){
-			BT_LOG_PRT_WARN("[bt host info][%d-%d] not set", i, BTHOST_INFO_MAX);
+	uint32_t ret = 0;
+	uint8_t *pos = NULL, *end = NULL;
+	uint8_t dump_buffer[700] = {0};
+
+	pos = &dump_buffer[0];
+	end = pos + 700 - 1;
+
+	ret = snprintf(pos, (end - pos + 1), "[bt host info] ");
+	pos += ret;
+
+	for (i = 0; i < BTHOST_INFO_MAX; i++) {
+		if (bthost_info_table[i].id == 0) {
+			ret = snprintf(pos, (end - pos + 1),"[%d-%d] not set", i, BTHOST_INFO_MAX);
+			if (ret < 0 || ret >= (end - pos + 1)) {
+				BT_LOG_PRT_ERR("%s: snprintf fail i[%d] ret[%d]", __func__, i, ret);
+				break;
+			}
+			pos += ret;
 			break;
-		}
-		else {
-			BT_LOG_PRT_WARN("[bt host info][%d][%s : 0x%08x]", i,
+		} else {
+			ret = snprintf(pos, (end - pos + 1),"[%d][%s : 0x%08x] ", i,
 			bthost_info_table[i].desc,
 			bthost_info_table[i].value);
+			if (ret < 0 || ret >= (end - pos + 1)) {
+				BT_LOG_PRT_ERR("%s: snprintf fail i[%d] ret[%d]", __func__, i, ret);
+				break;
+			}
+			pos += ret;
 		}
 	}
+	BT_LOG_PRT_WARN("%s", dump_buffer);
 }
 
 void bthost_debug_save(uint32_t id, uint32_t value, char* desc)

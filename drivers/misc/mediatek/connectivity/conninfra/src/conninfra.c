@@ -221,7 +221,7 @@ int conninfra_sub_drv_ops_register(enum consys_drv_type type,
 				struct sub_drv_ops_cb *cb)
 {
 	/* type validation */
-	if (type < 0 || type >= CONNDRV_TYPE_MAX) {
+	if (type >= CONNDRV_TYPE_MAX) {
 		pr_err("[%s] incorrect drv type [%d]", __func__, type);
 		return -EINVAL;
 	}
@@ -234,7 +234,7 @@ EXPORT_SYMBOL(conninfra_sub_drv_ops_register);
 int conninfra_sub_drv_ops_unregister(enum consys_drv_type type)
 {
 	/* type validation */
-	if (type < 0 || type >= CONNDRV_TYPE_MAX) {
+	if (type >= CONNDRV_TYPE_MAX) {
 		pr_err("[%s] incorrect drv type [%d]", __func__, type);
 		return -EINVAL;
 	}

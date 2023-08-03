@@ -786,6 +786,13 @@ UINT32 mtk_wmt_get_gps_lna_pin_num(VOID)
 }
 EXPORT_SYMBOL(mtk_wmt_get_gps_lna_pin_num);
 
+/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
+UINT32 mtk_wmt_get_fm_lna_pin_num(VOID)
+{
+	return wmt_lib_get_fm_lna_pin_num();
+}
+EXPORT_SYMBOL(mtk_wmt_get_fm_lna_pin_num);
+/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 VOID mtk_wmt_set_ext_ldo(UINT32 flag)
 {
 	wmt_lib_set_ext_ldo(flag);
