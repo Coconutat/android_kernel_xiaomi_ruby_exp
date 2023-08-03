@@ -77,7 +77,6 @@ MODULE_LICENSE("GPL");
 #define COMBO_IOC_GPS_HW_RESUME      19
 #define COMBO_IOC_GPS_LISTEN_RST_EVT 20
 #define COMBO_IOC_GPS_GET_MD_STATUS  21
-#define COMBO_IOC_GPS_CTRL_L5_LNA    22
 
 static UINT32 md_status_addr;
 
@@ -926,23 +925,6 @@ long GPS_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			GPS_ERR_FUNC("Can't get MD2GPS_REG in this platform\n");
 		}
 		break;
-	case COMBO_IOC_GPS_CTRL_L5_LNA:
-#ifdef MTK_GENERIC_HAL
-		if (!IS_ERR(g_gps_lna_pinctrl_ptr)) {
-			if (arg == 1)
-				gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, true, false);
-			else
-				gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, false, false);
-			retval = 0;
-		} else {
-			retval = -EFAULT;
-			GPS_DBG_FUNC("g_gps_lna_pinctrl_ptr not ready\n");
-		}
-#else
-		GPS_DBG_FUNC("LD1.0 project dont support\n");
-		retval = -EFAULT;
-#endif
-		break;
 	default:
 		retval = -EFAULT;
 		GPS_DBG_FUNC("GPS_ioctl(): unknown cmd (%d)\n", cmd);
@@ -1262,13 +1244,11 @@ static int GPS_init(void)
 #endif
 #endif
 	int alloc_ret = 0;
-#ifdef MTK_GENERIC_HAL
-	gps_lna_linux_plat_drv_register();
-#else
+
 #ifdef CONFIG_GPS_CTRL_LNA_SUPPORT
 	gps_lna_linux_plat_drv_register();
 #endif
-#endif
+
 	/*static allocate chrdev */
 	alloc_ret = register_chrdev_region(dev, 1, GPS_DRIVER_NAME);
 	if (alloc_ret) {
@@ -1500,12 +1480,8 @@ static void GPS_exit(void)
 	pr_info("%s driver removed.\n", GPS2_DRIVER_NAME);
 #endif
 #endif
-#ifdef MTK_GENERIC_HAL
-	gps_lna_linux_plat_drv_unregister();
-#else
 #ifdef CONFIG_GPS_CTRL_LNA_SUPPORT
 	gps_lna_linux_plat_drv_unregister();
-#endif
 #endif
 	wakeup_source_unregister(gps_wake_lock_ptr);
 #ifdef MTK_GENERIC_HAL

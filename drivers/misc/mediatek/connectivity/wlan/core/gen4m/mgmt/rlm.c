@@ -987,7 +987,7 @@ static void rlmFillExtCapIE(struct ADAPTER *prAdapter,
 
 	if (fg40mAllowed)
 		SET_EXT_CAP(prExtCap->aucCapabilities, ELEM_MAX_LEN_EXT_CAP,
-			ELEM_EXT_CAP_20_40_COEXIST_SUPPORT_BIT);
+			    ELEM_EXT_CAP_20_40_COEXIST_SUPPORT);
 
 #if CFG_SUPPORT_802_11AC
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
@@ -1047,7 +1047,7 @@ static void rlmFillExtCapIE(struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_MSCS_SUPPORT
-	if (mscsIsFpSupport(prAdapter) && IS_BSS_AIS(prBssInfo))
+	if (mscsIsFpSupport(prAdapter))
 		SET_EXT_CAP(prExtCap->aucCapabilities, ELEM_MAX_LEN_EXT_CAP,
 				ELEM_EXT_CAP_MSCS_BIT);
 #endif
@@ -3355,6 +3355,10 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 		&prBssInfo->ucVhtChannelFrequencyS1,
 		&prBssInfo->ucPrimaryChannel);
 	prBssInfo->ucVhtChannelWidth = (uint8_t)eChannelWidth;
+	if (prBssInfo->ucVhtChannelWidth == CW_20_40MHZ
+			&& prBssInfo->eBssSCO == CHNL_EXT_SCN)
+		prBssInfo->ucHtOpInfo1 &=
+			~(HT_OP_INFO1_SCO | HT_OP_INFO1_STA_CHNL_WIDTH);
 
 	rlmRevisePreferBandwidthNss(prAdapter, prBssInfo->ucBssIndex, prStaRec);
 
@@ -3544,7 +3548,6 @@ static void rlmRecAssocRespIeInfoForClient(struct ADAPTER *prAdapter,
 	ASSERT(pucIE);
 
 	prStaRec = prBssInfo->prStaRecOfAP;
-	kalMemZero(&rSsid, sizeof(rSsid));
 
 	if (!prStaRec)
 		return;
@@ -3852,6 +3855,9 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 	 * last syncing and need to sync again
 	 */
 	struct CMD_SET_BSS_RLM_PARAM rBssRlmParam;
+#if (CFG_SUPPORT_802_11AX == 1)
+	struct CMD_SET_BSS_INFO rBssInfo;
+#endif
 	u_int8_t fgNewParameter = FALSE;
 
 	ASSERT(prAdapter);
@@ -3906,6 +3912,10 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 	rBssRlmParam.u2VhtBasicMcsSet = prBssInfo->u2VhtBasicMcsSet;
 	rBssRlmParam.ucRxNss = prBssInfo->ucOpRxNss;
 	rBssRlmParam.ucTxNss = prBssInfo->ucOpTxNss;
+#if (CFG_SUPPORT_802_11AX == 1)
+	if (fgEfuseCtrlAxOn == 1)
+		rBssInfo.ucBssColorInfo = prBssInfo->ucBssColorInfo;
+#endif
 
 	rlmRecIeInfoForClient(prAdapter, prBssInfo, pucIE, u2IELength);
 
@@ -3938,6 +3948,18 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 		       "prBssInfo's params are all the same! not to sync!\n");
 		fgNewParameter = FALSE;
 	}
+
+#if (CFG_SUPPORT_802_11AX == 1)
+		if (fgEfuseCtrlAxOn == 1)
+			if (rBssInfo.ucBssColorInfo
+					!= prBssInfo->ucBssColorInfo) {
+				fgNewParameter = TRUE;
+				DBGLOG(RLM, INFO,
+					"BssColorInfo is changed from %x to %x. Update BSSInfo to FW\n",
+					rBssInfo.ucBssColorInfo,
+					prBssInfo->ucBssColorInfo);
+			}
+#endif
 
 	return fgNewParameter;
 }
@@ -4041,6 +4063,7 @@ void rlmProcessBcn(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 
 			/* Appy new parameters if necessary */
 			if (fgNewParameter) {
+				nicUpdateBss(prAdapter, prBssInfo->ucBssIndex);
 				rlmSyncOperationParams(prAdapter, prBssInfo);
 				fgNewParameter = FALSE;
 			}
@@ -5921,7 +5944,6 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 		return;
 	}
 
-	kalMemZero(&rSsid, sizeof(rSsid));
 	prCSAParams = &prBssInfo->CSAParams;
 	prBssInfo->ucPrimaryChannel = prCSAParams->ucCsaNewCh;
 	prBssInfo->eBand = (prCSAParams->ucCsaNewCh <= 14) ? BAND_2G4 : BAND_5G;
@@ -6783,14 +6805,8 @@ uint8_t rlmGetBssOpBwByOwnAndPeerCapability(IN struct ADAPTER *prAdapter,
 	ASSERT(prBssInfo);
 	ASSERT(prBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE);
 
-	prStaRec = prBssInfo->prStaRecOfAP;
-
-	if (prStaRec == NULL) {
-		DBGLOG(RLM, WARN, "AP is gone? Use current BW setting\n");
-		return rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo);
-	}
-
 	ucOpMaxBw = cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex);
+	prStaRec = prBssInfo->prStaRecOfAP;
 
 #if CFG_SUPPORT_802_11AC
 	if (RLM_NET_IS_11AC(prBssInfo)) { /* VHT */

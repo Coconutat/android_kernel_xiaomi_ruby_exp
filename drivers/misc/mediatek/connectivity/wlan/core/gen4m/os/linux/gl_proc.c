@@ -1365,7 +1365,6 @@ static const struct file_operations auto_twt_smart_ops = {
 static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	size_t count, loff_t *f_pos)
 {
-#if 0
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct ADAPTER *prAdapter = NULL;
 	struct mt66xx_chip_info *prChipInfo = NULL;
@@ -1383,11 +1382,6 @@ static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	prAdapter = prGlueInfo->prAdapter;
 	if (!prAdapter)
 		return 0;
-
-	if ((!prGlueInfo) || (prGlueInfo->u4ReadyFlag == 0)) {
-		DBGLOG(REQ, WARN, "driver is not ready\n");
-		return -EFAULT;
-	}
 
 	prChipInfo = prAdapter->chip_info;
 	if (!prChipInfo)
@@ -1409,14 +1403,13 @@ static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	}
 
 	*f_pos += u4CalSize;
-#endif
-	return 0;
+
+	return (int32_t)u4CalSize;
 }
 
 static ssize_t procCalResultWrite(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
 {
-#if 0
 	uint32_t u4CopySize = sizeof(g_aucProcBuf);
 
 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
@@ -1428,8 +1421,8 @@ static ssize_t procCalResultWrite(struct file *file, const char __user *buffer,
 	}
 
 	g_aucProcBuf[u4CopySize] = '\0';
-#endif
-	return 0;
+
+	return count;
 }
 #if KERNEL_VERSION(5, 6, 0) <= CFG80211_VERSION_CODE
 static const struct proc_ops cal_result_ops = {

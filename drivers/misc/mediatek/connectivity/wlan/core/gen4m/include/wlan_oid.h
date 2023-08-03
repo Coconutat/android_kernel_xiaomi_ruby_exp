@@ -2496,19 +2496,6 @@ struct PARAM_HS20_SET_BSSID_POOL {
 
 #endif /* CFG_SUPPORT_PASSPOINT */
 
-#if CFG_SUPPORT_SNIFFER
-struct PARAM_CUSTOM_MONITOR_SET_STRUCT {
-	uint8_t ucEnable;
-	uint8_t ucBand;
-	uint8_t ucPriChannel;
-	uint8_t ucSco;
-	uint8_t ucChannelWidth;
-	uint8_t ucChannelS1;
-	uint8_t ucChannelS2;
-	uint8_t aucResv[9];
-};
-#endif
-
 /*--------------------------------------------------------------*/
 /*! \brief MTK Auto Channel Selection related Container         */
 /*--------------------------------------------------------------*/
@@ -3885,13 +3872,6 @@ wlanoidSetHS20Info(IN struct ADAPTER *prAdapter,
 		   OUT uint32_t *pu4SetInfoLen);
 #endif /* CFG_SUPPORT_PASSPOINT */
 
-#if CFG_SUPPORT_SNIFFER
-uint32_t wlanoidSetMonitor(IN struct ADAPTER *prAdapter,
-			   IN void *pvSetBuffer,
-			   IN uint32_t u4SetBufferLen,
-			   OUT uint32_t *pu4SetInfoLen);
-#endif
-
 uint32_t
 wlanoidNotifyFwSuspend(IN struct ADAPTER *prAdapter,
 		       IN void *pvSetBuffer,
@@ -4296,6 +4276,13 @@ uint32_t wlanoidSetFwParam(IN struct ADAPTER *prAdapter,
 uint32_t wlanoidUpdateFtIes(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 			    IN uint32_t u4SetBufferLen,
 			    OUT uint32_t *pu4SetInfoLen);
+
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+uint32_t wlanoidSetMonitor(IN struct ADAPTER *prAdapter,
+				IN void *pvSetBuffer,
+				IN uint32_t u4SetBufferLen,
+				OUT uint32_t *pu4SetInfoLen);
+#endif
 
 uint32_t wlanoidSync11kCapabilities(IN struct ADAPTER *prAdapter,
 				    IN void *pvSetBuffer,

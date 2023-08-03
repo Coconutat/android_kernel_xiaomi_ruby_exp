@@ -464,116 +464,47 @@ enum VCORE_ACTION_T {
 #define KAL_NUM_BANDS IEEE80211_NUM_BANDS
 #endif
 
-#ifndef CFG_ENABLE_WAKE_LOCK
-#define CFG_ENABLE_WAKE_LOCK		1
-#endif
-
 /*----------------------------------------------------------------------------*/
 /* Macros of wake_lock operations for using in Driver Layer                   */
 /*----------------------------------------------------------------------------*/
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
-/* CONFIG_ANDROID is defined in Android kernel source */
-#if (KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE)
-#if (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+#if CONFIG_ANDROID		/* Defined in Android kernel source */
+#ifdef CONFIG_WAKELOCK
 #define KAL_WAKE_LOCK_INIT(_prAdapter, _prWakeLock, _pcName) \
-	_prWakeLock = wakeup_source_register(NULL, _pcName);
+	wake_lock_init(_prWakeLock, WAKE_LOCK_SUSPEND, _pcName)
 
 #define KAL_WAKE_LOCK_DESTROY(_prAdapter, _prWakeLock) \
-{ \
-	wakeup_source_unregister(_prWakeLock); \
-	_prWakeLock = NULL; \
-}
-#else
-#define KAL_WAKE_LOCK_INIT(_prAdapter, _prWakeLock, _pcName) \
-{ \
-	_prWakeLock = kalMemAlloc(sizeof(KAL_WAKE_LOCK_T), \
-		VIR_MEM_TYPE); \
-	if (!_prWakeLock) { \
-		DBGLOG(HAL, ERROR, \
-			"KAL_WAKE_LOCK_INIT init fail!\n"); \
-	} \
-	else { \
-		wakeup_source_init(_prWakeLock, _pcName); \
-	} \
-}
-
-#define KAL_WAKE_LOCK_DESTROY(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		wakeup_source_trash(_prWakeLock); \
-		_prWakeLock = NULL; \
-	} \
-}
-#endif
-#define KAL_WAKE_LOCK(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		__pm_stay_awake(_prWakeLock); \
-	} \
-}
-
-#define KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prWakeLock, _u4Timeout) \
-{ \
-	if (!_prWakeLock) { \
-		__pm_wakeup_event(_prWakeLock, JIFFIES_TO_MSEC(_u4Timeout)); \
-	} \
-}
-
-#define KAL_WAKE_UNLOCK(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		__pm_relax(_prWakeLock); \
-	} \
-}
-
-#define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock) \
-	((_prWakeLock) && ((_prWakeLock)->active))
-
-#else
-#define KAL_WAKE_LOCK_INIT(_prAdapter, _prWakeLock, _pcName) \
-{ \
-	_prWakeLock = kalMemAlloc(sizeof(KAL_WAKE_LOCK_T), \
-		VIR_MEM_TYPE); \
-	if (!_prWakeLock) { \
-		DBGLOG(HAL, ERROR, \
-			"KAL_WAKE_LOCK_INIT init fail!\n"); \
-	} \
-	else { \
-		wake_lock_init(_prWakeLock, WAKE_LOCK_SUSPEND, _pcName); \
-	} \
-}
-
-#define KAL_WAKE_LOCK_DESTROY(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		wake_lock_destroy(_prWakeLock); \
-	} \
-}
+	wake_lock_destroy(_prWakeLock)
 
 #define KAL_WAKE_LOCK(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		wake_lock(_prWakeLock); \
-	} \
-}
+	wake_lock(_prWakeLock)
 
 #define KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prWakeLock, _u4Timeout) \
-{ \
-	if (!_prWakeLock) { \
-		wake_lock_timeout(_prWakeLock, _u4Timeout); \
-	} \
-}
+	wake_lock_timeout(_prWakeLock, _u4Timeout)
 
 #define KAL_WAKE_UNLOCK(_prAdapter, _prWakeLock) \
-{ \
-	if (!_prWakeLock) { \
-		wake_unlock(_prWakeLock); \
-	} \
-}
+	wake_unlock(_prWakeLock)
 
 #define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock) \
-		((_prWakeLock) && wake_lock_active(_prWakeLock))
-#endif
+	wake_lock_active(_prWakeLock)
+#else
+#define KAL_WAKE_LOCK_INIT(_prAdapter, _prWakeLock, _pcName) \
+	wakeup_source_init(_prWakeLock, _pcName)
+
+#define KAL_WAKE_LOCK_DESTROY(_prAdapter, _prWakeLock) \
+	wakeup_source_trash(_prWakeLock)
+
+#define KAL_WAKE_LOCK(_prAdapter, _prWakeLock) \
+		__pm_stay_awake(_prWakeLock)
+
+#define KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prWakeLock, _u4Timeout) \
+	__pm_wakeup_event(_prWakeLock, JIFFIES_TO_MSEC(_u4Timeout))
+
+#define KAL_WAKE_UNLOCK(_prAdapter, _prWakeLock) \
+	__pm_relax(_prWakeLock)
+
+#define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock) \
+	((_prWakeLock)->active)
+#endif /*CONFIG_WAKELOCK*/
 
 #else
 #define KAL_WAKE_LOCK_INIT(_prAdapter, _prWakeLock, _pcName)
@@ -581,7 +512,7 @@ enum VCORE_ACTION_T {
 #define KAL_WAKE_LOCK(_prAdapter, _prWakeLock)
 #define KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prWakeLock, _u4Timeout)
 #define KAL_WAKE_UNLOCK(_prAdapter, _prWakeLock)
-#define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock)
+#define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock) FALSE
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -1053,11 +984,7 @@ VOID kalScanDone(IN P_GLUE_INFO_T prGlueInfo, IN ENUM_KAL_NETWORK_TYPE_INDEX_T e
 
 UINT_32 kalRandomNumber(VOID);
 
-#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
-void kalTimeoutHandler(struct timer_list *timer);
-#else
-void kalTimeoutHandler(unsigned long arg);
-#endif
+VOID kalTimeoutHandler(unsigned long arg);
 
 VOID kalSetEvent(P_GLUE_INFO_T pr);
 

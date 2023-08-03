@@ -14,16 +14,16 @@ ifneq (true,$(strip $(TARGET_NO_KERNEL)))
 
   # connac20
   LOG_TAG := [BT_Drv][btif]
-  BT_PLATFORM := 6885
-  include $(LOCAL_PATH_B)/btif/Android.mk
-  BT_PLATFORM := 6893
-  include $(LOCAL_PATH_B)/btif/Android.mk
-  BT_PLATFORM := 6877
-  include $(LOCAL_PATH_B)/btif/Android.mk
+  #BT_PLATFORM := 6885
+  #include $(LOCAL_PATH_B)/btif/Android.mk
+  #BT_PLATFORM := 6893
+  #include $(LOCAL_PATH_B)/btif/Android.mk
+  #BT_PLATFORM := 6877
+  #include $(LOCAL_PATH_B)/btif/Android.mk
   BT_PLATFORM := 6983
   include $(LOCAL_PATH_B)/btif/Android.mk
-  BT_PLATFORM := 6879
-  include $(LOCAL_PATH_B)/btif/Android.mk
+  #BT_PLATFORM := 6879
+  #include $(LOCAL_PATH_B)/btif/Android.mk
   BT_PLATFORM := 6895
   include $(LOCAL_PATH_B)/btif/Android.mk
 endif

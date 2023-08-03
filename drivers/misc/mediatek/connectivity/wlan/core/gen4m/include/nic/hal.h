@@ -111,12 +111,6 @@ extern struct TIMER rSerSyncTimer;
 #define HAL_TEST_FLAG(_M, _F)            ((_M)->u4HwFlags & (_F))
 #define HAL_TEST_FLAGS(_M, _F)           (((_M)->u4HwFlags & (_F)) == (_F))
 
-#if CFG_SUPPORT_SNIFFER
-#define HAL_MON_EN(_prAdapter) (_prAdapter->prGlueInfo->fgIsEnableMon)
-#else
-#define HAL_MON_EN(_prAdapter) FALSE
-#endif
-
 #if defined(_HIF_SDIO)
 #define HAL_MCR_RD(_prAdapter, _u4Offset, _pu4Value) \
 do { \
@@ -1177,7 +1171,6 @@ void halWakeUpWiFi(IN struct ADAPTER *prAdapter);
 void halTxCancelSendingCmd(IN struct ADAPTER *prAdapter,
 	IN struct CMD_INFO *prCmdInfo);
 void halTxCancelAllSending(IN struct ADAPTER *prAdapter);
-u_int8_t halTxIsCmdBufEnough(IN struct ADAPTER *prAdapter);
 u_int8_t halTxIsDataBufEnough(IN struct ADAPTER *prAdapter,
 	IN struct MSDU_INFO *prMsduInfo);
 void halProcessTxInterrupt(IN struct ADAPTER *prAdapter);
@@ -1227,9 +1220,8 @@ uint8_t halTxRingDataSelect(IN struct ADAPTER *prAdapter,
 	IN struct MSDU_INFO *prMsduInfo);
 void halUpdateTxMaxQuota(IN struct ADAPTER *prAdapter);
 void halNotifyMdCrash(IN struct ADAPTER *prAdapter);
-uint32_t halGetBssTxCredit(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
-void halSetAdjustCtrl(struct ADAPTER *prAdapter, bool fgEn);
-void halAdjustBssTxCredit(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
+bool halIsTxBssCntFull(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
+void halSetTxRingBssTokenCnt(struct ADAPTER *prAdapter, uint32_t u4Cnt);
 
 #if defined(_HIF_USB)
 void halSerSyncTimerHandler(IN struct ADAPTER *prAdapter);

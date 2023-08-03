@@ -11,7 +11,7 @@
  * It should not be modified by hand.
  *
  * Reference debug file,
- * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-12-28)
+ * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-12-16)
  * - [Lxxxn]conn_infra_bus_debug_ctrl.xlsx (Modified date: 2021-10-14)
  */
 
@@ -80,27 +80,11 @@ void consys_print_bus_slpprot_debug_dbg_level_0_mt6895_debug_gen(
 /* Base: CONSYS_DBG_GEN_SRCLKENRC_BASE_ADDR (0x1C00_D000)                            */
 /*************************************************************************************/
 #define CONSYS_DBG_GEN_SRCLKENRC_BASE_ADDR                                   0x1C00D000
-#define CONSYS_DBG_GEN_FSM_STA_0_OFFSET_ADDR                                 0x100
 #define CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR                                 0x104
-#define CONSYS_DBG_GEN_CMD_STA_1_OFFSET_ADDR                                 0x108
-#define CONSYS_DBG_GEN_SPI_STA_0_OFFSET_ADDR                                 0x10C
-#define CONSYS_DBG_GEN_PI_PO_STA_0_OFFSET_ADDR                               0x110
-#define CONSYS_DBG_GEN_M00_REQ_STA_0_OFFSET_ADDR                             0x114
-#define CONSYS_DBG_GEN_M01_REQ_STA_0_OFFSET_ADDR                             0x118
-#define CONSYS_DBG_GEN_M02_REQ_STA_0_OFFSET_ADDR                             0x11C
-#define CONSYS_DBG_GEN_M03_REQ_STA_0_OFFSET_ADDR                             0x120
-#define CONSYS_DBG_GEN_M04_REQ_STA_0_OFFSET_ADDR                             0x124
-#define CONSYS_DBG_GEN_M05_REQ_STA_0_OFFSET_ADDR                             0x128
 #define CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR                             0x12C
 #define CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR                             0x130
 #define CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR                             0x134
 #define CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR                             0x138
-#define CONSYS_DBG_GEN_M10_REQ_STA_0_OFFSET_ADDR                             0x13C
-#define CONSYS_DBG_GEN_M11_REQ_STA_0_OFFSET_ADDR                             0x140
-#define CONSYS_DBG_GEN_M12_REQ_STA_0_OFFSET_ADDR                             0x144
-#define CONSYS_DBG_GEN_M13_REQ_STA_0_OFFSET_ADDR                             0x148
-#define CONSYS_DBG_GEN_DEBUG_STA_0_OFFSET_ADDR                               0x14C
-#define CONSYS_DBG_GEN_SPMI_P_STA_0_OFFSET_ADDR                              0x150
 #define CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR                         0x700
 #define CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR                         0x704
 #define CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR                         0x708

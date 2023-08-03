@@ -88,15 +88,7 @@
 #include <linux/mfd/mt6359p/registers.h>
 #include <linux/regmap.h>
 #if (CFG_SUPPORT_VCODE_VDFS == 1)
-#if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
-/* Implementation for kernel-5.4 */
-#elif KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
-#include <linux/soc/mediatek/mtk-pm-qos.h>
-#define PM_QOS_VCORE_OPP MTK_PM_QOS_VCORE_OPP
-#define PM_QOS_VCORE_OPP_DEFAULT_VALUE MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE
-#else
 #include <linux/pm_qos.h>
-#endif
 #endif /*#ifndef CFG_BUILD_X86_PLATFORM*/
 
 /*******************************************************************************
@@ -155,11 +147,6 @@ static uint8_t *soc3_0_apucCr4FwName[] = {
 #if (CFG_SUPPORT_VCODE_VDFS == 1)
 #if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
 /* Implementation for kernel-5.4 */
-#elif (KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE)
-#define pm_qos_request_active mtk_pm_qos_request_active
-#define pm_qos_add_request mtk_pm_qos_add_request
-#define pm_qos_update_request mtk_pm_qos_update_request
-static struct mtk_pm_qos_request wifi_req;
 #else
 static struct pm_qos_request wifi_req;
 #endif
@@ -649,19 +636,11 @@ void soc3_0asicConnac2xProcessTxInterrupt(IN struct ADAPTER *prAdapter)
 	rIntrStatus = (union WPDMA_INT_STA_STRUCT)prHifInfo->u4IntStatus;
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_16)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_FWDL_IDX_5);
-#else
 			TX_RING_FWDL_IDX_4);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_17)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_CMD_IDX_4);
-#else
 			TX_RING_CMD_IDX_3);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_0) {
 		halWpdmaProcessDataDmaDone(prAdapter->prGlueInfo,
@@ -835,7 +814,7 @@ void soc3_0_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 	int ret = 0;
 	uint8_t aucFlavor[2] = {0};
 
-	kalGetFwFlavor(&aucFlavor[0]);
+	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
 
 	ret = kalSnprintf(apucName[(*pucNameIdx)],
 			SOC3_0_FILE_NAME_MAX,
@@ -2514,6 +2493,11 @@ void wlanCoAntVFE28En(IN struct ADAPTER *prAdapter)
 		if (gCoAntVFE28En == FALSE) {
 #if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
 			/* Implementation for kernel-5.4 */
+#elif (KERNEL_VERSION(4, 15, 0) <= CFG80211_VERSION_CODE)
+			regmap_write(g_regmap,
+				MT6359_LDO_VFE28_OP_EN_SET, 0x1 << 8);
+			regmap_write(g_regmap,
+				MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
 #else
 			KERNEL_pmic_ldo_vfe28_lp(8, 0, 1, 0);
 #endif
@@ -2532,6 +2516,10 @@ void wlanCoAntVFE28Dis(void)
 	if (gCoAntVFE28En == TRUE) {
 #if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
 		/* Implementation for kernel-5.4 */
+#elif (KERNEL_VERSION(4, 15, 0) <= CFG80211_VERSION_CODE)
+		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_EN_CLR, 0x1 << 8);
+		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
+		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
 #else
 		KERNEL_pmic_ldo_vfe28_lp(8, 0, 0, 0);
 #endif
@@ -2692,7 +2680,7 @@ void soc3_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t ucIdx = 0;
 	uint8_t aucFlavor[2] = {0};
 
-	kalGetFwFlavor(&aucFlavor[0]);
+	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
 
 	for (ucIdx = 0; apucsoc3_0FwName[ucIdx]; ucIdx++) {
 		if ((*pucNameIdx + 3) >= ucMaxNameIdx) {
@@ -2703,13 +2691,14 @@ void soc3_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 			continue;
 		}
 
-		/* Type 1. WIFI_RAM_CODE_soc1_0_1_1.bin */
+		/* Type 1. WIFI_RAM_CODE_soc1_0_1_1 */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
-				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u.bin",
+				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u",
 				apucsoc3_0FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -2717,13 +2706,14 @@ void soc3_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 					"[%u] kalSnprintf failed, ret: %d\n",
 					__LINE__, ret);
 
-		/* Type 2. WIFI_RAM_CODE_soc1_0_1_1 */
+		/* Type 2. WIFI_RAM_CODE_soc1_0_1_1.bin */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
-				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u",
+				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u.bin",
 				apucsoc3_0FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -2783,7 +2773,7 @@ soc3_0_kalFirmwareImageMapping(
 
 	*ppvMapFileBuf = NULL;
 	*pu4FileLength = 0;
-	kalGetFwFlavor(&aucFlavor[0]);
+	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
 
 	do {
 		/* <0.0> Get FW name prefix table */

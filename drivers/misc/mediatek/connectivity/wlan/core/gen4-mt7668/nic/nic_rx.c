@@ -893,9 +893,7 @@ BOOLEAN nicRxIsDuplicateFrame(IN OUT P_SW_RFB_T prSwRfb)
 
 	/* Case 1: Unicast QoS data */
 	if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl)) {	/* WLAN header shall exist when doing duplicate detection */
-		if (prSwRfb->ucTid < CFG_RX_MAX_BA_TID_NUM &&
-			prSwRfb->prStaRec->
-			aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
+		if (prSwRfb->prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
 
 			/* QoS data with an RX BA agreement
 			 *  Case 1: The packet is not an AMPDU subframe, so the RetryBit may be set to 1 (TBC).

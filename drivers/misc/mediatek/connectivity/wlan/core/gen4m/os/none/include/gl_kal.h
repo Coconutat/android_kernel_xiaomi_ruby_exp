@@ -129,54 +129,6 @@ extern int g_u4WlanInitFlag;
 #define GLUE_FLAG_TX_PROCESS  0xFFFFFFFF
 #endif
 
-#if CFG_SUPPORT_SNIFFER
-#define RADIOTAP_FIELD_TSFT			BIT(0)
-#define RADIOTAP_FIELD_FLAGS		BIT(1)
-#define RADIOTAP_FIELD_RATE			BIT(2)
-#define RADIOTAP_FIELD_CHANNEL		BIT(3)
-#define RADIOTAP_FIELD_ANT_SIGNAL	BIT(5)
-#define RADIOTAP_FIELD_ANT_NOISE	BIT(6)
-#define RADIOTAP_FIELD_ANT			BIT(11)
-#define RADIOTAP_FIELD_MCS			BIT(19)
-#define RADIOTAP_FIELD_AMPDU		BIT(20)
-#define RADIOTAP_FIELD_VHT			BIT(21)
-#define RADIOTAP_FIELD_VENDOR       BIT(30)
-
-#define RADIOTAP_LEN_VHT			48
-#define RADIOTAP_FIELDS_VHT (RADIOTAP_FIELD_TSFT | \
-				    RADIOTAP_FIELD_FLAGS | \
-				    RADIOTAP_FIELD_RATE | \
-				    RADIOTAP_FIELD_CHANNEL | \
-				    RADIOTAP_FIELD_ANT_SIGNAL | \
-				    RADIOTAP_FIELD_ANT_NOISE | \
-				    RADIOTAP_FIELD_ANT | \
-				    RADIOTAP_FIELD_AMPDU | \
-				    RADIOTAP_FIELD_VHT | \
-				    RADIOTAP_FIELD_VENDOR)
-
-#define RADIOTAP_LEN_HT				36
-#define RADIOTAP_FIELDS_HT (RADIOTAP_FIELD_TSFT | \
-				    RADIOTAP_FIELD_FLAGS | \
-				    RADIOTAP_FIELD_RATE | \
-				    RADIOTAP_FIELD_CHANNEL | \
-				    RADIOTAP_FIELD_ANT_SIGNAL | \
-				    RADIOTAP_FIELD_ANT_NOISE | \
-				    RADIOTAP_FIELD_ANT | \
-				    RADIOTAP_FIELD_MCS | \
-				    RADIOTAP_FIELD_AMPDU | \
-				    RADIOTAP_FIELD_VENDOR)
-
-#define RADIOTAP_LEN_LEGACY			26
-#define RADIOTAP_FIELDS_LEGACY (RADIOTAP_FIELD_TSFT | \
-				    RADIOTAP_FIELD_FLAGS | \
-				    RADIOTAP_FIELD_RATE | \
-				    RADIOTAP_FIELD_CHANNEL | \
-				    RADIOTAP_FIELD_ANT_SIGNAL | \
-				    RADIOTAP_FIELD_ANT_NOISE | \
-				    RADIOTAP_FIELD_ANT | \
-				    RADIOTAP_FIELD_VENDOR)
-#endif
-
 /* performance monitor feature */
 #define PERF_MON_INIT_BIT       (0)
 #define PERF_MON_DISABLE_BIT    (1)
@@ -302,102 +254,6 @@ u_int8_t kalIndicateAgpsNotify(struct ADAPTER *prAdapter,
 			       uint8_t cmd,
 			       uint8_t *data, uint16_t dataLen);
 #endif /* CFG_SUPPORT_AGPS_ASSIST */
-
-#if CFG_SUPPORT_SNIFFER
-/* Vendor Namespace
- * Bit Number 30
- * Required Alignment 2 bytes
- */
-struct RADIOTAP_FIELD_VENDOR_ {
-	uint8_t aucOUI[3];
-	uint8_t ucSubNamespace;
-	uint16_t u2DataLen;
-	uint8_t ucData;
-} __KAL_ATTRIB_PACKED__;
-
-struct MONITOR_RADIOTAP {
-	/* radiotap header */
-	uint8_t ucItVersion;	/* set to 0 */
-	uint8_t ucItPad;
-	uint16_t u2ItLen;	/* entire length */
-	uint32_t u4ItPresent;	/* fields present */
-
-	/* TSFT
-	 * Bit Number 0
-	 * Required Alignment 8 bytes
-	 * Unit microseconds
-	 */
-	uint64_t u8MacTime;
-
-	/* Flags
-	 * Bit Number 1
-	 */
-	uint8_t ucFlags;
-
-	/* Rate
-	 * Bit Number 2
-	 * Unit 500 Kbps
-	 */
-	uint8_t ucRate;
-
-	/* Channel
-	 * Bit Number 3
-	 * Required Alignment 2 bytes
-	 */
-	uint16_t u2ChFrequency;
-	uint16_t u2ChFlags;
-
-	/* Antenna signal
-	 * Bit Number 5
-	 * Unit dBm
-	 */
-	uint8_t ucAntennaSignal;
-
-	/* Antenna noise
-	 * Bit Number 6
-	 * Unit dBm
-	 */
-	uint8_t ucAntennaNoise;
-
-	/* Antenna
-	 * Bit Number 11
-	 * Unit antenna index
-	 */
-	uint8_t ucAntenna;
-
-	/* MCS
-	 * Bit Number 19
-	 * Required Alignment 1 byte
-	 */
-	uint8_t ucMcsKnown;
-	uint8_t ucMcsFlags;
-	uint8_t ucMcsMcs;
-
-	/* A-MPDU status
-	 * Bit Number 20
-	 * Required Alignment 4 bytes
-	 */
-	uint32_t u4AmpduRefNum;
-	uint16_t u2AmpduFlags;
-	uint8_t ucAmpduDelimiterCRC;
-	uint8_t ucAmpduReserved;
-
-	/* VHT
-	 * Bit Number 21
-	 * Required Alignment 2 bytes
-	 */
-	uint16_t u2VhtKnown;
-	uint8_t ucVhtFlags;
-	uint8_t ucVhtBandwidth;
-	uint8_t aucVhtMcsNss[4];
-	uint8_t ucVhtCoding;
-	uint8_t ucVhtGroupId;
-	uint16_t u2VhtPartialAid;
-
-	/* extension space */
-	uint8_t aucReserve[12];
-} __KAL_ATTRIB_PACKED__;
-#endif
 
 /* driver halt */
 struct KAL_HALT_CTRL_T {
@@ -961,14 +817,15 @@ u_int8_t kalSetTimer(IN struct GLUE_INFO *prGlueInfo,
 
 #ifdef CFG_REMIND_IMPLEMENT
 #define kalProcessRxPacket(_prGlueInfo, _pvPacket, _pucPacketStart, \
-	_u4PacketLen, _aeCSUM) \
+	_u4PacketLen, _fgIsRetain, _aeCSUM) \
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, _prGlueInfo)
 #else
 uint32_t
 kalProcessRxPacket(IN struct GLUE_INFO *prGlueInfo,
 		   IN void *pvPacket,
 		   IN uint8_t *pucPacketStart, IN uint32_t u4PacketLen,
-		   IN enum ENUM_CSUM_RESULT aeCSUM[]);
+		   /* IN PBOOLEAN           pfgIsRetain, */
+		   IN u_int8_t fgIsRetain, IN enum ENUM_CSUM_RESULT aeCSUM[]);
 #endif
 
 uint32_t kalRxIndicatePkts(IN struct GLUE_INFO *prGlueInfo,

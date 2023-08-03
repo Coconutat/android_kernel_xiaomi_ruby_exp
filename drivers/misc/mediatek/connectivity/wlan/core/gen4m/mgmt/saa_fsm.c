@@ -146,7 +146,9 @@ saaFsmSteps(IN struct ADAPTER *prAdapter,
 
 	do {
 
-		if (prStaRec->eAuthAssocState < AA_STATE_NUM
+		if (prStaRec->eAuthAssocState >= 0
+				&& prStaRec->eAuthAssocState < AA_STATE_NUM
+				&& eNextState >= 0
 				&& eNextState < AA_STATE_NUM) {
 			DBGLOG(SAA, STATE, "[SAA]TRANSITION: [%s] -> [%s]\n",
 				apucDebugAAState[prStaRec->eAuthAssocState],
@@ -1662,7 +1664,8 @@ void saaFsmRunEventAbort(IN struct ADAPTER *prAdapter,
 	cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
 
 	if (prStaRec->eAuthAssocState != AA_STATE_IDLE) {
-		if (prStaRec->eAuthAssocState < AA_STATE_NUM) {
+		if (prStaRec->eAuthAssocState >= 0
+				&& prStaRec->eAuthAssocState < AA_STATE_NUM) {
 			DBGLOG(SAA, LOUD,
 			"EVENT-ABORT: Previous Auth/Assoc State == %s.\n",
 			apucDebugAAState[prStaRec->eAuthAssocState]);

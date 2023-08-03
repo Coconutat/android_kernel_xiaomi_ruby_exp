@@ -75,21 +75,7 @@
 
 #define PACKED __packed
 
-/* NDI Interface Create */
-struct NdiIfaceCreate {
-	uint16_t u2NdpTransactionId;
-	char *pucIfaceName;
-} PACKED;
-
-/* NDI Interface Delete */
-struct NdiIfaceDelete {
-	uint16_t u2NdpTransactionId;
-	char *pucIfaceName;
-} PACKED;
-
 extern struct NanDataPathInitiatorNDPE g_ndpReqNDPE;
-extern uint8_t g_aucNanServiceName[NAN_MAX_SERVICE_NAME_LEN];
-extern uint8_t g_aucNanServiceId[6];
 
 enum mtk_wlan_ndp_sub_cmd {
 	MTK_WLAN_VENDOR_ATTR_NDP_INVALID = 0,
@@ -227,11 +213,9 @@ extern const struct nla_policy
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
  */
-uint32_t nanNdiCreateRspEvent(struct ADAPTER *prAdapter,
-				struct NdiIfaceCreate rNdiInterfaceCreate);
+uint32_t nanNdiCreateRspEvent(struct ADAPTER *prAdapter);
 
-uint32_t nanNdiDeleteRspEvent(struct ADAPTER *prAdapter,
-				struct NdiIfaceDelete rNdiInterfaceDelete);
+uint32_t nanNdiDeleteRspEvent(struct ADAPTER *prAdapter);
 
 uint32_t nanNdpInitiatorRspEvent(struct ADAPTER *prAdapter,
 				 struct _NAN_NDP_INSTANCE_T *prNDP,

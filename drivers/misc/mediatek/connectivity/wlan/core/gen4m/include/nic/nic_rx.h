@@ -578,6 +578,7 @@ enum ENUM_RX_STATISTIC_COUNTER {
 	RX_IP_V6_PKT_CCOUNT,
 #endif
 	RX_ICS_LOG_COUNT,
+	RX_SNIFFER_LOG_COUNT,
 #if CFG_SUPPORT_BAR_DELAY_INDICATION
 	RX_BAR_DELAY_COUNT,
 #endif /* CFG_SUPPORT_BAR_DELAY_INDICATION */
@@ -585,6 +586,8 @@ enum ENUM_RX_STATISTIC_COUNTER {
 	RX_DAF_ERR_DROP_COUNT,
 	RX_ICV_ERR_DROP_COUNT,
 	RX_TKIP_MIC_ERROR_DROP_COUNT,
+	RX_PDMA_SCATTER_DATA_COUNT,
+	RX_PDMA_SCATTER_INDICATION_COUNT,
 	RX_STATISTIC_COUNTER_NUM
 };
 
@@ -986,6 +989,9 @@ struct SW_RFB {
 	/*QUE_T rAmsduQue;*/
 #endif
 	uint64_t rIntTime;
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	struct IEEE80211_RADIOTAP_INFO *prRadiotapInfo;
+#endif
 };
 
 #if CFG_TCP_IP_CHKSUM_OFFLOAD
@@ -1039,12 +1045,13 @@ struct RX_CTRL {
 	uint32_t u4RxPktsDumpTypeMask;
 #endif
 
-#if CFG_SUPPORT_SNIFFER
-	uint32_t u4AmpduRefNum;
-#endif
-
 	/* Store SysTime of Last Rx */
 	uint32_t u4LastRxTime[MAX_BSSID_NUM];
+
+#if ARP_MONITER_ENABLE
+	/* Store SysTime of Last unicast Rx */
+	uint32_t u4LastUnicastRxTime[MAX_BSSID_NUM];
+#endif
 };
 
 struct RX_MAILBOX {
@@ -1098,6 +1105,11 @@ struct RX_DESC_OPS_T {
 		struct ADAPTER *prAdapter,
 		struct SW_RFB *prSwRfb);
 #endif /* CFG_SUPPORT_WAKEUP_REASON_DEBUG */
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	uint8_t (*nic_rxd_fill_radiotap)(
+		struct ADAPTER *prAdapter,
+		struct SW_RFB *prSwRfb);
+#endif
 };
 
 struct ACTION_FRAME_SIZE_MAP {
@@ -1517,8 +1529,6 @@ struct SW_RFB *nicRxDefragMPDU(IN struct ADAPTER *prAdapter,
 
 u_int8_t nicRxIsDuplicateFrame(IN OUT struct SW_RFB *prSwRfb);
 
-void nicRxProcessMonitorPacket(IN struct ADAPTER *prAdapter,
-	IN OUT struct SW_RFB *prSwRfb);
 #if CFG_SUPPORT_PERF_IND
 void nicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	IN struct SW_RFB *prSwRfb,

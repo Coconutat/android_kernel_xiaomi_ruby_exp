@@ -1552,8 +1552,7 @@ void osal_op_history_save(struct osal_op_history *log_history, P_OSAL_OP pOp)
 
 static inline void osal_systrace_prepare(void)
 {
-/* Since K419, the function is not exported. */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
 	if (unlikely(mark_addr == 0))
 		mark_addr = kallsyms_lookup_name("tracing_mark_write");
 #endif

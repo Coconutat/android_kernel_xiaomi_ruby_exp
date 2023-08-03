@@ -764,7 +764,6 @@ enum ENUM_POWER_ANT_TAG {
 	POWER_ANT_ALL_T = 0,
 	POWER_ANT_MIMO_1T,
 	POWER_ANT_MIMO_2T,
-	POWER_ANT_ALL_T_6G,
 	POWER_ANT_TAG_NUM
 };
 
@@ -776,15 +775,6 @@ enum ENUM_POWER_ANT_BAND {
 	POWER_ANT_5G_BAND4,
 	POWER_ANT_BAND_NUM
 };
-
-enum ENUM_POWER_ANT_6G_BAND {
-	POWER_ANT_6G_BAND1 = 0,
-	POWER_ANT_6G_BAND2,
-	POWER_ANT_6G_BAND3,
-	POWER_ANT_6G_BAND4,
-	POWER_ANT_6G_BAND_NUM
-};
-
 
 enum ENUM_POWER_ANT_PARA {
 	POWER_ANT_WF0 = 0,
@@ -817,10 +807,6 @@ struct TX_PWR_CTRL_ANT_SETTING {
 	int8_t aiPwrAnt5GB2[POWER_ANT_NUM];
 	int8_t aiPwrAnt5GB3[POWER_ANT_NUM];
 	int8_t aiPwrAnt5GB4[POWER_ANT_NUM];
-	int8_t aiPwrAnt6GB1[POWER_ANT_NUM];
-	int8_t aiPwrAnt6GB2[POWER_ANT_NUM];
-	int8_t aiPwrAnt6GB3[POWER_ANT_NUM];
-	int8_t aiPwrAnt6GB4[POWER_ANT_NUM];
 };
 #endif
 
@@ -1056,16 +1042,6 @@ struct SUBBAND_CHANNEL {
 	uint8_t ucReserved;
 };
 
-struct COUNTRY_POWER_LIMIT_COUNTRY_CODE {
-	uint8_t    aucCountryCode[2];
-};
-
-struct COUNTRY_POWER_LIMIT_GROUP_TABLE {
-	uint8_t    aucGroupCode[2];
-	uint32_t   u4CountryNum;
-	struct COUNTRY_POWER_LIMIT_COUNTRY_CODE *prGroup;
-};
-
 #endif /* CFG_SUPPORT_PWR_LIMIT_COUNTRY */
 
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
@@ -1290,10 +1266,6 @@ int32_t txPwrParseTagMimo2T(
 	char *pStart, char *pEnd, uint8_t cTagParaNum,
 	struct TX_PWR_CTRL_ELEMENT *pRecord);
 int32_t txPwrParseTagAllT(
-	char *pStart, char *pEnd, uint8_t cTagParaNum,
-	struct TX_PWR_CTRL_ELEMENT *pRecord);
-
-int32_t txPwrParseTagAllT6G(
 	char *pStart, char *pEnd, uint8_t cTagParaNum,
 	struct TX_PWR_CTRL_ELEMENT *pRecord);
 #endif

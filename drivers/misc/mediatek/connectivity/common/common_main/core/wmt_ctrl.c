@@ -107,9 +107,6 @@ static INT32 wmt_ctrl_get_patch_name(P_WMT_CTRL_DATA pWmtCtrlData);
 
 static INT32 wmt_ctrl_get_rom_patch_info(P_WMT_CTRL_DATA pWmtCtrlData);
 
-/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
-static INT32 wmt_ctrl_fm_lna_set(P_WMT_CTRL_DATA pData);
-/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 static INT32 wmt_ctrl_update_patch_version(P_WMT_CTRL_DATA);
 
 /* TODO: [FixMe][GeorgeKuo]: remove unused function */
@@ -164,9 +161,6 @@ static const WMT_CTRL_FUNC wmt_ctrl_func[] = {
 	[WMT_CTRL_EVT_PARSER] = wmt_ctrl_evt_parser,
 	[WMT_CTRL_GET_ROM_PATCH_INFO] = wmt_ctrl_get_rom_patch_info,
 	[WMT_CTRL_UPDATE_PATCH_VERSION] = wmt_ctrl_update_patch_version,
-/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
-	[WMT_CTRL_FM_LNA_SET] = wmt_ctrl_fm_lna_set,
-/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	[WMT_CTRL_MAX] = wmt_ctrl_others,
 };
 
@@ -696,24 +690,6 @@ INT32 wmt_ctrl_get_rom_patch_info(P_WMT_CTRL_DATA pWmtCtrlData)
 	return ret;
 }
 
-/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
-static INT32 wmt_ctrl_fm_lna_set(P_WMT_CTRL_DATA pData)
-{
-	INT32 iret;
-
-	WMT_DBG_FUNC("ctrl GPS_LNA(%d)\n",
-		      (pData->au4CtrlData[0] == 0) ? PIN_STA_DEINIT : PIN_STA_OUT_H);
-	iret =
-	    wmt_plat_gpio_ctrl(PIN_FM_LNA,
-			       (pData->au4CtrlData[0] == 0) ? PIN_STA_DEINIT : PIN_STA_OUT_H);
-
-	if (iret)
-		WMT_WARN_FUNC("ctrl GPS_SYNC(%d) fail!(%d) ignore it...\n",
-			      (pData->au4CtrlData[0] == 0) ? PIN_STA_DEINIT : PIN_STA_OUT_H, iret);
-
-	return 0;
-}
-/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 INT32 wmt_ctrl_update_patch_version(P_WMT_CTRL_DATA pWmtCtrlData)
 {
 	P_DEV_WMT pDev = &gDevWmt;	/* single instance */

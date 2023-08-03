@@ -11,6 +11,8 @@ extern void update_pre_cal_status(uint8_t fgIsPreCal);
 extern int8_t get_pre_cal_status(void);
 extern int32_t update_wr_mtx_down_up_status(uint8_t ucDownUp,
 		uint8_t ucIsBlocking);
+extern void update_only_once_status(uint8_t fgIsOnce);
+extern int8_t get_only_once_status(void);
 extern void wlanWakeLockInit(struct GLUE_INFO *prGlueInfo);
 extern void wlanWakeLockUninit(struct GLUE_INFO *prGlueInfo);
 extern struct wireless_dev *wlanNetCreate(void *pvData, void *pvDriverData);

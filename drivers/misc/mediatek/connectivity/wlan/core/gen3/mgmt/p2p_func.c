@@ -36,7 +36,7 @@ APPEND_VAR_IE_ENTRY_T txProbeRspIETable[] = {
 #if CFG_SUPPORT_MTK_SYNERGY
 	, {(ELEM_HDR_LEN + ELEM_MIN_LEN_MTK_OUI), NULL, rlmGenerateMTKOuiIE}	/* 221 */
 #endif
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL, rsnGenerateRSNXIE}	/* 244 */
+
 };
 
 static VOID
@@ -994,17 +994,6 @@ p2pFuncStartGO(IN P_ADAPTER_T prAdapter,
 		}
 
 		bssInitForAP(prAdapter, prBssInfo, TRUE);
-		if (prBssInfo->fgEnableH2E) {
-			prBssInfo->aucAllSupportedRates
-				[prBssInfo->ucAllSupportedRatesLen]
-				= RATE_H2E_ONLY_VAL;
-			prBssInfo->ucAllSupportedRatesLen++;
-		}
-
-		DBGLOG(P2P, TRACE, "Phy type: 0x%x, %d, %d\n",
-			prBssInfo->ucPhyTypeSet,
-			prBssInfo->ucConfigAdHocAPMode,
-			prBssInfo->ucNonHTBasicPhyType);
 
 		if (prBssInfo->ucBMCWlanIndex >= WTBL_SIZE) {
 			prBssInfo->ucBMCWlanIndex =
@@ -1255,33 +1244,6 @@ VOID p2pFuncAcquireCh(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIdx, IN P_P2P_CHN
 
 }				/* p2pFuncAcquireCh */
 
-void p2pFuncParseH2E(IN P_BSS_INFO_T prP2pBssInfo)
-{
-	if (prP2pBssInfo) {
-		UINT_32 i;
-
-		prP2pBssInfo->fgEnableH2E = FALSE;
-
-		for (i = 0;
-			i < prP2pBssInfo->ucAllSupportedRatesLen;
-			i++) {
-			DBGLOG(P2P, LOUD,
-				"Rate [%d] = %d\n",
-				i,
-				prP2pBssInfo->aucAllSupportedRates[i]);
-			if (prP2pBssInfo->aucAllSupportedRates[i] ==
-				RATE_H2E_ONLY_VAL) {
-				prP2pBssInfo->fgEnableH2E = TRUE;
-				break;
-			}
-		}
-
-		DBGLOG(P2P, TRACE,
-			"fgEnableH2E = %d\n",
-			prP2pBssInfo->fgEnableH2E);
-	}
-}
-
 WLAN_STATUS
 p2pFuncProcessBeacon(IN P_ADAPTER_T prAdapter,
 		    IN P_BSS_INFO_T prP2pBssInfo,
@@ -1368,7 +1330,6 @@ p2pFuncProcessBeacon(IN P_ADAPTER_T prAdapter,
 				      (PUINT_8) prBcnFrame->aucInfoElem,
 				      (prBcnMsduInfo->u2FrameLength - OFFSET_OF(WLAN_BEACON_FRAME_T, aucInfoElem)));
 
-		p2pFuncParseH2E(prP2pBssInfo);
 	} while (FALSE);
 
 	return rWlanStatus;
@@ -2081,7 +2042,6 @@ p2pFuncParseBeaconIEs(IN P_ADAPTER_T prAdapter,
 
 		prP2pSpecificBssInfo = prAdapter->rWifiVar.prP2pSpecificBssInfo;
 		prP2pSpecificBssInfo->u2AttributeLen = 0;
-		prP2pSpecificBssInfo->u2RsnxIeLen = 0;
 
 		pucIE = pucIEInfo;
 
@@ -2411,19 +2371,6 @@ p2pFuncParseBeaconIEs(IN P_ADAPTER_T prAdapter,
 				DBGLOG(P2P, TRACE, "VHT OP IE\n");
 				if (prAdapter->rWifiVar.ucAvailablePhyTypeSet & PHY_TYPE_SET_802_11AC)
 					prP2pBssInfo->ucPhyTypeSet |= PHY_TYPE_SET_802_11AC;
-				break;
-			case ELEM_ID_RSNX:
-				DBGLOG(P2P, TRACE, "RSNXIE\n");
-				if (IE_LEN(pucIE) > ELEM_MAX_LEN_RSN) {
-					DBGLOG(P2P, ERROR,
-						"RSN IE length is unexpected !!\n");
-					return;
-				}
-				kalMemCopy(
-					prP2pSpecificBssInfo->aucRsnxIeBuffer,
-					pucIE, IE_SIZE(pucIE));
-				prP2pSpecificBssInfo->u2RsnxIeLen
-					= IE_SIZE(pucIE);
 				break;
 			case ELEM_ID_VENDOR:	/* 221 *//* V */
 				DBGLOG(P2P, TRACE, "Vender Specific IE\n");

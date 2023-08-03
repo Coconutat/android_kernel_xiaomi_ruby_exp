@@ -102,9 +102,6 @@ typedef enum _ENUM_WMT_CTRL_T {
 	WMT_CTRL_EVT_PARSER = 33,
 	WMT_CTRL_GET_ROM_PATCH_INFO = 34,
 	WMT_CTRL_UPDATE_PATCH_VERSION = 35,
-/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
-	WMT_CTRL_FM_LNA_SET = 36,
-/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 	WMT_CTRL_MAX
 } ENUM_WMT_CTRL_T, *P_ENUM_WMT_CTRL_T;
 

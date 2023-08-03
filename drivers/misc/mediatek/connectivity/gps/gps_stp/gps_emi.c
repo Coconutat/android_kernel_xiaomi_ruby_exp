@@ -79,6 +79,13 @@ int gps_emi_mpu_size = -1;
 int gps_emi_mpu_domain_ap = -1;
 int gps_emi_mpu_domain_conn = -1;
 #define EMI_MPU_PROTECTION_IS_READY  0
+#if EMI_MPU_PROTECTION_IS_READY
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <soc/mediatek/emi.h>
+#else
+#include <memory/mediatek/emi.h>
+#endif
+#endif
 #endif
 int gps_emi_mpu_region_param_ready;
 
@@ -203,15 +210,9 @@ void mtk_wcn_consys_gps_memory_reserve(void)
 	gGpsEmiPhyBase = arm_memblock_steal(SZ_1M, SZ_1M);
 #endif
 #else
-
-#ifdef MTK_GENERIC_HAL
+	#if EMI_MPU_PROTECTION_IS_READY
 	gGpsEmiPhyBase = gConEmiPhyBase + (phys_addr_t)gps_emi_base_addr_offset;
-#else
-#if EMI_MPU_PROTECTION_IS_READY
-	gGpsEmiPhyBase = gConEmiPhyBase + (phys_addr_t)gps_emi_base_addr_offset;
-#endif
-#endif
-
+	#endif
 #endif
 	if (gGpsEmiPhyBase)
 		GPS_DBG("Con:0x%zx, Gps:0x%zx\n", (size_t)gConEmiPhyBase, (size_t)gGpsEmiPhyBase);
@@ -224,8 +225,6 @@ INT32 gps_emi_mpu_set_region_protection(INT32 region)
 #if EMI_MPU_PROTECTION_IS_READY
 #if defined(GPS_EMI_NEW_API)
 	struct emimpu_region_t region_info;
-	memset((void *)&region_info, 0x0, sizeof(region_info));
-
 	int emimpu_ret1, emimpu_ret2, emimpu_ret3, emimpu_ret4, emimpu_ret5, emimpu_ret6;
 	/* Set EMI MPU permission */
 	GPS_DBG("emi mpu cfg: region = %d, no protection domain = %d, %d",
@@ -291,10 +290,8 @@ INT32 mtk_wcn_consys_gps_emi_init(void)
 	if (gGpsEmiPhyBase) {
 		/*set MPU for EMI share Memory*/
 		#if EMI_MPU_PROTECTION_IS_READY
-		#ifndef MTK_GENERIC_HAL
 		GPS_DBG("setting MPU for EMI share memory\n");
 		gps_emi_mpu_set_region_protection(gps_emi_mpu_region);
-		#endif
 		#endif
 		GPS_DBG("get consys start phy address(0x%zx)\n", (size_t)gGpsEmiPhyBase);
 		#if 0
@@ -311,14 +308,9 @@ INT32 mtk_wcn_consys_gps_emi_init(void)
 		GPS_DBG("GPS_EMI_MAPPING dump(0x%08x)\n",
 			CONSYS_REG_READ(conn_reg.topckgen_base + CONSYS_EMI_MAPPING_OFFSET));
 		#endif
-		#ifdef MTK_GENERIC_HAL
-		pGpsEmibaseaddr = ioremap(gGpsEmiPhyBase, (size_t)gps_emi_mpu_size);
-		#else
 		#if EMI_MPU_PROTECTION_IS_READY
 		pGpsEmibaseaddr = ioremap(gGpsEmiPhyBase, (size_t)gps_emi_mpu_size);
 		#endif
-		#endif
-
 		iRet = 1;
 		#if 0
 		if (pGpsEmibaseaddr != NULL) {

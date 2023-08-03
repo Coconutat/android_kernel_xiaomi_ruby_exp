@@ -316,18 +316,12 @@ typedef INT32(*CONSYS_IC_IPI_TIMEOUT_DUMP) (VOID);
 typedef INT32(*CONSYS_IC_BEFORE_CHIP_RESET_DUMP) (VOID);
 typedef INT32(*CONSYS_IC_PC_LOG_DUMP) (VOID);
 typedef VOID(*CONSYS_IC_SET_VCN33_1_VOLTAGE) (UINT32 voltage);
-typedef INT32(*CONSYS_IC_CR_REMAPPING) (UINT32 enable);
-typedef UINT32(*CONSYS_IC_WAKEUP_BTIF_IRQ_PULL_LOW) (VOID);
-typedef VOID(*CONSYS_IC_BUS_CONFIG_GPS_ACCESS_TIA) (VOID);
 
 typedef INT32(*CONSYS_IC_JTAG_SET_FOR_MCU) (VOID);
 typedef UINT32(*CONSYS_IC_JTAG_FLAG_CTRL) (UINT32 enable);
 #ifdef CONSYS_WMT_REG_SUSPEND_CB_ENABLE
 typedef UINT32(*CONSYS_IC_HW_OSC_EN_CTRL) (UINT32 enable);
 #endif
-
-typedef PINT32 CONSYS_IC_GET_DEBUG_REG_ARY_SIZE;
-typedef P_REG_MAP_ADDR CONSYS_IC_GET_DEBUG_REG_ARY;
 
 typedef struct _WMT_CONSYS_IC_OPS_ {
 
@@ -444,18 +438,12 @@ typedef struct _WMT_CONSYS_IC_OPS_ {
 	CONSYS_IC_GET_OPTIONS consys_ic_get_options;
 	CONSYS_IC_POLLING_GOTO_IDLE consys_ic_polling_goto_idle;
 	CONSYS_IC_SET_VCN33_1_VOLTAGE consys_ic_set_vcn33_1_voltage;
-	CONSYS_IC_CR_REMAPPING consys_ic_cr_remapping;
-	CONSYS_IC_WAKEUP_BTIF_IRQ_PULL_LOW consys_ic_wakeup_btif_irq_pull_low;
-	CONSYS_IC_BUS_CONFIG_GPS_ACCESS_TIA consys_ic_bus_config_gps_access_tia;
 
 	CONSYS_IC_JTAG_SET_FOR_MCU consys_ic_jtag_set_for_mcu;
 	CONSYS_IC_JTAG_FLAG_CTRL consys_ic_jtag_flag_ctrl;
 #ifdef CONSYS_WMT_REG_SUSPEND_CB_ENABLE
 	CONSYS_IC_HW_OSC_EN_CTRL consys_ic_hw_osc_en_ctrl;
 #endif
-
-	CONSYS_IC_GET_DEBUG_REG_ARY_SIZE consys_ic_get_debug_reg_ary_size;
-	CONSYS_IC_GET_DEBUG_REG_ARY consys_ic_get_debug_reg_ary;
 } WMT_CONSYS_IC_OPS, *P_WMT_CONSYS_IC_OPS;
 /*******************************************************************************
 *                            P U B L I C   D A T A
@@ -529,9 +517,6 @@ INT32 mtk_wcn_consys_set_dynamic_dump(PUINT32 buf);
 INT32 mtk_wdt_swsysret_config(INT32 bit, INT32 set_value);
 VOID mtk_wcn_consys_hang_debug(VOID);
 UINT32 mtk_consys_get_gps_lna_pin_num(VOID);
-/* begin ,prize-lifenfen-20181211, add FM_LNA_EN */
-UINT32 mtk_consys_get_fm_lna_pin_num(VOID);
-/* end ,prize-lifenfen-20181211, add FM_LNA_EN */
 INT32 mtk_consys_check_reg_readable(VOID);
 INT32 mtk_consys_check_reg_readable_by_addr(SIZE_T addr);
 VOID mtk_wcn_consys_clock_fail_dump(VOID);
@@ -562,13 +547,8 @@ VOID mtk_wcn_dump_util_init(UINT32 chipid);
 VOID mtk_wcn_dump_util_destroy(VOID);
 
 PVOID mtk_wcn_consys_clock_get_regmap(VOID);
-UINT32 mtk_wcn_consys_wakeup_btif_irq_pull_low(VOID);
 
 VOID mtk_wcn_consys_set_vcn33_1_voltage(UINT32 voltage);
-
-INT32 mtk_wcn_consys_get_debug_reg_ary_size(VOID);
-P_REG_MAP_ADDR mtk_wcn_consys_get_debug_reg_ary(VOID);
-
 struct platform_device *get_consys_device(void);
 #endif /* _MTK_WCN_CONSYS_HW_H_ */
 

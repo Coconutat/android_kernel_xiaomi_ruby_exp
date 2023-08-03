@@ -286,7 +286,7 @@ static INT_32 mtk_sdio_interrupt(MTK_WCN_HIF_SDIO_CLTCTX cltCtx)
 
 	ret = mtk_wcn_hif_sdio_writel(cltCtx, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 
-	KAL_WAKE_LOCK(prGlueInfo->prAdapter, prGlueInfo->rIntrWakeLock);
+	KAL_WAKE_LOCK(prGlueInfo->prAdapter, &prGlueInfo->rIntrWakeLock);
 
 	set_bit(GLUE_FLAG_INT_BIT, &prGlueInfo->ulFlag);
 

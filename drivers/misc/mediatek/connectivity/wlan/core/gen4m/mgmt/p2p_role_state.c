@@ -58,7 +58,7 @@ p2pRoleStateInit_IDLE(IN struct ADAPTER *prAdapter,
 {
 	cnmTimerStartTimer(prAdapter,
 		&(prP2pRoleFsmInfo->rP2pRoleFsmTimeoutTimer),
-		prAdapter->rWifiVar.u4ApChnlHoldTime);
+		P2P_AP_CHNL_HOLD_TIME_MS);
 }				/* p2pRoleStateInit_IDLE */
 
 void
@@ -438,8 +438,6 @@ p2pRoleStateAbort_GC_JOIN(IN struct ADAPTER *prAdapter,
 		p2pFuncReleaseCh(prAdapter,
 			prP2pRoleFsmInfo->ucBssIndex,
 			&(prP2pRoleFsmInfo->rChnlReqInfo));
-
-		prP2pRoleFsmInfo->rJoinInfo.prTargetStaRec = NULL;
 
 	} while (FALSE);
 }

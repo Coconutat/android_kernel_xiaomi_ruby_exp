@@ -895,7 +895,7 @@ P_QUE_T qmDetermineStaTxQueue(
 {
 	P_QUE_T prTxQue = NULL;
 	P_STA_RECORD_T prStaRec;
-	enum ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
+	ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
 	BOOLEAN fgCheckACMAgain;
 	UINT_8 ucTC;
 	P_BSS_INFO_T prBssInfo;
@@ -4420,7 +4420,7 @@ BOOLEAN mqmUpdateEdcaParameters(IN P_BSS_INFO_T prBssInfo, IN PUINT_8 pucIE, IN 
 {
 	P_AC_QUE_PARMS_T prAcQueParams;
 	P_IE_WMM_PARAM_T prIeWmmParam;
-	enum ENUM_WMM_ACI_T eAci;
+	ENUM_WMM_ACI_T eAci;
 	BOOLEAN fgNewParameter = FALSE;
 
 	do {
@@ -4540,7 +4540,7 @@ BOOLEAN mqmCompareEdcaParameters(IN P_IE_WMM_PARAM_T prIeWmmParam, IN P_BSS_INFO
 {
 	P_AC_QUE_PARMS_T prAcQueParams;
 	P_WMM_AC_PARAM_T prWmmAcParams;
-	enum ENUM_WMM_ACI_T eAci;
+	ENUM_WMM_ACI_T eAci;
 
 	/* return FALSE; */
 
@@ -4894,7 +4894,7 @@ VOID mqmGenerateWmmParamIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo
 
 	P_BSS_INFO_T prBssInfo;
 	P_STA_RECORD_T prStaRec;
-	enum ENUM_WMM_ACI_T eAci;
+	ENUM_WMM_ACI_T eAci;
 	P_WMM_AC_PARAM_T prAcParam;
 
 	DEBUGFUNC("mqmGenerateWmmParamIE");
@@ -4998,7 +4998,7 @@ UINT_32 mqmGenerateWmmParamIEByParam(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssIn
 		WMM_ACI_AC_VO
 	};
 
-	enum ENUM_WMM_ACI_T eAci;
+	ENUM_WMM_ACI_T eAci;
 	P_WMM_AC_PARAM_T prAcParam;
 
 	DEBUGFUNC("mqmGenerateWmmParamIE");

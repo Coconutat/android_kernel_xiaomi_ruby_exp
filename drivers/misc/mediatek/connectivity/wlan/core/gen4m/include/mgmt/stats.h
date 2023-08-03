@@ -35,6 +35,7 @@
 #define AIR_LAT_CAT_NUM 5
 
 #define TX_TIME_CAT_NUM 5
+#define TRX_TLV_HDR_LEN 8
 
 /*******************************************************************************
  *            D A T A   T Y P E S

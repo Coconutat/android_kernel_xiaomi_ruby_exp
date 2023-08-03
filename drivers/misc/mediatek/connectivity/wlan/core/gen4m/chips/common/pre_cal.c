@@ -289,10 +289,7 @@ void wlanGetEpaElnaFromNvram(
 	uint8_t u1LenLSB;
 	uint8_t u1LenMSB;
 	uint8_t u1Total_Size_LSB, u1Total_Size_MSB;
-	uint32_t u4Tag7_9_data_len = 0, u46GCOMM_len = 0;
-#ifdef SOC5_0
-	uint32_t u4ANTSEL_CTRL_len = 0, u4Section_len = 0;
-#endif
+	uint32_t u4Tag7_9_data_len, u46GCOMM_len;
 	uint16_t u2NVRAM_Toal_Size = 0;
 	uint32_t u4NvramStartOffset = 0, u4NvramOffset = 0;
 	uint8_t *pu1Addr;
@@ -315,9 +312,6 @@ void wlanGetEpaElnaFromNvram(
 		NVRAM_TAG_5G_WF0_AUX_PATH = 13,
 		NVRAM_TAG_2G4_WF1_AUX_PATH = 14,
 		NVRAM_TAG_5G_WF1_AUX_PATH = 15,
-#ifdef SOC5_0
-		NVRAM_TAG_ANTSEL_CTRL = 16,
-#endif
 		NVRAM_TAG_6G_TX_POWER = 16,
 		NVRAM_TAG_6G_WF0_PATH = 17,
 		NVRAM_TAG_6G_WF1_PATH = 18,
@@ -403,25 +397,6 @@ void wlanGetEpaElnaFromNvram(
 				"NVRAM tag(%d) u46GCOMM_len %d, u4NvramOffset %d, pu4DataLen %d\n",
 				u1TypeID, u46GCOMM_len, pu4DataLen);
 		}
-
-#ifdef SOC5_0
-		if (u1TypeID == NVRAM_TAG_ANTSEL_CTRL) {
-			/* Only to get ANTSEL CTRL TLV */
-			*pu1DataPointer = pu1Addr + u4NvramOffset;
-			u4Section_len = sizeof(struct WIFI_NVRAM_TAG_FORMAT);
-			u4Section_len += (u1LenMSB << 8) | (u1LenLSB);
-			u4ANTSEL_CTRL_len = u4Tag7_9_data_len+u46GCOMM_len;
-			kalMemCopy(
-				&g_aucNvram_OnlyPreCal[u4ANTSEL_CTRL_len],
-				&g_aucNvram[u4NvramOffset],
-				u4Section_len);
-			*pu4DataLen += u4Section_len;
-			DBGLOG(INIT, TRACE,
-			"NVRAM tag(%d) sectionLen %x, offset %x, dataLen %x\n",
-			u1TypeID, u4Section_len, u4NvramOffset, *pu4DataLen);
-		}
-#endif
-
 		u4NvramOffset += sizeof(struct WIFI_NVRAM_TAG_FORMAT);
 		u4NvramOffset += (u1LenMSB << 8) | (u1LenLSB);
 
@@ -805,7 +780,6 @@ uint32_t wlanPhyAction(IN struct ADAPTER *prAdapter)
 int wlanPreCalPwrOn(void)
 {
 #define MAX_PRE_ON_COUNT 5
-#define MAX_NVRAM_READY_COUNT 10
 
 	int retryCount = 0;
 	void *pvData = NULL;
@@ -828,16 +802,8 @@ int wlanPreCalPwrOn(void)
 	struct timespec64 time;
 	uint32_t rStatus = 0;
 
-	retryCount = 0;
-	while (g_NvramFsm != NVRAM_STATE_READY) {
-		kalMsleep(100);
-		retryCount++;
-
-		if (retryCount > MAX_NVRAM_READY_COUNT) {
-			DBGLOG(INIT, WARN, "g_NvramFsm != NVRAM_STATE_READY\n");
-			return CONNINFRA_CB_RET_CAL_FAIL_POWER_OFF;
-		}
-	}
+	if (get_only_once_status() == 1)
+		return CONNINFRA_CB_RET_CAL_FAIL_POWER_OFF;
 
 	while (update_wr_mtx_down_up_status(0, 0)) {
 		if (get_wifi_process_status())
@@ -845,16 +811,13 @@ int wlanPreCalPwrOn(void)
 		kalMsleep(50);
 	}
 
-	if (get_wifi_powered_status()) {
-		update_wr_mtx_down_up_status(1, 0);
+	if (get_wifi_powered_status())
 		return CONNINFRA_CB_RET_CAL_FAIL_POWER_OFF;
-	}
 
 	prChipInfo = prDriverData->chip_info;
 	pvData = (void *)prChipInfo->pdev;
 	update_pre_cal_status(1);
 
-	retryCount = 0;
 	while (g_u4WlanInitFlag == 0) {
 		DBGLOG(INIT, WARN,
 			"g_u4WlanInitFlag(%d) retryCount(%d)",
@@ -1212,6 +1175,7 @@ int wlanPreCal(void)
 
 	update_pre_cal_status(0);
 	update_wr_mtx_down_up_status(1, 0);
+	update_only_once_status(1);
 
 	return CONNINFRA_CB_RET_CAL_PASS_POWER_OFF;
 }

@@ -668,8 +668,7 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 			       &u4BufLen, ucBssIndex);
 #endif /* CFG_REPORT_MAX_TX_RATE */
 
-	if (rStatus == WLAN_STATUS_SUCCESS &&
-		IS_BSS_INDEX_VALID(ucBssIndex)) {
+	if (IS_BSS_INDEX_VALID(ucBssIndex)) {
 		u4TxRate = rLinkSpeed.rLq[ucBssIndex].u2TxLinkSpeed;
 		u4RxRate = rLinkSpeed.rLq[ucBssIndex].u2RxLinkSpeed;
 		i4Rssi = rLinkSpeed.rLq[ucBssIndex].cRssi;
@@ -992,6 +991,112 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 #endif
 /*----------------------------------------------------------------------------*/
 /*!
+ * @brief This routine is responsible for getting statistics for Link layer
+ *        statistics
+ *
+ * @param
+ *
+ * @retval 0:       successful
+ *         others:  failure
+ */
+/*----------------------------------------------------------------------------*/
+int mtk_cfg80211_get_link_statistics(struct wiphy *wiphy,
+				     struct net_device *ndev, u8 *mac,
+				     struct station_info *sinfo)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t rStatus;
+	uint8_t arBssid[PARAM_MAC_ADDR_LEN];
+	uint32_t u4BufLen;
+	struct PARAM_LINK_SPEED_EX rLinkSpeed;
+	struct PARAM_GET_STA_STATISTICS rQueryStaStatistics;
+	struct PARAM_GET_BSS_STATISTICS rQueryBssStatistics;
+	struct net_device_stats *prDevStats;
+	uint8_t ucBssIndex = 0;
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+	ASSERT(prGlueInfo);
+
+	ucBssIndex = wlanGetBssIdx(ndev);
+	if (!IS_BSS_INDEX_AIS(prGlueInfo->prAdapter, ucBssIndex))
+		return -EINVAL;
+
+	kalMemZero(arBssid, MAC_ADDR_LEN);
+	SET_IOCTL_BSSIDX(prGlueInfo->prAdapter, ucBssIndex);
+	wlanQueryInformation(prGlueInfo->prAdapter, wlanoidQueryBssid,
+				&arBssid[0], sizeof(arBssid), &u4BufLen);
+
+	/* 1. check BSSID */
+	if (UNEQUAL_MAC_ADDR(arBssid, mac)) {
+		/* wrong MAC address */
+		DBGLOG(REQ, WARN,
+		       "incorrect BSSID: [" MACSTR
+		       "] currently connected BSSID["
+		       MACSTR "]\n",
+		       MAC2STR(mac), MAC2STR(arBssid));
+		return -ENOENT;
+	}
+
+	/* 2. fill RSSI */
+	if (kalGetMediaStateIndicated(prGlueInfo, ucBssIndex) !=
+	    MEDIA_STATE_CONNECTED) {
+		/* not connected */
+		DBGLOG(REQ, WARN, "not yet connected\n");
+	} else {
+		rStatus = kalIoctlByBssIdx
+			(prGlueInfo,
+			 wlanoidQueryRssi,
+			 &rLinkSpeed, sizeof(rLinkSpeed),
+			 TRUE, FALSE, FALSE,
+			 &u4BufLen, ucBssIndex);
+
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(REQ, WARN, "unable to retrieve rssi\n");
+	}
+
+	/* Get statistics from net_dev */
+	prDevStats = (struct net_device_stats *)kalGetStats(ndev);
+
+	/*3. get link layer statistics from Driver and FW */
+	if (prDevStats) {
+		/* 3.1 get per-STA link statistics */
+		kalMemZero(&rQueryStaStatistics,
+			   sizeof(rQueryStaStatistics));
+		COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, arBssid);
+		rQueryStaStatistics.ucLlsReadClear =
+			FALSE;	/* dont clear for get BSS statistic */
+
+		rStatus = kalIoctl(prGlueInfo, wlanoidQueryStaStatistics,
+				   &rQueryStaStatistics,
+				   sizeof(rQueryStaStatistics),
+				   TRUE, FALSE, TRUE, &u4BufLen);
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(REQ, WARN,
+			       "unable to retrieve per-STA link statistics\n");
+
+		/*3.2 get per-BSS link statistics */
+		if (rStatus == WLAN_STATUS_SUCCESS) {
+			kalMemZero(&rQueryBssStatistics,
+				   sizeof(rQueryBssStatistics));
+			rQueryBssStatistics.ucBssIndex = ucBssIndex;
+
+			rStatus = kalIoctl(prGlueInfo,
+				wlanoidQueryBssStatistics,
+				&rQueryBssStatistics,
+				sizeof(rQueryBssStatistics),
+				TRUE, FALSE, TRUE, &u4BufLen);
+		} else {
+			DBGLOG(REQ, WARN,
+			       "unable to retrieve per-BSS link statistics\n");
+		}
+
+	}
+
+	return 0;
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
  * @brief This routine is responsible for requesting to do a scan
  *
  * @param
@@ -1026,6 +1131,10 @@ int mtk_cfg80211_scan(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	if (prGlueInfo->fgIsEnableMon)
+		return -EINVAL;
+#endif
 	ucBssIndex = wlanGetBssIdx(request->wdev->netdev);
 	if (!IS_BSS_INDEX_AIS(prGlueInfo->prAdapter, ucBssIndex))
 		return -EINVAL;
@@ -1068,6 +1177,9 @@ int mtk_cfg80211_scan(struct wiphy *wiphy,
 
 #if CFG_SUPPORT_LOWLATENCY_MODE
 	if (!prGlueInfo->prAdapter->fgEnCfg80211Scan
+#if CFG_SUPPORT_SCAN_EXT_FLAG
+		&& (prGlueInfo->u4ScanExtFlag != TRUE)
+#endif
 	    && MEDIA_STATE_CONNECTED
 	    == kalGetMediaStateIndicated(prGlueInfo, ucBssIndex)) {
 		DBGLOG(REQ, INFO,
@@ -1075,7 +1187,9 @@ int mtk_cfg80211_scan(struct wiphy *wiphy,
 		return -EBUSY;
 	}
 #endif /* CFG_SUPPORT_LOWLATENCY_MODE */
-
+#if CFG_SUPPORT_SCAN_EXT_FLAG
+	prGlueInfo->u4ScanExtFlag = 0;
+#endif
 #if CFG_SUPPORT_SCAN_CACHE_RESULT
 	prGlueInfo->scanCache.prGlueInfo = prGlueInfo;
 	prGlueInfo->scanCache.prRequest = request;
@@ -2934,11 +3048,6 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
 
-	if (len < sizeof(struct NL80211_DRIVER_GET_STA_STATISTICS_PARAMS)) {
-		DBGLOG(OID, WARN, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
-
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_GET_STA_STATISTICS_PARAMS
 			    *) data;
@@ -2961,6 +3070,9 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy
 		DBGLOG(QM, ERROR, "allocate skb failed:%x\n", rStatus);
 		return -ENOMEM;
 	}
+
+	DBGLOG(QM, TRACE, "Get [" MACSTR "] STA statistics\n",
+	       MAC2STR(prParams->aucMacAddr));
 
 	kalMemZero(&rQueryStaStatistics,
 		   sizeof(rQueryStaStatistics));
@@ -5384,24 +5496,6 @@ int testmode_get_ncho_mode(IN struct wiphy *wiphy, IN char *pcCommand,
 
 #endif /* CFG_SUPPORT_NCHO */
 
-#ifdef CFG_SUPPORT_ANT_SWAP
-int testmode_set_antswap_cfg(struct ADAPTER *prAdapter, IN char *pcCommand,
-			 IN int i4TotalLen)
-{
-	struct PARAM_CUSTOM_CHIP_CONFIG_STRUCT rChipConfigInfo = {0};
-	uint32_t strOutLen = 0;
-
-	DBGLOG(RLM, INFO, "pcCommand %s, strlen=%d", pcCommand, i4TotalLen);
-
-	rChipConfigInfo.u2MsgSize = i4TotalLen;
-	rChipConfigInfo.ucType = CHIP_CONFIG_TYPE_WO_RESPONSE;
-	kalStrnCpy(rChipConfigInfo.aucCmd, pcCommand, i4TotalLen);
-	wlanSetChipConfig(prAdapter, &rChipConfigInfo,
-			sizeof(rChipConfigInfo), &strOutLen, FALSE);
-	return 0;
-}
-#endif
-
 int testmode_add_roam_scn_chnl(
 	IN struct wiphy *wiphy, IN char *pcCommand, IN int i4TotalLen)
 {
@@ -5516,7 +5610,7 @@ int testmode_set_ax_blacklist(IN struct wiphy *wiphy, IN char *pcCommand,
 	int32_t i4BytesWritten = -1;
 	uint8_t ucType = 0;
 	uint8_t i = 0;
-	uint8_t aucMacAddr[MAC_ADDR_LEN] = { 0 };
+	uint8_t aucMacAddr[MAC_ADDR_LEN];
 	uint8_t index = 0;
 
 	WIPHY_PRIV(wiphy, prGlueInfo);
@@ -5560,8 +5654,8 @@ int testmode_set_ax_blacklist(IN struct wiphy *wiphy, IN char *pcCommand,
 int32_t mtk_cfg80211_process_str_cmd_reply(
 	IN struct wiphy *wiphy, IN char *data, IN int len)
 {
+
 	struct sk_buff *skb;
-	int32_t i4Err = 0;
 
 	skb = cfg80211_testmode_alloc_reply_skb(wiphy, len);
 
@@ -5570,11 +5664,7 @@ int32_t mtk_cfg80211_process_str_cmd_reply(
 		return -ENOMEM;
 	}
 
-	i4Err = nla_put_nohdr(skb, len, data);
-	if (i4Err) {
-		kfree_skb(skb);
-		return i4Err;
-	}
+	nla_put_nohdr(skb, len, data);
 
 	return cfg80211_testmode_reply(skb);
 }
@@ -5718,28 +5808,6 @@ int32_t mtk_cfg80211_process_str_cmd(IN struct wiphy *wiphy,
 	} else if (strnicmp(cmd, CMD_NCHO_MODE_GET,
 			    strlen(CMD_NCHO_MODE_GET)) == 0) {
 		return testmode_get_ncho_mode(wiphy, cmd, len);
-#endif
-#ifdef CFG_SUPPORT_ANT_SWAP
-	} else if (strnicmp(cmd, "AntSwapWeakRcpi",
-			    strlen("AntSwapWeakRcpi")) == 0) {
-		return testmode_set_antswap_cfg(prGlueInfo->prAdapter,
-			cmd, len);
-	} else if (strnicmp(cmd, "AntSwapDeltaRcpi",
-			    strlen("AntSwapDeltaRcpi")) == 0) {
-		return testmode_set_antswap_cfg(prGlueInfo->prAdapter,
-			cmd, len);
-	} else if (strnicmp(cmd, "AntSwapWeakSlot",
-			    strlen("AntSwapWeakSlot")) == 0) {
-		return testmode_set_antswap_cfg(prGlueInfo->prAdapter,
-			cmd, len);
-	} else if (strnicmp(cmd, "AntSwapExSlotInc",
-			    strlen("AntSwapExSlotInc")) == 0) {
-		return testmode_set_antswap_cfg(prGlueInfo->prAdapter,
-			cmd, len);
-	} else if (strnicmp(cmd, "AntSwapAntMode",
-			    strlen("AntSwapAntMode")) == 0) {
-		return testmode_set_antswap_cfg(prGlueInfo->prAdapter,
-			cmd, len);
 #endif
 	} else if (strnicmp(cmd, CMD_SET_AX_BLACKLIST,
 			    strlen(CMD_SET_AX_BLACKLIST)) == 0) {
@@ -6230,7 +6298,6 @@ int mtk_IsP2PNetDevice(struct GLUE_INFO *prGlueInfo,
 int mtk_init_sta_role(struct ADAPTER *prAdapter,
 		      struct net_device *ndev)
 {
-	struct NETDEV_PRIVATE_GLUE_INFO *prNdevPriv = NULL;
 	uint8_t ucBssIndex = 0;
 
 	if ((prAdapter == NULL) || (ndev == NULL))
@@ -6251,11 +6318,6 @@ int mtk_init_sta_role(struct ADAPTER *prAdapter,
 	ndev->netdev_ops = wlanGetNdevOps();
 	ndev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
 
-	/* set the ndev's ucBssIdx to the AIS BSS index */
-	prNdevPriv = (struct NETDEV_PRIVATE_GLUE_INFO *)
-		     netdev_priv(ndev);
-	prNdevPriv->ucBssIdx = ucBssIndex;
-
 	return 0;
 }
 
@@ -6272,7 +6334,6 @@ int mtk_init_sta_role(struct ADAPTER *prAdapter,
 int mtk_uninit_sta_role(struct ADAPTER *prAdapter,
 			struct net_device *ndev)
 {
-	struct NETDEV_PRIVATE_GLUE_INFO *prNdevPriv = NULL;
 	uint8_t ucBssIndex = 0;
 
 	if ((prAdapter == NULL) || (ndev == NULL))
@@ -6290,13 +6351,48 @@ int mtk_uninit_sta_role(struct ADAPTER *prAdapter,
 	/* uninit AIS FSM */
 	aisFsmUninit(prAdapter, ucBssIndex);
 
-	/* set the ucBssIdx to the illegal value */
-	prNdevPriv = (struct NETDEV_PRIVATE_GLUE_INFO *)
-		     netdev_priv(ndev);
-	prNdevPriv->ucBssIdx = 0xff;
-
 	return 0;
 }
+
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+void mtk_init_monitor_role(struct wiphy *wiphy,
+		      struct net_device *ndev)
+{
+	struct GLUE_INFO *prGlueInfo;
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+
+	if ((prGlueInfo == NULL) || (ndev == NULL))
+		return;
+
+	DBGLOG(INIT, INFO, "[type:iftype]:[%d:%d]=>[%d:%d]\n",
+		ndev->type,
+		ndev->ieee80211_ptr->iftype,
+		ARPHRD_IEEE80211_RADIOTAP,
+		NL80211_IFTYPE_MONITOR);
+	ndev->type = ARPHRD_IEEE80211_RADIOTAP;
+	ndev->ieee80211_ptr->iftype = NL80211_IFTYPE_MONITOR;
+	prGlueInfo->fgIsEnableMon = TRUE;
+	DBGLOG(INIT, INFO, "enable sniffer mode\n");
+}
+
+void mtk_uninit_monitor_role(struct wiphy *wiphy,
+			struct net_device *ndev)
+{
+	struct GLUE_INFO *prGlueInfo;
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+
+	if ((prGlueInfo == NULL) || (ndev == NULL))
+		return;
+
+	prGlueInfo->fgIsEnableMon = FALSE;
+	mtk_cfg80211_set_monitor_channel(wiphy, NULL);
+	ndev->type = ARPHRD_ETHER;
+	ndev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
+	DBGLOG(INIT, INFO, "disable sniffer mode\n");
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -6316,8 +6412,6 @@ int mtk_init_ap_role(struct GLUE_INFO *prGlueInfo,
 	uint8_t u4Idx = 0;
 	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
 
-	GLUE_SPIN_LOCK_DECLARATION();
-
 	for (u4Idx = 0; u4Idx < KAL_P2P_NUM; u4Idx++) {
 		if (gprP2pRoleWdev[u4Idx] == NULL)
 			break;
@@ -6328,22 +6422,20 @@ int mtk_init_ap_role(struct GLUE_INFO *prGlueInfo,
 		return -ENOMEM;
 	}
 
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	if ((u4Idx == 0) || (prAdapter == NULL) ||
-		(prAdapter->rP2PNetRegState != ENUM_NET_REG_STATE_REGISTERED)) {
+	if ((u4Idx == 0) ||
+	    (prAdapter == NULL) ||
+	    (prAdapter->rP2PNetRegState !=
+	     ENUM_NET_REG_STATE_REGISTERED)) {
 		DBGLOG(INIT, ERROR,
 		       "The wlan0 can't set to AP without p2p0\n");
 		/* System will crash, if p2p0 isn't existing. */
-		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 		return -EFAULT;
 	}
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	/* reference from the glRegisterP2P() */
 	gprP2pRoleWdev[u4Idx] = ndev->ieee80211_ptr;
 	if (glSetupP2P(prGlueInfo, gprP2pRoleWdev[u4Idx], ndev,
 		       u4Idx, TRUE)) {
-		DBGLOG(INIT, ERROR, "glSetupP2P failed\n");
 		gprP2pRoleWdev[u4Idx] = NULL;
 		return -EFAULT;
 	}
@@ -6352,9 +6444,7 @@ int mtk_init_ap_role(struct GLUE_INFO *prGlueInfo,
 
 	/* reference from p2pNetRegister() */
 	/* The ndev doesn't need register_netdev, only reassign the gPrP2pDev.*/
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 	gPrP2pDev[u4Idx] = ndev;
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	return 0;
 }
@@ -6376,15 +6466,10 @@ mtk_oid_uninit_ap_role(struct ADAPTER *prAdapter, void *pvSetBuffer,
 	uint32_t u4SetBufferLen, uint32_t *pu4SetInfoLen)
 {
 	unsigned char u4Idx = 0;
-	struct GLUE_INFO *prGlueInfo = NULL;
-
-	GLUE_SPIN_LOCK_DECLARATION();
 
 	if ((prAdapter == NULL) || (pvSetBuffer == NULL)
 		|| (pu4SetInfoLen == NULL))
 		return WLAN_STATUS_FAILURE;
-
-	prGlueInfo = prAdapter->prGlueInfo;
 
 	/* init */
 	*pu4SetInfoLen = sizeof(unsigned char);
@@ -6396,20 +6481,10 @@ mtk_oid_uninit_ap_role(struct ADAPTER *prAdapter, void *pvSetBuffer,
 
 	DBGLOG(INIT, INFO, "ucRoleIdx = %d\n", u4Idx);
 
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	if (prAdapter->rP2PNetRegState != ENUM_NET_REG_STATE_REGISTERED) {
-		DBGLOG(INIT, ERROR, "p2p net is already unregistered?\n");
-		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-		return -EFAULT;
-	}
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-
 	glUnregisterP2P(prAdapter->prGlueInfo, u4Idx);
 
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 	gPrP2pDev[u4Idx] = NULL;
 	gprP2pRoleWdev[u4Idx] = NULL;
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	return 0;
 
@@ -6665,7 +6740,12 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 	}
 	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
-	/* expect that only AP & STA will be handled here (excluding IBSS) */
+	/* only AP/STA/Monitor will be handled here (excluding IBSS) */
+
+	DBGLOG(INIT, INFO, "[before][type:iftype]:[%d:%d] => [?:%d]\n",
+		ndev->type,
+		ndev->ieee80211_ptr->iftype,
+		type);
 
 	if (type == NL80211_IFTYPE_AP) {
 		/* STA mode change to AP mode */
@@ -6682,7 +6762,13 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 			return -EFAULT;
 		}
 
-		mtk_uninit_sta_role(prAdapter, ndev);
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+		if (ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_MONITOR)
+			mtk_uninit_monitor_role(wiphy, ndev);
+		else
+#endif /* CFG_SUPPORT_SNIFFER_RADIOTAP */
+		if (ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_STATION)
+			mtk_uninit_sta_role(prAdapter, ndev);
 
 		if (mtk_init_ap_role(prGlueInfo, ndev) != 0) {
 			DBGLOG(INIT, ERROR, "mtk_init_ap_role FAILED\n");
@@ -6692,18 +6778,40 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 			mtk_init_sta_role(prAdapter, ndev);
 			return -EFAULT;
 		}
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	} else if (type == NL80211_IFTYPE_MONITOR) {
+		if (ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_STATION)
+			mtk_uninit_sta_role(prAdapter, ndev);
+		else if (ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_AP)
+			mtk_uninit_ap_role(prGlueInfo, ndev);
+
+		mtk_init_monitor_role(wiphy, ndev);
+#endif /* CFG_SUPPORT_SNIFFER_RADIOTAP */
 	} else {
-		/* AP mode change to STA mode */
-		if (mtk_uninit_ap_role(prGlueInfo, ndev) != 0) {
-			DBGLOG(INIT, ERROR, "mtk_uninit_ap_role FAILED\n");
-			return -EFAULT;
+		if (ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_AP) {
+			/* AP mode change to STA mode */
+			if (mtk_uninit_ap_role(prGlueInfo, ndev) != 0) {
+				DBGLOG(INIT, ERROR,
+					"mtk_uninit_ap_role FAILED\n");
+				return -EFAULT;
+			}
 		}
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+		else if (ndev->ieee80211_ptr->iftype ==
+				NL80211_IFTYPE_MONITOR)
+			mtk_uninit_monitor_role(wiphy, ndev);
+
+#endif /* CFG_SUPPORT_SNIFFER_RADIOTAP */
 
 		mtk_init_sta_role(prAdapter, ndev);
 
 		/* continue the mtk_cfg80211_change_iface() process */
 		mtk_cfg80211_change_iface(wiphy, ndev, type, flags, params);
 	}
+
+	DBGLOG(INIT, INFO, "[after][type:iftype]:[%d:%d]\n",
+		ndev->type,
+		ndev->ieee80211_ptr->iftype);
 
 	return 0;
 }
@@ -7475,14 +7583,6 @@ void mtk_cfg_mgmt_frame_update(struct wiphy *wiphy,
 			struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
 				(struct P2P_ROLE_FSM_INFO *) NULL;
 
-			if (!prGlueInfo->prAdapter->fgIsP2PRegistered ||
-				(prGlueInfo->prAdapter->rP2PNetRegState !=
-					ENUM_NET_REG_STATE_REGISTERED)) {
-				DBGLOG(P2P, WARN,
-					"p2p net dev is not registered\n");
-				break;
-			}
-
 			if (prGlueInfo->prP2PInfo[0]->prDevHandler ==
 				wdev->netdev) {
 				pu4PacketFilter =
@@ -7917,3 +8017,95 @@ int mtk_cfg80211_update_ft_ies(struct wiphy *wiphy, struct net_device *dev,
 
 	return 0;
 }
+
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+int mtk_cfg80211_set_monitor_channel(struct wiphy *wiphy,
+			struct cfg80211_chan_def *chandef)
+{
+	struct GLUE_INFO *prGlueInfo;
+	uint8_t ucBand = BAND_NULL;
+	uint8_t ucSco = 0;
+	uint8_t ucChannelWidth = 0;
+	uint8_t ucPriChannel = 0;
+	uint8_t ucChannelS1 = 0;
+	uint8_t ucChannelS2 = 0;
+	uint32_t u4BufLen;
+	uint32_t rStatus;
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+
+	if ((!prGlueInfo) || (prGlueInfo->u4ReadyFlag == 0)) {
+		DBGLOG(REQ, WARN, "driver is not ready\n");
+		return -EFAULT;
+	}
+
+	if (chandef) {
+		ucPriChannel =
+		ieee80211_frequency_to_channel(chandef->chan->center_freq);
+		ucChannelS1 =
+		ieee80211_frequency_to_channel(chandef->center_freq1);
+		ucChannelS2 =
+		ieee80211_frequency_to_channel(chandef->center_freq2);
+
+		switch (chandef->chan->band) {
+		case NL80211_BAND_2GHZ:
+			ucBand = BAND_2G4;
+			break;
+		case NL80211_BAND_5GHZ:
+			ucBand = BAND_5G;
+			break;
+		default:
+			return -EFAULT;
+		}
+
+		switch (chandef->width) {
+		case NL80211_CHAN_WIDTH_80P80:
+			ucChannelWidth = CW_80P80MHZ;
+			break;
+		case NL80211_CHAN_WIDTH_160:
+			ucChannelWidth = CW_160MHZ;
+			break;
+		case NL80211_CHAN_WIDTH_80:
+			ucChannelWidth = CW_80MHZ;
+			break;
+		case NL80211_CHAN_WIDTH_40:
+			ucChannelWidth = CW_20_40MHZ;
+			if (ucChannelS1 > ucPriChannel)
+				ucSco = CHNL_EXT_SCA;
+			else
+				ucSco = CHNL_EXT_SCB;
+			break;
+		case NL80211_CHAN_WIDTH_20:
+			ucChannelWidth = CW_20_40MHZ;
+			break;
+		default:
+			return -EFAULT;
+		}
+	}
+
+	prGlueInfo->ucPriChannel = ucPriChannel;
+	prGlueInfo->ucChannelS1 = ucChannelS1;
+	prGlueInfo->ucChannelS2 = ucChannelS2;
+	prGlueInfo->ucBand = ucBand;
+	prGlueInfo->ucChannelWidth = ucChannelWidth;
+	prGlueInfo->ucSco = ucSco;
+
+	DBGLOG(REQ, INFO,
+		"en[%d],bn[%d],pc[%d],sco[%d],bw[%d],cc1[%d],cc2[%d],bidx[%d],aid[%d],fcs[%d]\n",
+		prGlueInfo->fgIsEnableMon,
+		prGlueInfo->ucBand,
+		prGlueInfo->ucPriChannel,
+		prGlueInfo->ucSco,
+		prGlueInfo->ucChannelWidth,
+		prGlueInfo->ucChannelS1,
+		prGlueInfo->ucChannelS2,
+		prGlueInfo->ucBandIdx,
+		prGlueInfo->u2Aid,
+		prGlueInfo->fgDropFcsErrorFrame);
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidSetMonitor,
+		NULL, 0, FALSE, FALSE, TRUE, &u4BufLen);
+
+	return 0;
+}
+#endif

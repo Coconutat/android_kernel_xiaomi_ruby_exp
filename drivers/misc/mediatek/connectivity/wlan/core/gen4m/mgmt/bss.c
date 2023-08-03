@@ -225,7 +225,7 @@ struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
 	   rlmGenerateMTKOuiIE}	/* 221 */
 #endif
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
-	   rsnGenerateRSNXIE}   /* 244 */
+	   rsnGenerateRSNXIE}	/* 244 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_WPA), NULL,
 	   rsnGenerateOWEIE}
 };
@@ -2408,7 +2408,9 @@ void bssDumpBssInfo(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 	       MAC2STR(prBssInfo->aucOwnMacAddr), MAC2STR(prBssInfo->aucBSSID),
 	       HIDE(prBssInfo->aucSSID));
 
-	if (prBssInfo->eNetworkType < NETWORK_TYPE_NUM
+	if (prBssInfo->eNetworkType >= 0
+			&& prBssInfo->eNetworkType < NETWORK_TYPE_NUM
+			&& prBssInfo->eCurrentOPMode >= 0
 			&& prBssInfo->eCurrentOPMode < OP_MODE_NUM) {
 		DBGLOG(SW4, INFO,
 			"BSS IDX[%u] Type[%s] OPMode[%s] ConnState[%u] Absent[%u]\n",

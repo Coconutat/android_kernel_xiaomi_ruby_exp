@@ -160,8 +160,6 @@ static struct consys_plat_thermal_data_mt6895 g_consys_plat_therm_data;
 static struct rf_cr_backup_data *mt6637_backup_data = NULL;
 static unsigned int mt6637_backup_cr_number = 0;
 extern phys_addr_t gConEmiPhyBase;
-static void __iomem *ccif_wf2ap_sw_irq_b_addr;
-static void __iomem *ccif_bgf2ap_sw_irq_b_addr;
 
 int consys_co_clock_type_mt6895(void)
 {
@@ -203,13 +201,6 @@ int consys_clk_get_from_dts_mt6895(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	dev_pm_syscore_device(&pdev->dev, true);
 
-	/* remap these two CR for print irq status */
-	if (!ccif_wf2ap_sw_irq_b_addr)
-		ccif_wf2ap_sw_irq_b_addr = ioremap(0x1803C008, 0x4);
-
-	if (!ccif_bgf2ap_sw_irq_b_addr)
-		ccif_bgf2ap_sw_irq_b_addr = ioremap(0x1803E008, 0x4);
-
 	return 0;
 }
 
@@ -227,18 +218,26 @@ int consys_platform_spm_conn_ctrl_mt6895(unsigned int enable)
 		ret = pm_runtime_get_sync(&(pdev->dev));
 		if (ret)
 			pr_info("pm_runtime_get_sync() fail(%d)\n", ret);
+		else
+			pr_info("pm_runtime_get_sync() CONSYS ok\n");
 
 		ret = device_init_wakeup(&(pdev->dev), true);
 		if (ret)
 			pr_info("device_init_wakeup(true) fail.\n");
+		else
+			pr_info("device_init_wakeup(true) CONSYS ok\n");
 	} else {
 		ret = device_init_wakeup(&(pdev->dev), false);
 		if (ret)
 			pr_info("device_init_wakeup(false) fail.\n");
+		else
+			pr_info("device_init_wakeup(false) CONSYS ok\n");
 
 		ret = pm_runtime_put_sync(&(pdev->dev));
 		if (ret)
 			pr_info("pm_runtime_put_sync() fail.\n");
+		else
+			pr_info("pm_runtime_put_sync() CONSYS ok\n");
 	}
 	return ret;
 }
@@ -348,43 +347,6 @@ static inline void __sleep_count_trigger_read(void)
 
 }
 
-static void consys_print_irq_status(void)
-{
-	unsigned int val_1, val_2, val_3, val_4;
-
-	val_1 = CONSYS_REG_READ(CONN_REG_CONN_HOST_CSR_TOP_ADDR + 0x38) & 0x1;
-	val_2 = CONSYS_REG_READ(CONN_REG_CONN_HOST_CSR_TOP_ADDR + 0x34) & 0x1;
-	val_3 = CONSYS_REG_READ(CONN_REG_CONN_HOST_CSR_TOP_ADDR + 0x3C) & 0x2;
-	val_4 = CONSYS_REG_READ(CONN_REG_CONN_HOST_CSR_TOP_ADDR + 0x44) & 0x1;
-
-	// conn_bgf_hif_on_host_int_b
-	// (~(0x1806_0038[0] & 0x1806_0034[0])) & (~(0x1806_0038[1] & 0x1806_003C[0]))
-	if ((val_1 && val_2) || (val_1 && val_3))
-		pr_info("conn_bgf_hif_on_host_int_b %x %x %x", val_1, val_2, val_3);
-
- 	// conn_gps_hif_on_host_int_b
-	// ~ (0x1806_0038[0] & 0x1806_0044[0])
-	if (val_1 && val_4)
-		pr_info("conn_gps_hif_on_host_int_b %x %x", val_1, val_4);
-
-
-	if (consys_check_conninfra_on_domain_mt6895() == 0)
-		return;
-	// ccif_wf2ap_sw_irq_b	0x1803_C008[7:0]
-	// ccif_bgf2ap_sw_irq_b	0x1803_E008[7:0]
-	if (ccif_wf2ap_sw_irq_b_addr) {
-		val_1 = CONSYS_REG_READ(ccif_wf2ap_sw_irq_b_addr) & 0xFF;
-		if (val_1 > 0)
-			pr_info("ccif_wf2ap_sw_irq_b %x", val_1);
-	}
-
-	if (ccif_bgf2ap_sw_irq_b_addr) {
-		val_1 = CONSYS_REG_READ(ccif_bgf2ap_sw_irq_b_addr) & 0xFF;
-		if (val_1 > 0)
-			pr_info("ccif_bgf2ap_sw_irq_b %x", val_1);
-	}
-}
-
 static void consys_power_state(void)
 {
 	unsigned int i, str_len;
@@ -402,7 +364,7 @@ static void consys_power_state(void)
 
 	for (i = 0; i < 15; i++) {
 		str_len = strlen(osc_str[i]);
-
+		
 		if ((r & (0x1 << (1 + i))) > 0 && (buf_len + str_len < 256)) {
 			strncat(buf, osc_str[i], str_len);
 			buf_len += str_len;
@@ -410,8 +372,6 @@ static void consys_power_state(void)
 	}
 	if (r & 0xFFFF)
 		pr_info("[%s] [0x%x] %s", __func__, r, buf);
-
-	consys_print_irq_status();
 }
 
 static int consys_power_state_dump(char *buf, unsigned int size, int print_log)
@@ -818,6 +778,7 @@ int consys_pre_cal_restore_mt6895(void)
 static int consys_pre_cal_clean_data_mt6895(void)
 {
 
+	pr_info("[%s]", __func__);
 	if (mt6637_backup_data != NULL) {
 		kfree(mt6637_backup_data);
 		mt6637_backup_data = NULL;

@@ -52,7 +52,7 @@ endif
 ###############################################################################
 # To include BT driver dependent header file
 
-WMT_SRC_FOLDER := $(srctree)/drivers/misc/mediatek/connectivity/common
+WMT_SRC_FOLDER := $(TOP)/vendor/mediatek/kernel_modules/connectivity/common
 ccflags-y += -I$(WMT_SRC_FOLDER)/common_main/include
 ccflags-y += -I$(WMT_SRC_FOLDER)/common_main/linux/include
 ifneq ($(CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH),)
@@ -63,11 +63,8 @@ ccflags-y += -I$(src)/../include/btif
 ###############################################################################
 
 MODULE_NAME := bt_drv_$(BT_PLATFORM)
-ifeq ($(CONFIG_MTK_EXTRA_CONN_DRV_BUILD_IN),y)
-obj-y += $(MODULE_NAME).o
-else
 obj-m += $(MODULE_NAME).o
-endif
+
 ccflags-y += -D CREATE_NODE_DYNAMIC=1
 
 $(MODULE_NAME)-objs += stp_chrdev_bt.o

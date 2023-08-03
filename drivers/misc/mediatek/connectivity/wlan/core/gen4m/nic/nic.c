@@ -1864,11 +1864,15 @@ uint32_t nicUpdateBssEx(IN struct ADAPTER *prAdapter,
 	prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
 
 	if (prAdapter->rWifiVar.ucNSS == 1 && cnmIsMccMode(prAdapter))
-		halSetAdjustCtrl(prAdapter, true);
+		halSetTxRingBssTokenCnt(prAdapter, NIC_BSS_MCC_MODE_TOKEN_CNT);
 	else if (prBssInfo->ucPhyTypeSet == PHY_TYPE_SET_802_11B) {
-		halSetAdjustCtrl(prAdapter, true);
+		halSetTxRingBssTokenCnt(prAdapter, NIC_BSS_LOW_RATE_TOKEN_CNT);
+		prWifiVar->u4NetifStopTh = NIC_BSS_LOW_RATE_TOKEN_CNT;
+		prWifiVar->u4NetifStartTh = prWifiVar->u4NetifStopTh / 2;
 	} else {
-		halSetAdjustCtrl(prAdapter, false);
+		halSetTxRingBssTokenCnt(prAdapter, HIF_TX_MSDU_TOKEN_NUM);
+		prWifiVar->u4NetifStopTh = prWifiVar->u4NetifStopThBackup;
+		prWifiVar->u4NetifStartTh = prWifiVar->u4NetifStartThBackup;
 	}
 
 	kalMemZero(&rCmdSetBssInfo,
@@ -2159,7 +2163,7 @@ uint32_t nicPmIndicateBssCreated(IN struct ADAPTER
 				 *prAdapter, IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct CMD_INDICATE_PM_BSS_CREATED rCmdIndicatePmBssCreated = {0};
+	struct CMD_INDICATE_PM_BSS_CREATED rCmdIndicatePmBssCreated;
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
@@ -2200,7 +2204,8 @@ uint32_t nicPmIndicateBssConnected(IN struct ADAPTER
 				   *prAdapter, IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct CMD_INDICATE_PM_BSS_CONNECTED rCmdIndicatePmBssConnected = {0};
+	struct CMD_INDICATE_PM_BSS_CONNECTED
+		rCmdIndicatePmBssConnected;
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
@@ -2278,7 +2283,7 @@ uint32_t nicPmIndicateBssConnected(IN struct ADAPTER
 uint32_t nicPmIndicateBssAbort(IN struct ADAPTER *prAdapter,
 			       IN uint8_t ucBssIndex)
 {
-	struct CMD_INDICATE_PM_BSS_ABORT rCmdIndicatePmBssAbort = {0};
+	struct CMD_INDICATE_PM_BSS_ABORT rCmdIndicatePmBssAbort;
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
@@ -2433,7 +2438,7 @@ nicConfigProcSetCamCfgWrite(IN struct ADAPTER *prAdapter,
 	IN u_int8_t enabled, IN uint8_t ucBssIndex)
 {
 	enum PARAM_POWER_MODE ePowerMode;
-	struct CMD_PS_PROFILE rPowerSaveMode = { 0, 0, { 0, 0 } };
+	struct CMD_PS_PROFILE rPowerSaveMode;
 
 	if ((!prAdapter))
 		return WLAN_STATUS_FAILURE;
@@ -2480,7 +2485,6 @@ uint32_t nicEnterCtiaMode(IN struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
 	uint32_t u4Level = 0;
 #endif
-	u_int8_t fgEnCmdEvtSetting = 0;
 
 	DEBUGFUNC("nicEnterCtiaMode");
 	DBGLOG(INIT, TRACE, "nicEnterCtiaMode: %d\n", fgEnterCtia);
@@ -2488,7 +2492,6 @@ uint32_t nicEnterCtiaMode(IN struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
-	kalMemZero(&rCmdSwCtrl, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* 1. Disable On-Lin Scan */
@@ -2515,15 +2518,9 @@ uint32_t nicEnterCtiaMode(IN struct ADAPTER *prAdapter,
 			prAdapter->fgEnCtiaPowerMode = TRUE;
 
 			ePowerMode = Param_PowerModeCAM;
-			fgEnCmdEvtSetting =
-				(ucBssIdx + 1 == KAL_AIS_NUM)
-				? fgEnCmdEvent : FALSE;
-			rWlanStatus = nicConfigPowerSaveProfile(
-				prAdapter,
+			rWlanStatus = nicConfigPowerSaveProfile(prAdapter,
 				ucBssIdx,
-				ePowerMode,
-				fgEnCmdEvtSetting,
-				PS_CALLER_CTIA);
+				ePowerMode, fgEnCmdEvent, PS_CALLER_CTIA);
 		}
 
 		/* 5. Disable Beacon Timeout Detection */
@@ -2563,15 +2560,9 @@ uint32_t nicEnterCtiaMode(IN struct ADAPTER *prAdapter,
 			prAdapter->fgEnCtiaPowerMode = TRUE;
 
 			ePowerMode = Param_PowerModeFast_PSP;
-			fgEnCmdEvtSetting =
-				(ucBssIdx + 1 == KAL_AIS_NUM)
-				? fgEnCmdEvent : FALSE;
-			rWlanStatus = nicConfigPowerSaveProfile(
-				prAdapter,
+			rWlanStatus = nicConfigPowerSaveProfile(prAdapter,
 				ucBssIdx,
-				ePowerMode,
-				fgEnCmdEvtSetting,
-				PS_CALLER_CTIA);
+				ePowerMode, fgEnCmdEvent, PS_CALLER_CTIA);
 		}
 
 		/* 5. Enable Beacon Timeout Detection */
@@ -2625,7 +2616,6 @@ uint32_t nicEnterCtiaModeOfRoaming(IN struct ADAPTER
 	       fgEnterCtia);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
-	kalMemZero(&rCmdSwCtrl, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* Disable Roaming */
@@ -2722,7 +2712,7 @@ uint32_t nicEnterCtiaModeOfBCNTimeout(IN struct ADAPTER
 uint32_t nicEnterCtiaModeOfAutoTxPower(IN struct ADAPTER
 	*prAdapter, u_int8_t fgEnterCtia, u_int8_t fgEnCmdEvent)
 {
-	struct CMD_SW_DBG_CTRL rCmdSwCtrl = {0};
+	struct CMD_SW_DBG_CTRL rCmdSwCtrl;
 	uint32_t rWlanStatus;
 
 	ASSERT(prAdapter);
@@ -2767,7 +2757,7 @@ uint32_t nicEnterCtiaModeOfAutoTxPower(IN struct ADAPTER
 uint32_t nicEnterCtiaModeOfFIFOFullNoAck(IN struct ADAPTER
 		*prAdapter, u_int8_t fgEnterCtia, u_int8_t fgEnCmdEvent)
 {
-	struct CMD_SW_DBG_CTRL rCmdSwCtrl = {0};
+	struct CMD_SW_DBG_CTRL rCmdSwCtrl;
 	uint32_t rWlanStatus;
 
 	ASSERT(prAdapter);
@@ -2812,7 +2802,7 @@ uint32_t nicEnterCtiaModeOfFIFOFullNoAck(IN struct ADAPTER
 uint32_t nicEnterTPTestMode(IN struct ADAPTER *prAdapter,
 			    IN uint8_t ucFuncMask)
 {
-	struct CMD_SW_DBG_CTRL rCmdSwCtrl = {0};
+	struct CMD_SW_DBG_CTRL rCmdSwCtrl;
 	uint32_t rWlanStatus;
 	uint8_t ucBssIdx;
 	struct BSS_INFO *prBssInfo;
@@ -3035,7 +3025,7 @@ uint32_t nicQmUpdateWmmParms(IN struct ADAPTER *prAdapter,
 			     IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct CMD_UPDATE_WMM_PARMS rCmdUpdateWmmParms = {0};
+	struct CMD_UPDATE_WMM_PARMS rCmdUpdateWmmParms;
 	struct mt66xx_chip_info *prChipInfo;
 	uint32_t u4TxHifRes = 0, u4Idx = 0;
 
@@ -3104,7 +3094,7 @@ uint32_t nicQmUpdateMUEdcaParams(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct _CMD_MQM_UPDATE_MU_EDCA_PARMS_T rCmdUpdateMUEdcaParms = {0};
+	struct _CMD_MQM_UPDATE_MU_EDCA_PARMS_T rCmdUpdateMUEdcaParms;
 
 	ASSERT(prAdapter);
 
@@ -3157,7 +3147,7 @@ uint32_t nicRlmUpdateSRParams(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct _CMD_RLM_UPDATE_SR_PARMS_T rCmdUpdateSRParms = {0};
+	struct _CMD_RLM_UPDATE_SR_PARMS_T rCmdUpdateSRParms;
 
 	ASSERT(prAdapter);
 
@@ -5351,6 +5341,8 @@ void nicRxdChNumTranslate(
 		*pucHwChannelNum = (((*pucHwChannelNum-181) << 2) + 1);
 #endif
 }
+
+#if CFG_SUPPORT_DROP_INVALID_MSDUINFO
 void nicDumpMsduInfo(IN struct MSDU_INFO *prMsduInfo)
 {
 	struct sk_buff *prSkb;
@@ -5434,3 +5426,4 @@ void nicDumpMsduInfo(IN struct MSDU_INFO *prMsduInfo)
 		DBGLOG_MEM8(NIC, INFO, prSkb->data, 64);
 	}
 }
+#endif /* CFG_SUPPORT_DROP_INVALID_MSDUINFO */

@@ -1429,7 +1429,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 void swCrDebugCheckTimeout(IN struct ADAPTER *prAdapter,
 			   unsigned long ulParamPtr)
 {
-	struct CMD_SW_DBG_CTRL rCmdSwCtrl = {0};
+	struct CMD_SW_DBG_CTRL rCmdSwCtrl;
 	uint32_t rStatus;
 
 	rCmdSwCtrl.u4Id = (0xb000 << 16) + g_ucSwcrDebugCheckType;

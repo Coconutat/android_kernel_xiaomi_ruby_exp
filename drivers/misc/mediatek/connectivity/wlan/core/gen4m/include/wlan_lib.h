@@ -208,7 +208,7 @@
 #define WLAN_CFG_KEY_LEN_MAX	32	/* include \x00  EOL */
 #define WLAN_CFG_VALUE_LEN_MAX	128	/* include \x00 EOL */
 #define WLAN_CFG_FLAG_SKIP_CB	BIT(0)
-#define WLAN_CFG_FILE_BUF_SIZE	2048
+#define WLAN_CFG_FILE_BUF_SIZE	10240
 
 #define WLAN_CFG_REC_ENTRY_NUM_MAX 400
 
@@ -1251,6 +1251,7 @@ enum ENUM_WLAN_IOT_AP_HANDLE_ACTION {
 	WLAN_IOT_AP_DIS_2GHT40,
 	WLAN_IOT_AP_KEEP_EDCA_PARAM = 6,
 	WLAN_IOT_AP_COEX_DIS_RX_AMPDU,
+	WLAN_IOT_AP_COEX_A2DP_CTS2SELF = 10,
 	WLAN_IOT_AP_ACT_MAX
 };
 
@@ -1278,16 +1279,6 @@ struct TRX_INFO {
 	uint32_t u4TxOk[MAX_BSSID_NUM];	/* By BSSIDX */
 	uint32_t u4RxOk[MAX_BSSID_NUM];	/* By BSSIDX */
 };
-
-struct ENV_INFO {
-	struct timespec64 rLongestTxTime;
-	uint32_t u4Snr;
-	uint32_t u4Noise;
-	uint32_t u4RxListenTime;
-	uint32_t u4TxTimeCount;
-	uint32_t u4Idle;
-};
-
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -1369,12 +1360,6 @@ void wlanClearPendingCommandQueue(IN struct ADAPTER *prAdapter);
 void wlanReleaseCommand(IN struct ADAPTER *prAdapter,
 			IN struct CMD_INFO *prCmdInfo,
 			IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
-
-void wlanReleaseCommandEx(IN struct ADAPTER *prAdapter,
-			IN struct CMD_INFO *prCmdInfo,
-			IN enum ENUM_TX_RESULT_CODE rTxDoneStatus,
-			IN u_int8_t fgIsNeedHandler);
-
 
 void wlanReleasePendingOid(IN struct ADAPTER *prAdapter,
 			   IN unsigned long ulParamPtr);
@@ -1923,10 +1908,6 @@ uint32_t wlanSetRxBaSize(IN struct GLUE_INFO *prGlueInfo,
 	int8_t i4Type, uint16_t u2BaSize);
 uint32_t wlanSetTxBaSize(IN struct GLUE_INFO *prGlueInfo,
 	int8_t i4Type, uint16_t u2BaSize);
-
-void
-wlanGetEnvInfo(IN struct ADAPTER *prAdapter,
-	OUT struct ENV_INFO *prEnvInfo);
 
 void
 wlanGetTRXInfo(IN struct ADAPTER *prAdapter,

@@ -121,7 +121,7 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[2] = {0};
 	int ret = 0;
 
-	kalGetFwFlavor(&aucFlavor[0]);
+	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
 	for (ucIdx = 0; apucSoc2_1x1FwName[ucIdx]; ucIdx++) {
 		if ((*pucNameIdx + 3) >= ucMaxNameIdx) {
 			/* the table is not large enough */
@@ -138,7 +138,8 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucSoc2_1x1FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -153,7 +154,8 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucSoc2_1x1FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -301,7 +303,6 @@ struct ATE_OPS_T soc2_1x1AteOps = {
 	.getICapStatus = connacGetICapStatus,
 	.getICapIQData = connacGetICapIQData,
 	.getRbistDataDumpEvent = nicExtEventICapIQData,
-	.u4Architech = 1,
 };
 #endif
 
@@ -315,8 +316,8 @@ struct CHIP_DBG_OPS soc2_1x1_debug_ops = {
 	.showDmaschInfo = halShowDmaschInfo,
 	.dumpMacInfo = haldumpMacInfo,
 	.dumpTxdInfo = halDumpTxdInfo,
-	.getFwDebug = NULL,
-	.setFwDebug = NULL,
+	.getFwDebug = halGetPleInt,
+	.setFwDebug = halSetPleInt,
 	.showHifInfo = soc2_1x1ShowHifInfo,
 #else
 	.showPdmaInfo = NULL,
@@ -388,9 +389,6 @@ struct mt66xx_chip_info mt66xx_chip_info_soc2_1x1 = {
 	.em_interface_version = MTK_EM_INTERFACE_VERSION,
 
 	.calDebugCmd = soc2_1x1wlanCalDebugCmd,
-#if CFG_SUPPORT_MDDP_AOR
-	.isSupportMddpAOR = true,
-#endif
 };
 
 struct mt66xx_hif_driver_data mt66xx_driver_data_soc2_1x1 = {

@@ -136,9 +136,6 @@ uint32_t assocProcessRxAssocReqFrame(IN struct ADAPTER
 uint32_t assocSendReAssocRespFrame(IN struct ADAPTER
 				*prAdapter, IN struct STA_RECORD *prStaRec);
 
-struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
-				IN struct STA_RECORD *prStaRec);
-
 uint16_t assocBuildCapabilityInfo(IN struct ADAPTER
 				*prAdapter, IN struct STA_RECORD *prStaRec);
 

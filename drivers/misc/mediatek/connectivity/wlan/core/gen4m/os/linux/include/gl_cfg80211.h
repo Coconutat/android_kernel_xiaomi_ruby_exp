@@ -94,8 +94,10 @@
 #define NL80211_EXT_FEATURE_OCE_PROBE_REQ_HIGH_TX_RATE 19
 #define NL80211_EXT_FEATURE_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION 20
 #define NL80211_EXT_FEATURE_LOW_SPAN_SCAN 22
+#define NL80211_EXT_FEATURE_HIGH_ACCURACY_SCAN 24
 
 #define NL80211_SCAN_FLAG_LOW_SPAN (1 << 8)
+#define NL80211_SCAN_FLAG_HIGH_ACCURACY (1 << 10)
 #endif
 
 /*******************************************************************************
@@ -275,6 +277,11 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 			     struct net_device *ndev, u8 *mac,
 			     struct station_info *sinfo);
 #endif
+
+int
+mtk_cfg80211_get_link_statistics(struct wiphy *wiphy,
+				 struct net_device *ndev, u8 *mac,
+				 struct station_info *sinfo);
 
 int mtk_cfg80211_scan(struct wiphy *wiphy,
 		      struct cfg80211_scan_request *request);
@@ -763,6 +770,11 @@ int mtk_cfg_get_txpower(struct wiphy *wiphy,
 
 int mtk_cfg80211_update_ft_ies(struct wiphy *wiphy, struct net_device *dev,
 				struct cfg80211_update_ft_ies_params *ftie);
+
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+int mtk_cfg80211_set_monitor_channel(struct wiphy *wiphy,
+				struct cfg80211_chan_def *chandef);
+#endif
 
 #if CFG_SUPPORT_WPA3
 int mtk_cfg80211_external_auth(struct wiphy *wiphy, struct net_device *dev,

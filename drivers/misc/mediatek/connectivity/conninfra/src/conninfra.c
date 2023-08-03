@@ -221,7 +221,7 @@ int conninfra_sub_drv_ops_register(enum consys_drv_type type,
 				struct sub_drv_ops_cb *cb)
 {
 	/* type validation */
-	if (type >= CONNDRV_TYPE_MAX) {
+	if (type < 0 || type >= CONNDRV_TYPE_MAX) {
 		pr_err("[%s] incorrect drv type [%d]", __func__, type);
 		return -EINVAL;
 	}
@@ -234,7 +234,7 @@ EXPORT_SYMBOL(conninfra_sub_drv_ops_register);
 int conninfra_sub_drv_ops_unregister(enum consys_drv_type type)
 {
 	/* type validation */
-	if (type >= CONNDRV_TYPE_MAX) {
+	if (type < 0 || type >= CONNDRV_TYPE_MAX) {
 		pr_err("[%s] incorrect drv type [%d]", __func__, type);
 		return -EINVAL;
 	}
@@ -261,8 +261,6 @@ EXPORT_SYMBOL(conninfra_spi_read);
 
 int conninfra_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr, unsigned int data)
 {
-	int ret = 0;
-
 	if (conninfra_core_is_rst_locking()) {
 		DUMP_LOG();
 		return CONNINFRA_ERR_RST_ONGOING;
@@ -272,13 +270,8 @@ int conninfra_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr, uns
 		pr_err("[%s] wrong subsys %d", __func__, subsystem);
 		return -EINVAL;
 	}
-
-	ret = conninfra_core_spi_write(subsystem, addr, data);
-
-	if (ret == CONNINFRA_SPI_ADDR_INVALID)
-		pr_info("[%s] Error: write invalid spi addr=[0x%x], value=[0x%x]\n", __func__, addr, data);
-
-	return ret;
+	return conninfra_core_spi_write(subsystem, addr, data);
+;
 }
 EXPORT_SYMBOL(conninfra_spi_write);
 

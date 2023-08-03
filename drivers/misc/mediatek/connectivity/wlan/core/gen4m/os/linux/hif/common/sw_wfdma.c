@@ -84,11 +84,7 @@ void halSwWfdmaInit(struct GLUE_INFO *prGlueInfo)
 	if (!prSwWfdmaInfo->fgIsEnSwWfdma)
 		return;
 
-#if CFG_TRI_TX_RING
-	prSwWfdmaInfo->u4PortIdx = TX_RING_CMD_IDX_4;
-#else
 	prSwWfdmaInfo->u4PortIdx = TX_RING_CMD_IDX_3;
-#endif
 
 	/* update sw wfdma emi offset */
 	if (prSwWfdmaInfo->u4EmiOffsetAddr) {
@@ -353,11 +349,7 @@ bool halSwWfdmaWriteCmd(struct GLUE_INFO *prGlueInfo)
 	prSwWfdmaInfo = &prBusInfo->rSwWfdmaInfo;
 	prSwWfDmad = prSwWfdmaInfo->prDmad;
 
-#if CFG_TRI_TX_RING
-	prTxRing = &prHifInfo->TxRing[TX_RING_CMD_IDX_4];
-#else
 	prTxRing = &prHifInfo->TxRing[TX_RING_CMD_IDX_3];
-#endif
 
 	if (!prSwWfdmaInfo->fgIsEnSwWfdma || !prSwWfDmad)
 		return false;
@@ -427,11 +419,7 @@ bool halSwWfdmaProcessDmaDone(struct GLUE_INFO *prGlueInfo)
 	if (!prSwWfdmaInfo->fgIsEnSwWfdma)
 		return false;
 
-#if CFG_TRI_TX_RING
-	halWpdmaProcessCmdDmaDone(prGlueInfo, TX_RING_CMD_IDX_4);
-#else
 	halWpdmaProcessCmdDmaDone(prGlueInfo, TX_RING_CMD_IDX_3);
-#endif
 	return halSwWfdmaWriteCmd(prGlueInfo);
 }
 

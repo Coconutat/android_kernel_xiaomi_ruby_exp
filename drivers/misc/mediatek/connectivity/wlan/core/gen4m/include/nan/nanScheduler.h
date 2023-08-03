@@ -149,7 +149,6 @@ struct _NAN_SCHED_EVENT_NAN_ATTR_T {
 uint32_t nanSchedNegoApplyCustChnlList(struct ADAPTER *prAdapter);
 
 uint32_t nanSchedInit(struct ADAPTER *prAdapter);
-uint32_t nanSchedUninit(struct ADAPTER *prAdapter);
 
 void nanSchedDropResources(struct ADAPTER *prAdapter, uint8_t *pucNmiAddr,
 			   enum _ENUM_NAN_NEGO_TYPE_T eType);

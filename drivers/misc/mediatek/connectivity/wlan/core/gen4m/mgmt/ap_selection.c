@@ -93,6 +93,9 @@
 /* Support driver triggers roaming */
 #define RCPI_DIFF_DRIVER_ROAM			20 /* 10 dbm */
 
+/*  Enable driver select bssid_hint  */
+#define CFG_ENABLE_BSSID_HINT     0
+
 /* In case 2.4G->5G, the trigger rssi is RSSI_BAD_NEED_ROAM_24G_TO_5G
  * In other case(2.4G->2.4G/5G->2.4G/5G->5G), the trigger
  * rssi is RSSI_BAD_NEED_ROAM
@@ -597,6 +600,13 @@ static u_int8_t scanNeedReplaceCandidate(struct ADAPTER *prAdapter,
 			cCandRssi >= RSSI_SECOND_LEVEL &&
 			cCurrRssi >= RSSI_SECOND_LEVEL)
 			break;
+		if (eRoamType != ROAM_TYPE_PER &&
+			prCandBss->eBand == BAND_5G &&
+			cCandRssi >= GOOD_RSSI_FOR_HT_VHT) {
+			log_dbg(SCN, INFO, "CandBss in band[a] Opch, cCandRssi is %ddBm\n",
+					cCandRssi);
+			break;
+		}
 		if (cCandRssi - cCurrRssi >= RSSI_DIFF_BETWEEN_BSS)
 			return FALSE;
 		if (cCurrRssi - cCandRssi >= RSSI_DIFF_BETWEEN_BSS)
@@ -1246,7 +1256,8 @@ struct BSS_DESC *scanSearchBssDescByScoreForAis(struct ADAPTER *prAdapter,
 	int32_t base, delta, goal;
 #endif
 
-	if (!prAdapter || eRoamReason >= ROAMING_REASON_NUM) {
+	if (!prAdapter ||
+	    eRoamReason >= ROAMING_REASON_NUM || eRoamReason < 0) {
 		log_dbg(SCN, ERROR,
 			"prAdapter %p, reason %d!\n", prAdapter, eRoamReason);
 		return NULL;
@@ -1329,6 +1340,7 @@ try_again:
 						"Do network selection even match bssid_hint\n");
 				} else
 #endif
+#if CFG_ENABLE_BSSID_HINT
 				{
 					log_dbg(SCN, INFO,
 						MACSTR" match bssid_hint\n",
@@ -1336,6 +1348,12 @@ try_again:
 					prCandBssDesc = prBssDesc;
 					break;
 				}
+#else
+				{
+					log_dbg(SCN, INFO,
+						"bssid_hint selection disabled\n");
+				}
+#endif
 			}
 		}
 
@@ -1474,6 +1492,7 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 	struct ESS_CHNL_INFO *prEssChnlInfo;
 	struct LINK *prCurEssLink;
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
+	struct ROAMING_INFO *prRoamingFsmInfo;
 	uint8_t aucChnlBitMap[30] = {0,};
 	uint8_t aucChnlApNum[234] = {0,};
 	uint8_t aucChnlUtil[234] = {0,};
@@ -1497,6 +1516,7 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 
 	prAisSpecBssInfo =
 		aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
+	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 	if (!prAisSpecBssInfo) {
 		log_dbg(SCN, INFO, "No prAisSpecBssInfo\n");
 		return;
@@ -1627,19 +1647,14 @@ updated:
 		prEssChnlInfo[j].ucApNum = aucChnlApNum[ucChnl];
 		prEssChnlInfo[j].ucUtilization = aucChnlUtil[ucChnl];
 	}
-#if 0
-	/* Sort according to AP number */
-	for (j = 0; j < ucChnlCount; j++) {
-		for (i = j + 1; i < ucChnlCount; i++)
-			if (prEssChnlInfo[j].ucApNum >
-				prEssChnlInfo[i].ucApNum) {
-				struct ESS_CHNL_INFO rTemp = prEssChnlInfo[j];
 
-				prEssChnlInfo[j] = prEssChnlInfo[i];
-				prEssChnlInfo[i] = rTemp;
-			}
-	}
-#endif
+	if (prCurEssLink->u4NumElem >= 2 &&
+		prRoamingFsmInfo->fgFwTxPerEnabled == FALSE)
+		prRoamingFsmInfo->fgFwTxPerEnabled = TRUE;
+	else if (prCurEssLink->u4NumElem == 1 &&
+		prRoamingFsmInfo->fgFwTxPerEnabled == TRUE)
+		prRoamingFsmInfo->fgFwTxPerEnabled = FALSE;
+
 	log_dbg(SCN, INFO, "Find %s in %d BSSes, result %d\n",
 		prConnSettings->aucSSID, prBSSDescList->u4NumElem,
 		prCurEssLink->u4NumElem);

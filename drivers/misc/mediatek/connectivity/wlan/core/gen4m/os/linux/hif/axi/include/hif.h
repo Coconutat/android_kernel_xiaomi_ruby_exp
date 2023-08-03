@@ -226,9 +226,6 @@ struct BUS_INFO {
 	const uint32_t tx_ring0_data_idx;
 	const uint32_t tx_ring1_data_idx;
 	const uint32_t tx_ring2_data_idx;
-#if CFG_TRI_TX_RING
-	const uint32_t tx_ring3_data_idx;
-#endif
 	const uint32_t max_static_map_addr;
 	const uint32_t fw_own_clear_addr;
 	const uint32_t fw_own_clear_bit;
@@ -436,10 +433,6 @@ void glGetHifDev(struct GL_HIF_INFO *prHif, struct device **dev);
 struct mt66xx_hif_driver_data *get_platform_driver_data(void);
 
 void glGetChipInfo(void **prChipInfo);
-
-struct mt66xx_chip_info *glGetChipInfoV2(void);
-
-struct mt66xx_hif_driver_data *glGetDriverData(void);
 
 /*******************************************************************************
  *                              F U N C T I O N S

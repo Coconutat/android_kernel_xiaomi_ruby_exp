@@ -5737,8 +5737,6 @@ VOID wlanCfgApply(IN P_ADAPTER_T prAdapter)
 
 	prAdapter->prGlueInfo->i4Priority = wlanCfgGetInt32(prAdapter, "RTPri", 0);
 	/* TODO: Apply other Config */
-	prWifiVar->fgSapCheckPmkidInDriver =
-		(UINT_32) wlanCfgGetUint32(prAdapter, "SapCheckPmkidInDriver", 1);
 }
 #endif /* CFG_SUPPORT_CFG_FILE */
 

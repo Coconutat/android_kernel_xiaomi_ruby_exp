@@ -1602,10 +1602,4 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 			prRfChnlInfo->ucChannelNum,
 			rlmGetVhtOpBwByBssOpBw(prRfChnlInfo->ucChnlBw));
 	prRfChnlInfo->u4CenterFreq2 = 0;
-
-	if ((eBand == BAND_5G) &&
-		(ucCh >= 52 && ucCh <= 144))
-		prRfChnlInfo->eDFS = NL80211_DFS_USABLE;
-	else
-		prRfChnlInfo->eDFS = NL80211_DFS_AVAILABLE;
 }

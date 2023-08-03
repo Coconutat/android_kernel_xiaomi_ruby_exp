@@ -21,7 +21,7 @@
 #define RETURN_NAME_IN_LIST(list, num, index, retval)                          \
 	do {                                                                   \
 		MUST_BE_CONST(num);                                            \
-		if ((unsigned int)(index) < (unsigned int)(num)) {                     \
+		if (((index) >= 0) && ((index) < (num))) {                     \
 			if ((list)[index])                                     \
 				retval = (list)[index];                        \
 			else {                                                 \
@@ -149,7 +149,6 @@ const char *const gps_dl_link_event_name_list[GPS_DL_LINK_EVT_NUM + 1] = {
 	[GPS_DL_EVT_LINK_LEAVE_DPSTOP]    = "LEAVE_DPSTOP",
 	[GPS_DL_EVT_LINK_PRINT_DATA_STATUS] = "PRINT_DATA_STATUS",
 	[GPS_DL_EVT_LINK_UPDATE_SETTING]  = "UPDATE_SETTING",
-	[GPS_DL_EVT_LINK_LEAVE_DPSTOP2]   = "LEAVE_DPSTOP2",
 	[GPS_DL_LINK_EVT_NUM]             = "LINK_INVALID_EVT"
 };
 

@@ -1377,6 +1377,20 @@ struct CMD_MDDP_FILTER_RULE {
 	uint8_t  aucWhPfClsFilterMddp[0];
 };
 
+struct CMD_MONITOR_SET_INFO {
+	uint8_t  ucEnable;
+	uint8_t  ucBand;
+	uint8_t  ucPriChannel;
+	uint8_t  ucSco;
+	uint8_t  ucChannelWidth;
+	uint8_t  ucChannelS1;
+	uint8_t  ucChannelS2;
+	uint8_t  ucBandIdx;
+	uint16_t u2Aid;
+	uint8_t  fgDropFcsErrorFrame;
+	uint8_t  aucResv[5];
+};
+
 /*---------------------------------------------------------------------------*/
 /* EVENT Packets                                                          */
 /*---------------------------------------------------------------------------*/

@@ -1933,7 +1933,7 @@ assocComposeReAssocRespFrameHeaderAndFF(IN struct STA_RECORD *prStaRec,
  * @retval WLAN_STATUS_SUCCESS   Successfully send frame to TX Module
  */
 /*----------------------------------------------------------------------------*/
-struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
+uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
 				   IN struct STA_RECORD *prStaRec)
 {
 	struct BSS_INFO *prBssInfo;
@@ -1985,7 +1985,7 @@ struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
 	if (prMsduInfo == NULL) {
 		DBGLOG(AAA, WARN,
 		       "No PKT_INFO_T for sending (Re)Assoc Response.\n");
-		return NULL;
+		return WLAN_STATUS_RESOURCES;
 	}
 	/* 4 <2> Compose (Re)Association Request frame header and fixed fields
 	 *       in MSDU_INfO_T.
@@ -2046,18 +2046,6 @@ struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
 	 */
 
 	nicTxConfigPktControlFlag(prMsduInfo, MSDU_CONTROL_FLAG_FORCE_TX, TRUE);
-
-	return prMsduInfo;
-} /* end of assocComposeReAssocRespFrame() */
-
-uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
-				  IN struct STA_RECORD *prStaRec)
-{
-	struct MSDU_INFO *prMsduInfo;
-
-	prMsduInfo = assocComposeReAssocRespFrame(prAdapter, prStaRec);
-	if (!prMsduInfo)
-		return WLAN_STATUS_RESOURCES;
 
 	/* 4 <6> Enqueue the frame to send this (Re)Association request frame.
 	 */

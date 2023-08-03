@@ -401,6 +401,7 @@ void scanSetRequestChannel(IN struct ADAPTER *prAdapter,
 	uint32_t au4ChannelBitMap[SCAN_CHANNEL_BITMAP_ARRAY_LEN];
 	struct SCAN_INFO *prScanInfo;
 	bool fgIsLowSpanScan = FALSE;
+	bool fgIsHighAccuracy = FALSE;
 	uint32_t *pau4ChBitMap;
 #if CFG_SUPPORT_FULL2PARTIAL_SCAN
 	uint8_t fgIsFull2Partial = FALSE;
@@ -415,6 +416,7 @@ void scanSetRequestChannel(IN struct ADAPTER *prAdapter,
 	i = u4Index = 0;
 	kalMemZero(au4ChannelBitMap, sizeof(au4ChannelBitMap));
 	fgIsLowSpanScan = (u4ScanFlags & NL80211_SCAN_FLAG_LOW_SPAN) >> 8;
+	fgIsHighAccuracy = (u4ScanFlags & NL80211_SCAN_FLAG_HIGH_ACCURACY) >> 10;
 
 #if CFG_SUPPORT_FULL2PARTIAL_SCAN
 	/* fgIsCheckingFull2Partial should be true if it's an online scan.
@@ -427,24 +429,27 @@ void scanSetRequestChannel(IN struct ADAPTER *prAdapter,
 		/* Do full scan when
 		 * 1. did not do full scan yet OR
 		 * 2. not APP scan and it's been 60s after last full scan
+		 * 3. WifiSetting scan is low latency, so delete the
+		 * condition "fgIsLowSpanScan"
+		 * 4. If high accurary scan, do full scan for huanji app
 		*/
 		if (prScanInfo->u4LastFullScanTime == 0 ||
-			(!fgIsLowSpanScan &&
 			(CHECK_FOR_TIMEOUT(rCurrentTime,
 			prScanInfo->u4LastFullScanTime,
-			SEC_TO_SYSTIME(CFG_SCAN_FULL2PARTIAL_PERIOD))))) {
+			SEC_TO_SYSTIME(CFG_SCAN_FULL2PARTIAL_PERIOD))) ||
+			fgIsHighAccuracy) {
 			prScanInfo->fgIsScanForFull2Partial = TRUE;
 			prScanInfo->ucFull2PartialSeq = prScanReqMsg->ucSeqNum;
 			prScanInfo->u4LastFullScanTime = rCurrentTime;
 			kalMemZero(prScanInfo->au4ChannelBitMap,
 				sizeof(prScanInfo->au4ChannelBitMap));
 			log_dbg(SCN, INFO,
-				"Full2partial: 1st full scan start, low span=%d\n",
-				fgIsLowSpanScan);
+				"Full2partial: 1st full scan start, low span=%d, highA=%d\n",
+				fgIsLowSpanScan, fgIsHighAccuracy);
 		} else {
 			log_dbg(SCN, INFO,
-				"Full2partial: enable full2partial, low span=%d\n",
-				fgIsLowSpanScan);
+				"Full2partial: enable full2partial, low span=%d, highA=%d\n",
+				fgIsLowSpanScan, fgIsHighAccuracy);
 			fgIsFull2Partial = TRUE;
 		}
 	}
@@ -1640,8 +1645,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 					prIeShortSsidList->ucLength + 2;
 			prScanRequest->ucScnFuncMask |=
 						ENUM_SCN_USE_PADDING_AS_BSSID;
-			prScanRequest->ucBssIndex =
-					prScanInfo->rScanParam.ucBssIndex;
+			prScanRequest->ucBssIndex = GET_IOCTL_BSSIDX(prAdapter);
 			/* IE used to save short SSID list*/
 			prScanRequest->pucIE = prNeighborAPInfo->aucScanIEBuf;
 
@@ -1658,10 +1662,8 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 		if (ucRnrChNum == 0 || IS_6G_PSC_CHANNEL(ucRnrChNum)) {
 			DBGLOG(SCN, TRACE, "Not handle RNR channel(%d)!\n",
 					ucRnrChNum);
-			if (ucNewLink) {
+			if (LINK_IS_EMPTY(&prAdapter->rNeighborAPInfoList))
 				cnmMemFree(prAdapter, prNeighborAPInfo);
-				ucNewLink = FALSE;
-			}
 			/* Calculate next NeighborAPInfo's index if exists */
 			ucCurrentLength += 4 +
 				(u2TbttInfoCount * u2TbttInfoLength);
@@ -1824,10 +1826,8 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 					MAC2STR(prScanRequest->aucBssid[3]));
 			ucHasBssid = FALSE;
 		}
-		if (ucNewLink) {
+		if (LINK_IS_EMPTY(&prAdapter->rNeighborAPInfoList))
 			cnmMemFree(prAdapter, prNeighborAPInfo);
-			ucNewLink = FALSE;
-		}
 	}
 }
 
@@ -2820,20 +2820,11 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 
 	/* 4 <3.3> Check rate information in related IEs. */
 	if (prIeSupportedRate || prIeExtSupportedRate) {
-		if ((prIeSupportedRate &&
-			prIeSupportedRate->ucLength > RATE_NUM_SW) ||
-			(prIeExtSupportedRate &&
-			prIeExtSupportedRate->ucLength >=
-			ELEM_MAX_LEN_EXTENDED_SUP_RATES)) {
-			DBGLOG(SCN, ERROR,
-				"ERR! SupportedRate IE length too big\n");
-			return NULL;
-		}
 		rateGetRateSetFromIEs(prIeSupportedRate,
-				prIeExtSupportedRate,
-				&prBssDesc->u2OperationalRateSet,
-				&prBssDesc->u2BSSBasicRateSet,
-				&prBssDesc->fgIsUnknownBssBasicRate);
+				      prIeExtSupportedRate,
+				      &prBssDesc->u2OperationalRateSet,
+				      &prBssDesc->u2BSSBasicRateSet,
+				      &prBssDesc->fgIsUnknownBssBasicRate);
 	}
 
 	/* 4 <4> Update information from HIF RX Header */
@@ -3232,8 +3223,6 @@ uint32_t scanAddScanResult(IN struct ADAPTER *prAdapter,
 	ASSERT(prSwRfb);
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
-	kalMemZero(&rConfiguration, sizeof(rConfiguration));
-	kalMemZero(&rSsid, sizeof(rSsid));
 
 	if (prBssDesc->eBand == BAND_2G4) {
 		if ((prBssDesc->u2OperationalRateSet & RATE_SET_OFDM)

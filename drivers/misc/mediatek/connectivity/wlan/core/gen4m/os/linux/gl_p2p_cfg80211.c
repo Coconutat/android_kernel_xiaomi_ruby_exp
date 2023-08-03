@@ -1088,6 +1088,13 @@ int mtk_p2p_cfg80211_scan(struct wiphy *wiphy,
 
 		P2P_WIPHY_PRIV(wiphy, prGlueInfo);
 
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+		if (prGlueInfo->fgIsEnableMon) {
+			i4RetRslt = -EINVAL;
+			break;
+		}
+#endif
+
 		if (wlanIsChipAssert(prGlueInfo->prAdapter))
 			break;
 
@@ -1890,9 +1897,6 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 		kalMemZero(
 			prGlueInfo->prP2PInfo[ucRoleIdx]->chandefCsa.chan,
 			sizeof(struct ieee80211_channel));
-		kalMemZero(
-			&rRfChnlInfo,
-			sizeof(rRfChnlInfo));
 
 		/* Copy chan def to local buffer*/
 		prGlueInfo->prP2PInfo[ucRoleIdx]
@@ -2799,9 +2803,6 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 		(struct MSG_P2P_CONNECTION_ABORT *) NULL;
 	uint8_t aucBcMac[] = BC_MAC_ADDR;
 	uint8_t ucRoleIdx = 0;
-	uint8_t ucBssIdx = 0;
-	uint32_t waitRet = 0;
-	struct BSS_INFO *prBssInfo = NULL;
 
 	do {
 		if ((wiphy == NULL) || (dev == NULL))
@@ -2822,9 +2823,6 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 		 * kalMemAlloc(sizeof(struct MSG_P2P_CONNECTION_ABORT),
 		 * VIR_MEM_TYPE);
 		 */
-		if (p2pFuncRoleToBssIdx(prGlueInfo->prAdapter,
-			ucRoleIdx, &ucBssIdx) != WLAN_STATUS_SUCCESS)
-			break;
 
 		prDisconnectMsg = (struct MSG_P2P_CONNECTION_ABORT *)
 		    cnmMemAlloc(prGlueInfo->prAdapter, RAM_TYPE_MSG,
@@ -2840,34 +2838,13 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 		COPY_MAC_ADDR(prDisconnectMsg->aucTargetID, mac);
 		prDisconnectMsg->u2ReasonCode = params->reason_code;
 		prDisconnectMsg->fgSendDeauth = TRUE;
-		prBssInfo =
-			GET_BSS_INFO_BY_INDEX(
-			prGlueInfo->prAdapter,
-			ucBssIdx);
+
 
 		mboxSendMsg(prGlueInfo->prAdapter,
 			MBOX_ID_0,
 			(struct MSG_HDR *) prDisconnectMsg,
 			MSG_SEND_METHOD_BUF);
-#if CFG_SUPPORT_802_11W
-		/* if encrypted deauth frame
-		 * is in process, pending remove key
-		*/
-		if (prBssInfo &&
-			IS_BSS_APGO(prBssInfo) &&
-			(prBssInfo->u4RsnSelectedAKMSuite ==
-			RSN_AKM_SUITE_SAE)) {
-			reinit_completion(&prBssInfo->rDeauthComp);
-			waitRet = wait_for_completion_timeout(
-				&prBssInfo->rDeauthComp,
-				MSEC_TO_JIFFIES(1000));
-			if (!waitRet) {
-				DBGLOG(RSN, WARN, "timeout\n");
-				prBssInfo->encryptedDeauthIsInProcess = FALSE;
-			} else
-				DBGLOG(RSN, TRACE, "complete\n");
-		}
-#endif
+
 		i4Rslt = 0;
 	} while (FALSE);
 
@@ -3535,12 +3512,6 @@ int mtk_p2p_cfg80211_testmode_cmd(struct wiphy *wiphy,
 
 	DBGLOG(P2P, INFO, "mtk_p2p_cfg80211_testmode_cmd\n");
 
-	if (len < sizeof(struct NL80211_DRIVER_TEST_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
-
 	if (data && len) {
 		prParams = (struct NL80211_DRIVER_TEST_PARAMS *) data;
 	} else {
@@ -3659,12 +3630,6 @@ int mtk_p2p_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
 
 	DBGLOG(P2P, TRACE, "mtk_p2p_cfg80211_testmode_cmd\n");
 
-	if (len < sizeof(struct NL80211_DRIVER_TEST_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
-
 	if (data && len) {
 		prParams = (struct NL80211_DRIVER_TEST_PARAMS *) data;
 	} else {
@@ -3777,12 +3742,6 @@ int mtk_p2p_cfg80211_testmode_hotspot_config_cmd(IN struct wiphy *wiphy,
 	ASSERT(wiphy);
 
 	P2P_WIPHY_PRIV(wiphy, prGlueInfo);
-
-	if (len < sizeof(struct NL80211_DRIVER_HOTSPOT_CONFIG_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
 
 	if (data && len) {
 		prParams = (struct NL80211_DRIVER_HOTSPOT_CONFIG_PARAMS *) data;
@@ -4011,12 +3970,6 @@ int mtk_p2p_cfg80211_testmode_p2p_sigma_cmd(IN struct wiphy *wiphy,
 	/* prP2pConnSettings =
 	 * prGlueInfo->prAdapter->rWifiVar.prP2PConnSettings;
 	 */
-
-	if (len < sizeof(struct NL80211_DRIVER_P2P_SIGMA_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
 
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_P2P_SIGMA_PARAMS *) data;
@@ -4328,12 +4281,6 @@ int mtk_p2p_cfg80211_testmode_hotspot_block_list_cmd(IN struct wiphy *wiphy,
 
 	P2P_WIPHY_PRIV(wiphy, prGlueInfo);
 
-	if (len < sizeof(struct NL80211_DRIVER_hotspot_block_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
-
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_hotspot_block_PARAMS *) data;
 	else
@@ -4405,12 +4352,6 @@ int mtk_p2p_cfg80211_testmode_update_sta_pmkid_cmd(IN struct wiphy *wiphy,
 	ASSERT(wiphy);
 
 	P2P_WIPHY_PRIV(wiphy, prGlueInfo);
-
-	if (len < sizeof(struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS)) {
-		DBGLOG(P2P, WARN, "len [%d] is invalid!\n",
-			len);
-		return -EINVAL;
-	}
 
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS *)

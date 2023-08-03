@@ -138,7 +138,6 @@ nanCancelPublishRequest(struct ADAPTER *prAdapter,
 
 	pu2CancelPubID = (uint16_t *)prTlvElement->aucbody;
 	*pu2CancelPubID = msg->publish_id;
-	prAdapter->ucNanPubNum--;
 	wlanSendSetQueryCmd(prAdapter,		  /* prAdapter */
 			    CMD_ID_NAN_EXT_CMD,   /* ucCID */
 			    TRUE,		  /* fgSetQuery */
@@ -287,12 +286,11 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
 	struct NanFWPublishRequest *prPublishReq = NULL;
-	char aucServiceName[NAN_FW_MAX_SERVICE_NAME_LEN + 1];
+	char aucServiceName[256];
 	struct nan_rdf_sha256_state r_SHA_256_state;
 	uint8_t auc_tk[32];
 	uint32_t u4Idx;
-
-	kalMemZero(auc_tk, sizeof(auc_tk));
+	uint16_t u2PublishId = 0;
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
@@ -325,33 +323,24 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	prPublishReq = (struct NanFWPublishRequest *)prTlvElement->aucbody;
 	kalMemZero(prPublishReq, sizeof(struct NanFWPublishRequest));
 
-	if (prAdapter->ucNanPubNum < NAN_MAX_PUBLISH_NUM) {
-		if (msg->publish_id == 0)
-			prPublishReq->publish_id = ++g_ucInstanceID;
-		else
-			prPublishReq->publish_id = msg->publish_id;
-		prAdapter->ucNanPubNum++;
-	} else {
-		DBGLOG(NAN, INFO, "Exceed max number, allocate fail\n");
-		prPublishReq->publish_id = 0;
-		return prPublishReq->publish_id;
-	}
+	if (msg->publish_id == 0)
+		u2PublishId = ++g_ucInstanceID;
+	else
+		u2PublishId = msg->publish_id;
 	if (g_ucInstanceID == 255)
 		g_ucInstanceID = 0;
+	prPublishReq->publish_id = u2PublishId;
 
 	prPublishReq->tx_type = msg->tx_type;
 	prPublishReq->publish_type = msg->publish_type;
 	prPublishReq->cipher_type = msg->cipher_type;
 	prPublishReq->ttl = msg->ttl;
 	prPublishReq->rssi_threshold_flag = msg->rssi_threshold_flag;
-	prPublishReq->recv_indication_cfg = msg->recv_indication_cfg;
 	prPublishReq->service_name_len = msg->service_name_len;
 	kalMemCopy(prPublishReq->service_name, msg->service_name,
 		   msg->service_name_len);
 	kalMemZero(aucServiceName, sizeof(aucServiceName));
-	kalMemCopy(aucServiceName,
-			msg->service_name,
-			NAN_FW_MAX_SERVICE_NAME_LEN);
+	kalMemCopy(aucServiceName, msg->service_name, msg->service_name_len);
 	for (u4Idx = 0; u4Idx < kalStrLen(aucServiceName); u4Idx++) {
 		if ((aucServiceName[u4Idx] >= 'A') &&
 		    (aucServiceName[u4Idx] <= 'Z'))
@@ -363,9 +352,6 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	sha256_done(&r_SHA_256_state, auc_tk);
 	kalMemCopy(prPublishReq->service_name_hash, auc_tk,
 		   NAN_SERVICE_HASH_LENGTH);
-	kalMemCopy(g_aucNanServiceId,
-			prPublishReq->service_name_hash,
-			6);
 	nanUtilDump(prAdapter, "service hash", auc_tk, NAN_SERVICE_HASH_LENGTH);
 
 	prPublishReq->service_specific_info_len =
@@ -445,7 +431,7 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 
 	cnmMemFree(prAdapter, prCmdBuffer);
 
-	return prPublishReq->publish_id;
+	return u2PublishId;
 }
 
 uint32_t
@@ -569,7 +555,6 @@ nanCancelSubscribeRequest(struct ADAPTER *prAdapter,
 
 	pu2CancelSubID = (uint16_t *)prTlvElement->aucbody;
 	*pu2CancelSubID = msg->subscribe_id;
-	prAdapter->ucNanSubNum--;
 	wlanSendSetQueryCmd(prAdapter,		  /* prAdapter */
 			    CMD_ID_NAN_EXT_CMD,   /* ucCID */
 			    TRUE,		  /* fgSetQuery */
@@ -595,12 +580,11 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
 	struct NanFWSubscribeRequest *prSubscribeReq = NULL;
 
-	char aucServiceName[NAN_FW_MAX_SERVICE_NAME_LEN + 1];
+	char aucServiceName[256];
 	struct nan_rdf_sha256_state r_SHA_256_state;
 	uint8_t auc_tk[32];
 	uint32_t u4Idx;
-
-	kalMemZero(auc_tk, sizeof(auc_tk));
+	uint16_t u2SubscribeId = 0;
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
@@ -631,34 +615,25 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 		cnmMemFree(prAdapter, prCmdBuffer);
 		return WLAN_STATUS_FAILURE;
 	}
-	prSubscribeReq = (struct NanFWSubscribeRequest *) prTlvElement->aucbody;
-
-	if (prAdapter->ucNanSubNum < NAN_MAX_SUBSCRIBE_NUM) {
-		if (msg->subscribe_id == 0)
-			prSubscribeReq->subscribe_id = ++g_ucInstanceID;
-		else
-			prSubscribeReq->subscribe_id = msg->subscribe_id;
-		prAdapter->ucNanSubNum++;
-	} else {
-		prSubscribeReq->subscribe_id = 0;
-		return prSubscribeReq->subscribe_id;
-	}
+	prSubscribeReq = (struct NanFWSubscribeRequest *)prTlvElement->aucbody;
+	if (msg->subscribe_id == 0)
+		u2SubscribeId = ++g_ucInstanceID;
+	else
+		u2SubscribeId = msg->subscribe_id;
 	if (g_ucInstanceID == 255)
 		g_ucInstanceID = 0;
 
+	prSubscribeReq->subscribe_id = u2SubscribeId;
 	prSubscribeReq->subscribe_type = msg->subscribe_type;
 	prSubscribeReq->ttl = msg->ttl;
 	prSubscribeReq->rssi_threshold_flag = msg->rssi_threshold_flag;
-	prSubscribeReq->recv_indication_cfg = msg->recv_indication_cfg;
 	prSubscribeReq->period = msg->period;
 
 	prSubscribeReq->service_name_len = msg->service_name_len;
 	kalMemCopy(prSubscribeReq->service_name, msg->service_name,
 		   msg->service_name_len);
 	kalMemZero(aucServiceName, sizeof(aucServiceName));
-	kalMemCopy(aucServiceName,
-			msg->service_name,
-			NAN_FW_MAX_SERVICE_NAME_LEN);
+	kalMemCopy(aucServiceName, msg->service_name, msg->service_name_len);
 	for (u4Idx = 0; u4Idx < kalStrLen(aucServiceName); u4Idx++) {
 		if ((aucServiceName[u4Idx] >= 'A') &&
 		    (aucServiceName[u4Idx] <= 'Z'))
@@ -670,9 +645,7 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 	sha256_done(&r_SHA_256_state, auc_tk);
 	kalMemCopy(prSubscribeReq->service_name_hash, auc_tk,
 		   NAN_SERVICE_HASH_LENGTH);
-	kalMemCopy(g_aucNanServiceId,
-			prSubscribeReq->service_name_hash,
-			6);
+
 	prSubscribeReq->service_specific_info_len =
 		msg->service_specific_info_len;
 	if (prSubscribeReq->service_specific_info_len >
@@ -750,7 +723,7 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 			    NULL,		  /* pvSetQueryBuffer */
 			    0 /* u4SetQueryBufferLen */);
 	cnmMemFree(prAdapter, prCmdBuffer);
-	return prSubscribeReq->subscribe_id;
+	return u2SubscribeId;
 }
 
 void

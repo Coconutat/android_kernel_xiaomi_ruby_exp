@@ -1478,8 +1478,11 @@ enum ENUM_AIS_STATE aisSearchHandleBssDesc(IN struct ADAPTER *prAdapter,
 		}
 	} else {
 		/* 4 <3> We are under Roaming Condition. */
-		if (prAisFsmInfo->ucConnTrialCount >
-		    AIS_ROAMING_CONNECTION_TRIAL_LIMIT) {
+		if ( (prAisFsmInfo->ucConnTrialCount >
+		    AIS_ROAMING_CONNECTION_TRIAL_LIMIT) ||
+		    /* reduce scan times if roaming triggered by upper layer */
+		    (prAisBssInfo->ucReasonOfDisconnect == DISCONNECT_REASON_CODE_ROAMING 
+		    && prAisFsmInfo->ucConnTrialCount > (AIS_ROAMING_CONNECTION_TRIAL_LIMIT -1)) ) {
 #if CFG_SUPPORT_ROAMING
 			DBGLOG(AIS, STATE, "Roaming retry :%d fail!\n",
 			       prAisFsmInfo->ucConnTrialCount);
@@ -1574,6 +1577,7 @@ enum ENUM_AIS_STATE aisSearchHandleBssDesc(IN struct ADAPTER *prAdapter,
 		prAisFsmInfo->fgTargetChnlScanIssued = FALSE;
 
 #if CFG_SUPPORT_DBDC
+		prAisBssInfo->eBand = prBssDesc->eBand;
 		/* DBDC decsion.may change OpNss */
 		cnmDbdcPreConnectionEnableDecision(
 			prAdapter,
@@ -2392,6 +2396,11 @@ void aisFsmSteps(IN struct ADAPTER *prAdapter,
 				eNextState = AIS_STATE_REQ_REMAIN_ON_CHANNEL;
 				fgIsTransition = TRUE;
 			}
+			/* reset disconnect reason otherwise
+			 * aisSearchHandleBssDesc uses it wrongly
+			 */
+			prAisBssInfo->ucReasonOfDisconnect =
+				DISCONNECT_REASON_CODE_RESERVED;
 
 			/* for WMM-AC cert 5.2.5 */
 			/* after reassoc, update PS flag to FW again */
@@ -3240,7 +3249,6 @@ uint8_t aisHandleJoinFailure(IN struct ADAPTER *prAdapter,
 
 		roamingFsmNotifyEvent(prAdapter, ucBssIndex, TRUE, prBssDesc);
 
-		kalMemZero(&rSsid, sizeof(struct PARAM_SSID));
 		COPY_SSID(rSsid.aucSsid,
 			  rSsid.u4SsidLen,
 			  prAisBssInfo->aucSSID,
@@ -3252,6 +3260,9 @@ uint8_t aisHandleJoinFailure(IN struct ADAPTER *prAdapter,
 		if (!prAisFsmInfo->prTargetBssDesc)
 			DBGLOG(AIS, ERROR,
 			       "Can't retrieve target bss descriptor\n");
+		else
+			prAisBssInfo->eBand = prAisFsmInfo->prTargetBssDesc->eBand;
+		cnmDbdcRuntimeCheckDecision(prAdapter, ucBssIndex);
 	} else if (prAisFsmInfo->rJoinReqTime != 0 &&
 		CHECK_FOR_TIMEOUT(rCurrentTime, prAisFsmInfo->rJoinReqTime,
 		SEC_TO_SYSTIME(AIS_JOIN_TIMEOUT))) {
@@ -3339,6 +3350,10 @@ enum ENUM_AIS_STATE aisFsmJoinCompleteAction(IN struct ADAPTER *prAdapter,
 					wlanGetNetDev(
 					prAdapter->prGlueInfo,
 					ucBssIndex));
+
+#if ARP_MONITER_ENABLE
+				qmResetArpDetect(prAdapter, prStaRec->ucBssIndex);
+#endif
 
 				/* 4 <1.1> Change FW's Media State
 				 * immediately.
@@ -4136,7 +4151,6 @@ void aisUpdateBssInfoForJOIN(IN struct ADAPTER *prAdapter,
 	prAisBssInfo->fgIsQBSS = prStaRec->fgIsQoS;
 
 	/* 3 <4> Update BSS_INFO_T from BSS_DESC_T */
-	kalMemZero(&rSsid, sizeof(struct PARAM_SSID));
 	prBssDesc = prAisFsmInfo->prTargetBssDesc;
 	if (prBssDesc)
 		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
@@ -5495,10 +5509,12 @@ void aisFsmRunEventRoamingDiscovery(IN struct ADAPTER *prAdapter,
 {
 	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct CONNECTION_SETTINGS *prConnSettings;
+	struct ROAMING_INFO *prRoamingFsmInfo;
 	enum ENUM_AIS_REQUEST_TYPE eAisRequest = AIS_REQUEST_NUM;
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
+	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 
 	/* search candidates by best rssi */
 	prConnSettings->eConnectionPolicy = CONNECT_BY_SSID_BEST_RSSI;
@@ -5524,6 +5540,16 @@ void aisFsmRunEventRoamingDiscovery(IN struct ADAPTER *prAdapter,
 	}
 #endif
 #endif
+
+	if (!prRoamingFsmInfo->fgFwTxPerEnabled &&
+			prRoamingFsmInfo->eReason == ROAMING_REASON_TX_ERR) {
+		DBGLOG(ROAMING, INFO, "Not allow PER roaming\n");
+		roamingFsmRunEventRoam(prAdapter, ucBssIndex);
+		roamingFsmRunEventFail(prAdapter,
+				       ROAMING_FAIL_REASON_NOCANDIDATE,
+				       ucBssIndex);
+		return;
+	}
 
 	/* results are still new */
 	if (!u4ReqScan) {
@@ -5625,7 +5651,6 @@ void aisFsmRoamingDisconnectPrevAP(IN struct ADAPTER *prAdapter,
 		struct PARAM_SSID rSsid;
 		struct BSS_DESC *prBssDesc = NULL;
 
-		kalMemZero(&rSsid, sizeof(struct PARAM_SSID));
 		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen, prAisBssInfo->aucSSID,
 			  prAisBssInfo->ucSSIDLen);
 		prBssDesc =
@@ -5694,6 +5719,10 @@ void aisUpdateBssInfoForRoamingAP(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex = prStaRec->ucBssIndex;
 
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
+
+#if ARP_MONITER_ENABLE
+	qmResetArpDetect(prAdapter, prStaRec->ucBssIndex);
+#endif
 
 	/* 4 <1.1> Change FW's Media State immediately. */
 	aisChangeMediaState(prAisBssInfo, MEDIA_STATE_CONNECTED);
@@ -6606,8 +6635,9 @@ struct AIS_BLACKLIST_ITEM *aisAddBlacklist(struct ADAPTER *prAdapter,
 	GET_CURRENT_SYSTIME(&prEntry->rAddTime);
 	prBssDesc->prBlack = prEntry;
 
-	DBGLOG(AIS, INFO, "Add " MACSTR " to black List\n",
-	       MAC2STR(prBssDesc->aucBSSID));
+	DBGLOG(AIS, INFO, "Add " MACSTR " SSID[%s] to black List\n",
+	       MAC2STR(prBssDesc->aucBSSID),
+	       HIDE(prBssDesc->aucSSID));
 	return prEntry;
 }
 
@@ -6620,8 +6650,9 @@ void aisRemoveBlackList(struct ADAPTER *prAdapter, struct BSS_DESC *prBssDesc)
 		return;
 	LINK_MGMT_RETURN_ENTRY(&prAdapter->rWifiVar.rBlackList, prEntry);
 	prBssDesc->prBlack = NULL;
-	DBGLOG(AIS, INFO, "Remove " MACSTR " from blacklist\n",
-	       MAC2STR(prBssDesc->aucBSSID));
+	DBGLOG(AIS, INFO, "Remove " MACSTR " SSID[%s] from blacklist\n",
+	       MAC2STR(prBssDesc->aucBSSID),
+	       HIDE(prBssDesc->aucSSID));
 }
 
 struct AIS_BLACKLIST_ITEM *aisQueryBlackList(struct ADAPTER *prAdapter,
@@ -6678,8 +6709,9 @@ void aisRemoveTimeoutBlacklist(struct ADAPTER *prAdapter)
 			prBssDesc->prBlack = NULL;
 			prBssDesc->ucJoinFailureCount = 0;
 			DBGLOG(AIS, INFO,
-				"Remove Timeout "MACSTR" from blacklist\n",
-			       MAC2STR(prBssDesc->aucBSSID));
+			"Remove Timeout "MACSTR" SSID[%s] from blacklist\n",
+			       MAC2STR(prBssDesc->aucBSSID),
+			       HIDE(prBssDesc->aucSSID));
 		}
 		LINK_MGMT_RETURN_ENTRY(&prAdapter->rWifiVar.rBlackList,
 			prEntry);
@@ -6692,6 +6724,7 @@ static void aisRemoveDeauthBlacklist(struct ADAPTER *prAdapter)
 	struct AIS_BLACKLIST_ITEM *prNextEntry = NULL;
 	struct LINK *prBlackList = &prAdapter->rWifiVar.rBlackList.rUsingLink;
 	struct BSS_DESC *prBssDesc = NULL;
+	struct PARAM_SSID rSsid;
 
 	LINK_FOR_EACH_ENTRY_SAFE(prEntry, prNextEntry, prBlackList, rLinkEntry,
 				 struct AIS_BLACKLIST_ITEM) {
@@ -6699,14 +6732,21 @@ static void aisRemoveDeauthBlacklist(struct ADAPTER *prAdapter)
 		    !prEntry->fgDeauthLastTime)
 			continue;
 
-		prBssDesc = scanSearchBssDescByBssid(prAdapter,
-						     prEntry->aucBSSID);
+		kalMemZero(&rSsid, sizeof(struct PARAM_SSID));
+		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
+				prEntry->aucSSID, prEntry->ucSSIDLen);
+		prBssDesc = scanSearchBssDescByBssidAndSsid(prAdapter,
+							prEntry->aucBSSID,
+							true,
+							&rSsid);
+
 		if (prBssDesc) {
 			prBssDesc->prBlack = NULL;
 			prBssDesc->ucJoinFailureCount = 0;
 			DBGLOG(AIS, INFO,
-			       "Remove deauth "MACSTR" from blacklist\n",
-			       MAC2STR(prBssDesc->aucBSSID));
+			"Remove deauth "MACSTR" SSID[%s] from blacklist\n",
+			       MAC2STR(prBssDesc->aucBSSID),
+			       HIDE(prBssDesc->aucSSID));
 		}
 		LINK_MGMT_RETURN_ENTRY(&prAdapter->rWifiVar.rBlackList,
 			prEntry);
@@ -6960,6 +7000,7 @@ void aisFsmRunEventCancelTxWait(IN struct ADAPTER *prAdapter,
 			(struct AIS_MGMT_TX_REQ_INFO *) NULL;
 	struct AIS_OFF_CHNL_TX_REQ_INFO *prOffChnlTxPkt =
 			(struct AIS_OFF_CHNL_TX_REQ_INFO *) NULL;
+	struct ROAMING_INFO *prRoamingFsmInfo = NULL;
 	u_int8_t fgIsCookieFound = FALSE;
 	uint8_t ucBssIndex = 0;
 
@@ -6972,9 +7013,10 @@ void aisFsmRunEventCancelTxWait(IN struct ADAPTER *prAdapter,
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
+	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 	prMgmtTxInfo = &prAisFsmInfo->rMgmtTxInfo;
 
-	if (prAisFsmInfo == NULL ||
+	if (prAisFsmInfo == NULL || prRoamingFsmInfo == NULL ||
 		prAisBssInfo == NULL || prMgmtTxInfo == NULL)
 		goto exit;
 
@@ -6999,8 +7041,12 @@ void aisFsmRunEventCancelTxWait(IN struct ADAPTER *prAdapter,
 	aisFsmReleaseCh(prAdapter, ucBssIndex);
 
 	if (prAisBssInfo->eConnectionState ==
-			MEDIA_STATE_CONNECTED)
-		aisFsmSteps(prAdapter, AIS_STATE_NORMAL_TR, ucBssIndex);
+			MEDIA_STATE_CONNECTED) {
+		if (prRoamingFsmInfo->eCurrentState != ROAMING_STATE_DISCOVERY
+			&& prRoamingFsmInfo->eCurrentState !=
+			ROAMING_STATE_ROAM)
+			aisFsmSteps(prAdapter, AIS_STATE_NORMAL_TR, ucBssIndex);
+	}
 	else
 		aisFsmSteps(prAdapter, AIS_STATE_IDLE, ucBssIndex);
 
@@ -7438,7 +7484,7 @@ struct cfg80211_ft_event_params *
 uint8_t *
 	aisGetFsmState(
 	IN enum ENUM_AIS_STATE eCurrentState) {
-	if (eCurrentState < AIS_STATE_NUM)
+	if (eCurrentState >= 0 && eCurrentState < AIS_STATE_NUM)
 		return apucDebugAisState[eCurrentState];
 
 	ASSERT(0);

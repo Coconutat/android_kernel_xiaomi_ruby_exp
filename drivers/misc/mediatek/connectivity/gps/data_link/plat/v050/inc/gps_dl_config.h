@@ -14,7 +14,7 @@ enum gps_dl_link_id_enum {
 };
 
 #define LINK_ID_IS_VALID(link_id) \
-	((unsigned int)link_id < (unsigned int)GPS_DATA_LINK_NUM)
+	(((link_id) >= 0) && ((link_id) < GPS_DATA_LINK_NUM))
 
 #define CHOOSE_BY_LINK_ID(link_id, val_for_id0, val_for_id1, val_for_otherwise) \
 	(!LINK_ID_IS_VALID((link_id)) ? (val_for_otherwise) : ( \
@@ -57,7 +57,7 @@ enum gps_dl_link_id_enum {
 #define GPS_DL_SET_EMI_MPU_CFG       (0)
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 #define GPS_DL_USE_MTK_SYNC_WRITE    (0)
 #define GPS_DL_GET_RSV_MEM_IN_MODULE (1)
 #else

@@ -124,11 +124,6 @@ struct TX_PWR_TAG_TABLE {
 		"ALL_T",
 		(POWER_ANT_BAND_NUM * POWER_ANT_NUM),
 		txPwrParseTagAllT
-	},
-	{
-		"ALL_T_6G",
-		(POWER_ANT_6G_BAND_NUM * POWER_ANT_NUM),
-		txPwrParseTagAllT6G
 	}
 };
 #endif
@@ -183,7 +178,7 @@ static const uint16_t g_u2CountryGroup1[] = {
 	COUNTRY_CODE_CO, COUNTRY_CODE_CR, COUNTRY_CODE_GD, COUNTRY_CODE_GT,
 	COUNTRY_CODE_KI, COUNTRY_CODE_LB, COUNTRY_CODE_LR, COUNTRY_CODE_MN,
 	COUNTRY_CODE_AN, COUNTRY_CODE_NI, COUNTRY_CODE_PW, COUNTRY_CODE_WS,
-	COUNTRY_CODE_LK, COUNTRY_CODE_TT, COUNTRY_CODE_MM, COUNTRY_CODE_QA
+	COUNTRY_CODE_LK, COUNTRY_CODE_TT, COUNTRY_CODE_MM
 };
 
 static const uint16_t g_u2CountryGroup2[] = {
@@ -250,9 +245,9 @@ static const uint16_t g_u2CountryGroup12[] = { COUNTRY_CODE_AF };
 static const uint16_t g_u2CountryGroup13[] = { COUNTRY_CODE_NG };
 
 static const uint16_t g_u2CountryGroup14[] = {
-	COUNTRY_CODE_PK, COUNTRY_CODE_BF, COUNTRY_CODE_GY, COUNTRY_CODE_HT,
-	COUNTRY_CODE_JM, COUNTRY_CODE_MO, COUNTRY_CODE_MW, COUNTRY_CODE_RW,
-	COUNTRY_CODE_KN, COUNTRY_CODE_TZ, COUNTRY_CODE_BD
+	COUNTRY_CODE_PK, COUNTRY_CODE_QA, COUNTRY_CODE_BF, COUNTRY_CODE_GY,
+	COUNTRY_CODE_HT, COUNTRY_CODE_JM, COUNTRY_CODE_MO, COUNTRY_CODE_MW,
+	COUNTRY_CODE_RW, COUNTRY_CODE_KN, COUNTRY_CODE_TZ, COUNTRY_CODE_BD
 };
 
 static const uint16_t g_u2CountryGroup15[] = { COUNTRY_CODE_ID };
@@ -414,7 +409,7 @@ struct DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 			{82, BAND_2G4, CHNL_SPAN_5, 14, 1, FALSE}
 			,			/* CH_SET_2G4_14_14 */
-			{115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
+			{115, BAND_5G, CHNL_SPAN_20, 36, 4, TRUE}
 			,			/* CH_SET_UNII_LOW_36_48 */
 			{118, BAND_5G, CHNL_SPAN_20, 52, 4, TRUE}
 			,			/* CH_SET_UNII_MID_52_64 */
@@ -501,7 +496,7 @@ struct DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 			{81, BAND_2G4, CHNL_SPAN_5, 1, 13, FALSE}
 			,			/* CH_SET_2G4_1_13 */
 
-			{115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
+			{115, BAND_5G, CHNL_SPAN_20, 36, 4, TRUE}
 			,			/* CH_SET_UNII_LOW_36_48 */
 			{118, BAND_5G, CHNL_SPAN_20, 52, 4, TRUE}
 			,			/* CH_SET_UNII_MID_52_64 */
@@ -744,10 +739,10 @@ struct DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 		{
 			{81, BAND_2G4, CHNL_SPAN_5, 1, 13, FALSE}
 			,			/* CH_SET_2G4_1_13 */
-			{115, BAND_NULL, 0, 0, 0, FALSE}
-			,			/* CH_SET_UNII_LOW_NA */
-			{118, BAND_NULL, 0, 0, 0, FALSE}
-			,			/* CH_SET_UNII_MID_NA */
+			{115, BAND_5G, CHNL_SPAN_20, 36, 4, TRUE}
+			,			/* CH_SET_UNII_LOW_36_48 */
+			{118, BAND_5G, CHNL_SPAN_20, 52, 4, TRUE}
+			,			/* CH_SET_UNII_MID_52_64 */
 			{121, BAND_NULL, 0, 0, 0, FALSE}
 			,			/* CH_SET_UNII_WW_NA */
 			{125, BAND_5G, CHNL_SPAN_20, 149, 4, FALSE}
@@ -2917,40 +2912,10 @@ void rlmDomainCheckCountryPowerLimitTable(struct ADAPTER *prAdapter)
 uint16_t rlmDomainPwrLimitDefaultTableDecision(struct ADAPTER *prAdapter,
 					       uint16_t u2CountryCode)
 {
-	uint16_t i, j;
+
+	uint16_t i;
 	uint16_t u2CountryCodeTable = COUNTRY_CODE_NULL;
 	uint16_t u2TableIndex = POWER_LIMIT_TABLE_NULL;	/* No Table Match */
-	struct COUNTRY_POWER_LIMIT_GROUP_TABLE *prCountryGrpInfo;
-
-	for (i = 0; i < COUNTRY_LIMIT_GROUP_NUM; i++) {
-		prCountryGrpInfo = &arSupportCountryPowerLmtGrps[i];
-
-		if (!prCountryGrpInfo->u4CountryNum ||
-			!prCountryGrpInfo->prGroup)
-			continue;
-
-		for (j = 0; j < prCountryGrpInfo->u4CountryNum; j++) {
-			WLAN_GET_FIELD_BE16(
-				&prCountryGrpInfo->prGroup[j].aucCountryCode[0],
-				&u2CountryCodeTable);
-
-			if (u2CountryCodeTable == u2CountryCode) {
-				WLAN_GET_FIELD_BE16(
-					&prCountryGrpInfo->aucGroupCode[0],
-					&u2CountryCode);
-				break;
-			}
-		}
-		if (j < prCountryGrpInfo->u4CountryNum)
-			break;	/* Found */
-	}
-
-	if (i >= COUNTRY_LIMIT_GROUP_NUM) {
-		DBGLOG(RLM, TRACE,
-			"Can't find Country = (%c%c) in any group!\n",
-			((u2CountryCode & 0xff00) >> 8),
-			(u2CountryCode & 0x00ff));
-	}
 
 	/*Default Table Index */
 	for (i = 0; i < sizeof(g_rRlmPowerLimitDefault) /
@@ -3013,8 +2978,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 				eType == PWR_LIMIT_TYPE_COMP_6E_3)
 		prPwrLmt6E = &prCmd->u.rChPwrLimt6E[0];
 #endif
-	else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2)
+	else
 		prPwrLimit = &prCmd->u.rChannelPowerLimit[0];
 
 	startIndex = POWER_LIMIT_2G4;
@@ -3034,21 +2998,18 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 	/*Build power limit cmd by default table information */
 
 	for (i = startIndex; i <= endIndex; i++) {
+		cLmtBand = prPwrLimitSubBand->aucPwrLimitSubBand[i];
+
+		if (prPwrLimitSubBand->aucPwrLimitSubBand[i] > MAX_TX_POWER) {
+			DBGLOG(RLM, WARN, "SubBand[%d] Pwr(%d) > Max (%d)",
+				prPwrLimitSubBand->aucPwrLimitSubBand[i],
+				MAX_TX_POWER);
+			cLmtBand = MAX_TX_POWER;
+		}
 
 		for (k = g_rRlmSubBand[i].ucStartCh;
 		     k <= g_rRlmSubBand[i].ucEndCh;
 		     k += g_rRlmSubBand[i].ucInterval) {
-
-			/* cLmtBand need reset by each channel */
-			cLmtBand = prPwrLimitSubBand->aucPwrLimitSubBand[i];
-			if (prPwrLimitSubBand->aucPwrLimitSubBand[i]
-				> MAX_TX_POWER) {
-				DBGLOG(RLM, WARN,
-				"SubBand[%d] Pwr(%d) > Max (%d)",
-				prPwrLimitSubBand->aucPwrLimitSubBand[i],
-				MAX_TX_POWER);
-				cLmtBand = MAX_TX_POWER;
-			}
 
 			if (eType == PWR_LIMIT_TYPE_COMP_11AX)
 				prPwrLmtHE->ucCentralCh = k;
@@ -3060,8 +3021,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					eType == PWR_LIMIT_TYPE_COMP_6E_3)
 				prPwrLmt6E->ucCentralCh = k;
 #endif
-			else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2)
+			else
 				prPwrLimit->ucCentralCh = k;
 
 			if ((prPwrLimitSubBand->ucPwrUnit
@@ -3085,8 +3045,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 						cLmtBand,
 						PWR_LIMIT_6E_NUM);
 #endif
-				else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2)
+				else
 #if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
 					kalMemSet(&prPwrLimit->cPwrLimitCCK_L,
 #else
@@ -3172,8 +3131,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					prPwrLmt6E->cPwrLimitRU242U = cLmtBand;
 				}
 #endif
-				else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2) {
+				else {
 					/* BW20 */
 #if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
 					prPwrLimit->cPwrLimitCCK_L = cLmtBand;
@@ -3215,8 +3173,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					prPwrLmt6E->cPwrLimitRU484U = cLmtBand;
 				}
 #endif
-				else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2) {
+				else {
 					prPwrLimit->cPwrLimit40L = cLmtBand;
 					prPwrLimit->cPwrLimit40H = cLmtBand;
 				}
@@ -3248,8 +3205,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					prPwrLmt6E->cPwrLimitRU996U = cLmtBand;
 				}
 #endif
-				else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2) {
+				else {
 					prPwrLimit->cPwrLimit80L = cLmtBand;
 					prPwrLimit->cPwrLimit80H = cLmtBand;
 				}
@@ -3276,8 +3232,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					prPwrLmt6E->cPwrLimitRU1992U = cLmtBand;
 				}
 #endif
-				else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2) {
+				else {
 					prPwrLimit->cPwrLimit160L = cLmtBand;
 					prPwrLimit->cPwrLimit160H = cLmtBand;
 				}
@@ -3295,8 +3250,7 @@ rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT
 					eType == PWR_LIMIT_TYPE_COMP_6E_3)
 				prPwrLmt6E++;
 #endif
-			else if (eType == PWR_LIMIT_TYPE_COMP_11AC ||
-					eType == PWR_LIMIT_TYPE_COMP_11AC_V2)
+			else
 				prPwrLimit++;
 
 			prCmd->ucNum++;
@@ -3337,64 +3291,6 @@ void rlmDomainCopyFromConfigTable(struct CMD_CHANNEL_POWER_LIMIT *prCmdPwrLimit,
 #endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING */
 }
 
-static void PwrLmtTblArbitrator(int8_t *target,
-	int8_t *compare,
-	uint32_t size)
-{
-	uint8_t i = 0;
-
-	/* Choose min value from target & compare */
-	for (i = 0; i < size; i++) {
-		if (target[i] > compare[i])
-			target[i] = compare[i];
-
-		/* Sanity check power boundary */
-		if (target[i] > MAX_TX_POWER)
-			target[i] = MAX_TX_POWER;
-		else if (target[i] < MIN_TX_POWER)
-			target[i] = MIN_TX_POWER;
-	}
-}
-
-static void rlmDomainCompareFromConfigTable(int8_t *prPwrLmt,
-	int8_t *prPwrLmtConf,
-	enum ENUM_PWR_LIMIT_TYPE eType)
-{
-	uint32_t size;
-
-	switch (eType) {
-#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
-	case PWR_LIMIT_TYPE_COMP_11AC_V2:
-#else
-	case PWR_LIMIT_TYPE_COMP_11AC:
-#endif
-		size = PWR_LIMIT_NUM;
-		break;
-
-	case PWR_LIMIT_TYPE_COMP_11AX:
-		size = PWR_LIMIT_HE_NUM;
-		break;
-
-	case PWR_LIMIT_TYPE_COMP_11AX_BW160:
-		size = PWR_LIMIT_HE_BW160_NUM;
-		break;
-
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	case PWR_LIMIT_TYPE_COMP_6E_1:
-	case PWR_LIMIT_TYPE_COMP_6E_2:
-	case PWR_LIMIT_TYPE_COMP_6E_3:
-		size = PWR_LIMIT_6E_NUM;
-		break;
-#endif
-	default:
-		DBGLOG(RLM, WARN,
-			"Invalid rate type : etype = %d\n", eType);
-		return;
-	}
-
-	/* Choose min value from defarult table & Conf table */
-	PwrLmtTblArbitrator(prPwrLmt, prPwrLmtConf, size);
-}
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -3472,25 +3368,20 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter,
 					!= PwrLmtConfHE[i].ucCentralCh)
 					continue;
 
-				/* Choose MINIMUN value from
-				 * Default table & Conf table
-				 * Cmd setting (Default table
+				/* Cmd setting (Default table
 				 * information) and Conf table
 				 * has repetition channel entry,
 				 * ex : Default table (ex: 2.4G,
 				 *      limit = 20dBm) -->
 				 *      ch1~14 limit =20dBm,
 				 * Conf table (ex: ch1, limit =
-				 *      22 dBm) --> ch 1 = 22 dBm
-				 * Conf table (ex: ch2, limit =
-				 *      18 dBm) --> ch 2 = 18 dBm
+				 *      22dBm) --> ch 1 = 22 dBm
 				 * Cmd final setting --> ch1 =
-				 *      20dBm, ch2 = 18dBm ch3~14 = 20dBm
+				 *      22dBm, ch2~14 = 20dBm
 				 */
-				rlmDomainCompareFromConfigTable(
-					&prCmdPwrLimtHE->cPwrLimitRU26L,
-					&PwrLmtConfHE[i].aucPwrLimit[0],
-					eType);
+				kalMemCopy(&prCmdPwrLimtHE->cPwrLimitRU26L,
+					   &PwrLmtConfHE[i].aucPwrLimit,
+					   PWR_LIMIT_HE_NUM);
 			}
 		} else if (eType == PWR_LIMIT_TYPE_COMP_11AX_BW160) {
 			prCmdPwrLimtHEBW160 = &prCmd->u.rChPwrLimtHEBW160[k];
@@ -3519,25 +3410,20 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter,
 					!= PwrLmtConfHEBW160[i].ucCentralCh)
 					continue;
 
-				/* Choose MINIMUN value from
-				 * Default table & Conf table
-				 * Cmd setting (Default table
+				/* Cmd setting (Default table
 				 * information) and Conf table
 				 * has repetition channel entry,
 				 * ex : Default table (ex: 2.4G,
 				 *      limit = 20dBm) -->
 				 *      ch1~14 limit =20dBm,
 				 * Conf table (ex: ch1, limit =
-				 *      22 dBm) --> ch 1 = 22 dBm
-				 * Conf table (ex: ch2, limit =
-				 *      18 dBm) --> ch 2 = 18 dBm
+				 *      22dBm) --> ch 1 = 22 dBm
 				 * Cmd final setting --> ch1 =
-				 *      20dBm, ch2 = 18dBm ch3~14 = 20dBm
+				 *      22dBm, ch2~14 = 20dBm
 				 */
-				rlmDomainCompareFromConfigTable(
-					&prCmdPwrLimtHEBW160->cPwrLimitRU26L,
-					&PwrLmtConfHEBW160[i].aucPwrLimit[0],
-					eType);
+				kalMemCopy(&prCmdPwrLimtHEBW160->cPwrLimitRU26L,
+					   &PwrLmtConfHEBW160[i].aucPwrLimit,
+					   PWR_LIMIT_HE_BW160_NUM);
 			}
 		}
 #if (CFG_SUPPORT_WIFI_6G == 1)
@@ -3546,6 +3432,7 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter,
 					eType == PWR_LIMIT_TYPE_COMP_6E_3) {
 			prCmdPwrLimt6E = &prCmd->u.rChPwrLimt6E[k];
 			ucCentCh = prCmdPwrLimt6E->ucCentralCh;
+
 			for (i = 0; i < ucPwrLmitConfSize6E ; i++) {
 
 				WLAN_GET_FIELD_BE16(
@@ -3568,25 +3455,9 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter,
 					!= PwrLmtConf6E[i].ucCentralCh)
 					continue;
 
-				/* Choose MINIMUN value from
-				 * Default table & Conf table
-				 * Cmd setting (Default table
-				 * information) and Conf table
-				 * has repetition channel entry,
-				 * ex : Default table (ex: 6G,
-				 *      limit = 20dBm) -->
-				 *      ch1~14 limit =20dBm,
-				 * Conf table (ex: ch1, limit =
-				 *      22 dBm) --> ch 1 = 22 dBm
-				 * Conf table (ex: ch2, limit =
-				 *      18 dBm) --> ch 2 = 18 dBm
-				 * Cmd final setting --> ch1 =
-				 *      20dBm, ch2 = 18dBm ch3~14 = 20dBm
-				 */
-				rlmDomainCompareFromConfigTable(
-					&prCmdPwrLimt6E->cPwrLimitRU26L,
-					&PwrLmtConf6E[i].aucPwrLimit[0],
-					eType);
+				kalMemCopy(&prCmdPwrLimt6E->cPwrLimitRU26L,
+					   &PwrLmtConf6E[i].aucPwrLimit,
+					   PWR_LIMIT_6E_NUM);
 			}
 		}
 #endif
@@ -3616,37 +3487,24 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter,
 				else if (ucCentCh != PwrLmtConf[i].ucCentralCh)
 					continue;
 
-				/* Choose MINIMUN value from
-				 * Default table & Conf table
-				 * Cmd setting (Default table
+				/* Cmd setting (Default table
 				 * information) and Conf table
 				 * has repetition channel entry,
 				 * ex : Default table (ex: 2.4G,
 				 *      limit = 20dBm) -->
 				 *      ch1~14 limit =20dBm,
 				 * Conf table (ex: ch1, limit =
-				 *      22 dBm) --> ch 1 = 22 dBm
-				 * Conf table (ex: ch2, limit =
-				 *      18 dBm) --> ch 2 = 18 dBm
+				 *      22dBm) --> ch 1 = 22 dBm
 				 * Cmd final setting --> ch1 =
-				 *      20dBm, ch2 = 18dBm ch3~14 = 20dBm
+				 *      22dBm, ch2~14 = 20dBm
 				 */
-#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
-				rlmDomainCompareFromConfigTable(
-					&prCmdPwrLimit->cPwrLimitCCK_L,
-					&PwrLmtConf[i].aucPwrLimit[0],
-					eType);
-#else
-				rlmDomainCompareFromConfigTable(
-					&prCmdPwrLimit->cPwrLimitCCK,
-					&PwrLmtConf[i].aucPwrLimit[0],
-					eType);
-#endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING */
-
+				rlmDomainCopyFromConfigTable(
+					prCmdPwrLimit,
+					&PwrLmtConf[i]
+				);
 			}
 		}
 	}
-
 #undef PwrLmtConf
 #undef PwrLmtConfHE
 #undef PwrLmtConfHEBW160
@@ -4475,108 +4333,6 @@ int32_t txPwrParseTagAllT(
 		cTagParaNum, pRecord, POWER_ANT_ALL_T);
 }
 
-int32_t txPwrParseTagAllT6G(
-	char *pStart, char *pEnd, uint8_t cTagParaNum,
-	struct TX_PWR_CTRL_ELEMENT *pRecord){
-
-	char *pCurent = NULL, *pContent = NULL;
-	uint8_t i = 0, j = 0;
-	uint8_t ucBandIdx = 0, ucAntIdx = 0;
-	uint8_t op = 0, value = 0;
-	int8_t backoff = 0;
-	enum ENUM_POWER_ANT_TAG eTag = POWER_ANT_ALL_T_6G;
-
-	if (!pStart || !pEnd || !pRecord)
-		return -1;
-
-	if (cTagParaNum != (POWER_ANT_6G_BAND_NUM * POWER_ANT_NUM))
-		return -1;
-
-	DBGLOG(RLM, TRACE, "pase tag Para (%s) to aiPwrAnt[%u]",
-		pStart, eTag);
-
-	pCurent = pStart;
-
-	for (i = 0; i < cTagParaNum; i++) {
-
-		if (!pCurent || pCurent >= pEnd)
-			break;
-
-		pContent = txPwrGetString(&pCurent, ",");
-
-		if (!pContent) {
-			DBGLOG(RLM, TRACE, "tag parameter format error: %s\n",
-			       pStart);
-			break;
-		}
-
-		if (txPwrParseNumber(&pContent, ",", &op, &value)) {
-			DBGLOG(RLM, TRACE, "parse parameter error: %s\n",
-			       pContent);
-			break;
-		}
-
-		backoff = (op == 1) ? value : (0 - value);
-		if (backoff < PWR_CFG_BACKOFF_MIN)
-			backoff = PWR_CFG_BACKOFF_MIN;
-
-		if (backoff > PWR_CFG_BACKOFF_MAX)
-			backoff = PWR_CFG_BACKOFF_MAX;
-
-		ucBandIdx = i%POWER_ANT_6G_BAND_NUM;
-		ucAntIdx = i/POWER_ANT_6G_BAND_NUM;
-		switch (ucBandIdx) {
-		case POWER_ANT_6G_BAND1:
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB1[ucAntIdx]
-				= backoff;
-			break;
-		case POWER_ANT_6G_BAND2:
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB2[ucAntIdx]
-				= backoff;
-			break;
-		case POWER_ANT_6G_BAND3:
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB3[ucAntIdx]
-				= backoff;
-			break;
-		case POWER_ANT_6G_BAND4:
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB4[ucAntIdx]
-				= backoff;
-			break;
-		default:
-			DBGLOG(RLM, INFO, "Never happen: %s\n",
-				pStart);
-			return -1;
-		}
-
-		if (pCurent >= pEnd)
-			break;
-
-	}
-
-	if (i != cTagParaNum) {
-		DBGLOG(RLM, INFO, "parameter number error: %s\n",
-			       pStart);
-		for (j = 0; j < POWER_ANT_NUM; j++) {
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB1[j] = 0;
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB2[j] = 0;
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB3[j] = 0;
-			pRecord->aiPwrAnt[eTag].aiPwrAnt6GB4[j] = 0;
-		}
-		return -1;
-	}
-
-	DBGLOG(RLM, TRACE, "[Success] Dump aiPwrAnt[%u] para: ", eTag);
-	for (j = 0; j < POWER_ANT_NUM; j++)
-		DBGLOG(RLM, TRACE, "[%d][%d][%d][%d]",
-			       pRecord->aiPwrAnt[eTag].aiPwrAnt6GB1[j],
-			       pRecord->aiPwrAnt[eTag].aiPwrAnt6GB2[j],
-			       pRecord->aiPwrAnt[eTag].aiPwrAnt6GB3[j],
-			       pRecord->aiPwrAnt[eTag].aiPwrAnt6GB4[j]);
-	DBGLOG(RLM, TRACE, "\n");
-
-	return 0;
-}
-
 int32_t txPwrParseTag(char *pTagStart, char *pTagEnd,
 	struct TX_PWR_CTRL_ELEMENT *pRecord) {
 	uint8_t i = 0;
@@ -4760,36 +4516,35 @@ uint32_t txPwrArbitrator(enum ENUM_TX_POWER_CTRL_TYPE eCtrlType,
 	struct CMD_CHANNEL_POWER_LIMIT *prPwrLimit;
 	struct CMD_CHANNEL_POWER_LIMIT_HE *prPwrLimitHE;
 	struct CMD_CHANNEL_POWER_LIMIT_HE_BW160 *prPwrLimitHEBW160;
+	uint8_t rateIdxHe, rateIdx;
 #if (CFG_SUPPORT_WIFI_6G == 1)
 	struct CMD_CHANNEL_POWER_LIMIT_6E *prPwrLimit6E;
 #endif
 	int8_t *prRateOfs;
 
 	if (eType == PWR_LIMIT_TYPE_COMP_11AX) {
-		enum ENUM_POWER_LIMIT_HE rateIdx;
 		prPwrLimitHE = (struct CMD_CHANNEL_POWER_LIMIT_HE *) pvBuf;
 		prRateOfs = &prPwrLimitHE->cPwrLimitRU26L;
 
-		for (rateIdx = PWR_LIMIT_RU26_L;
-			rateIdx < PWR_LIMIT_HE_NUM ; rateIdx++) {
-			if (prChlSetting->opHE[rateIdx]
+		for (rateIdxHe = PWR_LIMIT_RU26_L;
+			rateIdxHe < PWR_LIMIT_HE_NUM ; rateIdxHe++) {
+			if (prChlSetting->opHE[rateIdxHe]
 				!= PWR_CTRL_TYPE_NO_ACTION) {
-				txPwrOperate(eCtrlType, prRateOfs + rateIdx,
-				&prChlSetting->i8PwrLimitHE[rateIdx]);
+				txPwrOperate(eCtrlType, prRateOfs + rateIdxHe,
+				&prChlSetting->i8PwrLimitHE[rateIdxHe]);
 			}
 		}
 	} else if (eType == PWR_LIMIT_TYPE_COMP_11AX_BW160) {
-		enum ENUM_POWER_LIMIT_HE rateIdx;
 		prPwrLimitHEBW160 =
 			(struct CMD_CHANNEL_POWER_LIMIT_HE_BW160 *) pvBuf;
 		prRateOfs = &prPwrLimitHEBW160->cPwrLimitRU26L;
 
-		for (rateIdx = PWR_LIMIT_RU26_L;
-			rateIdx < PWR_LIMIT_HE_BW160_NUM ; rateIdx++) {
-			if (prChlSetting->opHE[rateIdx]
+		for (rateIdxHe = PWR_LIMIT_RU26_L;
+			rateIdxHe < PWR_LIMIT_HE_BW160_NUM ; rateIdxHe++) {
+			if (prChlSetting->opHE[rateIdxHe]
 				!= PWR_CTRL_TYPE_NO_ACTION) {
-				txPwrOperate(eCtrlType, prRateOfs + rateIdx,
-				&prChlSetting->i8PwrLimitHE[rateIdx]);
+				txPwrOperate(eCtrlType, prRateOfs + rateIdxHe,
+				&prChlSetting->i8PwrLimitHE[rateIdxHe]);
 			}
 		}
 	}
@@ -4797,7 +4552,6 @@ uint32_t txPwrArbitrator(enum ENUM_TX_POWER_CTRL_TYPE eCtrlType,
 	else if (eType == PWR_LIMIT_TYPE_COMP_6E_1 ||
 				eType == PWR_LIMIT_TYPE_COMP_6E_2 ||
 				eType == PWR_LIMIT_TYPE_COMP_6E_3) {
-		enum ENUM_POWER_LIMIT_HE rateIdx;
 		prPwrLimit6E = (struct CMD_CHANNEL_POWER_LIMIT_6E *) pvBuf;
 		prRateOfs = &prPwrLimit6E->cPwrLimitRU26L;
 		for (rateIdx = PWR_LIMIT_RU26_L;
@@ -4811,7 +4565,6 @@ uint32_t txPwrArbitrator(enum ENUM_TX_POWER_CTRL_TYPE eCtrlType,
 	}
 #endif
 	else {
-		enum ENUM_POWER_LIMIT rateIdx;
 		prPwrLimit = (struct CMD_CHANNEL_POWER_LIMIT *) pvBuf;
 #if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
 		prRateOfs = &prPwrLimit->cPwrLimitCCK_L;
@@ -4853,14 +4606,6 @@ uint8_t txPwrIsAntTagSet(
 			return 1;
 		if (prCurElement->aiPwrAnt[tag].aiPwrAnt5GB4[i] != 0)
 			return 1;
-		if (prCurElement->aiPwrAnt[tag].aiPwrAnt6GB1[i] != 0)
-			return 1;
-		if (prCurElement->aiPwrAnt[tag].aiPwrAnt6GB2[i] != 0)
-			return 1;
-		if (prCurElement->aiPwrAnt[tag].aiPwrAnt6GB3[i] != 0)
-			return 1;
-		if (prCurElement->aiPwrAnt[tag].aiPwrAnt6GB4[i] != 0)
-			return 1;
 	}
 	return 0;
 }
@@ -4876,7 +4621,7 @@ uint8_t txPwrIsAntTagNeedApply(
 	fg1TSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_MIMO_1T);
 	fg2TSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_MIMO_2T);
 
-	if ((fgAllTSet && !fg1TSet && !fg2TSet)
+	if ((fgAllTSet && !fg1TSet && !fg2TSet)/* only ALL_T */
 		|| (!fgAllTSet && (fg1TSet || fg2TSet)))
 		/* only MIMO_1T or MIMO_2T */
 		return 1;
@@ -4887,108 +4632,14 @@ uint8_t txPwrIsAntTagNeedApply(
 	return 0;
 }
 
-uint32_t txPwrCheckPwrAntNum(
-	enum ENUM_POWER_ANT_TAG tag, uint8_t u1Num)
-{
-	if (u1Num >= POWER_LIMIT_ANT_CONFIG_NUM) {
-		DBGLOG(RLM, ERROR,
-			"PwrLimit ant element idx invalid,tag(%d)num(%d)\n",
-			tag, u1Num);
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	return WLAN_STATUS_SUCCESS;
-}
-
-uint32_t txPwrApplyPwrAnt(
-	uint8_t u1Idx,
-	enum ENUM_POWER_ANT_TAG tag,
-	uint8_t u1BandNum,
-	uint8_t u1AntNum,
-	struct CMD_CHANNEL_POWER_LIMIT_ANT *prCmdPwrAnt,
-	struct TX_PWR_CTRL_ELEMENT *prCurElem)
-{
-	uint8_t u1BandIdx = 0, u1AntIdx = 0;
-
-	if ((txPwrCheckPwrAntNum(tag, u1Idx) != WLAN_STATUS_SUCCESS)
-		|| (tag >= POWER_ANT_TAG_NUM))
-		return u1Idx;
-
-	for (u1BandIdx = 0; u1BandIdx < u1BandNum; u1BandIdx++) {
-		for (u1AntIdx = 0; u1AntIdx < u1AntNum; u1AntIdx++) {
-			prCmdPwrAnt[u1Idx].cTagIdx = tag;
-			prCmdPwrAnt[u1Idx].cBandIdx = u1BandIdx;
-			prCmdPwrAnt[u1Idx].cAntIdx = u1AntIdx;
-
-			if (u1BandIdx == POWER_ANT_2G4_BAND) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt2G4[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_5G_BAND1) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt5GB1[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_5G_BAND2) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt5GB2[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_5G_BAND3) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt5GB3[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_5G_BAND4) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt5GB4[u1AntIdx];
-			}
-			u1Idx++;
-		}
-	}
-	return u1Idx;
-}
-
-uint32_t txPwrApplyPwrAnt6G(
-	uint8_t u1Idx,
-	enum ENUM_POWER_ANT_TAG tag,
-	uint8_t u1BandNum,
-	uint8_t u1AntNum,
-	struct CMD_CHANNEL_POWER_LIMIT_ANT *prCmdPwrAnt,
-	struct TX_PWR_CTRL_ELEMENT *prCurElem)
-{
-	uint8_t u1BandIdx = 0, u1AntIdx = 0;
-
-	if ((txPwrCheckPwrAntNum(tag, u1Idx) != WLAN_STATUS_SUCCESS)
-		|| (tag >= POWER_ANT_TAG_NUM))
-		return u1Idx;
-
-	for (u1BandIdx = 0; u1BandIdx < u1BandNum; u1BandIdx++) {
-		for (u1AntIdx = 0; u1AntIdx < u1AntNum; u1AntIdx++) {
-			prCmdPwrAnt[u1Idx].cTagIdx = tag;
-			prCmdPwrAnt[u1Idx].cBandIdx = u1BandIdx;
-			prCmdPwrAnt[u1Idx].cAntIdx = u1AntIdx;
-
-			if (u1BandIdx == POWER_ANT_6G_BAND1) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt6GB1[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_6G_BAND2) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt6GB2[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_6G_BAND3) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt6GB3[u1AntIdx];
-			} else if (u1BandIdx == POWER_ANT_6G_BAND4) {
-				prCmdPwrAnt[u1Idx].cValue =
-				prCurElem->aiPwrAnt[tag].aiPwrAnt6GB4[u1AntIdx];
-			}
-			u1Idx++;
-		}
-	}
-	return u1Idx;
-}
-
 uint32_t txPwrApplyOneSettingPwrAnt(
 	struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT *prCmd,
-	struct TX_PWR_CTRL_ELEMENT *prCurElement)
-{
+	struct TX_PWR_CTRL_ELEMENT *prCurElement) {
+
 	struct CMD_CHANNEL_POWER_LIMIT_ANT *prCmdPwrAnt = NULL;
-	uint8_t u1NextIdx = 0;
+	uint8_t i = 0, j = 0, k = 0;
 	uint8_t fgAllTSet = 0, fg1TSet = 0, fg2TSet = 0;
-	uint8_t fgAllT6GSet = 0;
+	uint8_t tagIdx = 0;
 
 	enum ENUM_PWR_LIMIT_TYPE eType;
 
@@ -5005,48 +4656,214 @@ uint32_t txPwrApplyOneSettingPwrAnt(
 	fgAllTSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_ALL_T);
 	fg1TSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_MIMO_1T);
 	fg2TSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_MIMO_2T);
-	fgAllT6GSet = txPwrIsAntTagSet(prCurElement, POWER_ANT_ALL_T_6G);
 
 	/* check scenario reasonable */
-	if (!(((fgAllTSet || fgAllT6GSet) && !fg1TSet && !fg2TSet)
-		|| (!(fgAllTSet || fgAllT6GSet) && (fg1TSet || fg2TSet)))) {
+	if (!((fgAllTSet && !fg1TSet && !fg2TSet)/* only ALL_T */
+		|| (!fgAllTSet && (fg1TSet || fg2TSet)))) {
 		return 0;
 	}
 	/* TODO : refactory when fg1TSet/fg2TSet online */
 	prCmd->ucNum = 0;
 
 	if (fgAllTSet) {
-		u1NextIdx = txPwrApplyPwrAnt(
-			u1NextIdx, POWER_ANT_ALL_T,
-			POWER_ANT_BAND_NUM, POWER_ANT_NUM,
-			prCmdPwrAnt, prCurElement);
+		tagIdx = POWER_ANT_ALL_T;
+		for (j = 0; j < POWER_ANT_BAND_NUM; j++) {
+			for (k = 0; k < POWER_ANT_NUM; k++) {
+				prCmdPwrAnt[i].cTagIdx = tagIdx;
+				prCmdPwrAnt[i].cBandIdx = j;
+				prCmdPwrAnt[i].cAntIdx = k;
+
+				if (j == POWER_ANT_2G4_BAND) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_ALL_T]
+						.aiPwrAnt2G4[k]) {
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_ALL_T]
+							.aiPwrAnt2G4[k];
+					}
+				} else if (j == POWER_ANT_5G_BAND1) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_ALL_T]
+						.aiPwrAnt5GB1[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_ALL_T]
+							.aiPwrAnt5GB1[k];
+				} else if (j == POWER_ANT_5G_BAND2) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_ALL_T]
+						.aiPwrAnt5GB2[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_ALL_T]
+							.aiPwrAnt5GB2[k];
+				} else if (j == POWER_ANT_5G_BAND3) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_ALL_T]
+						.aiPwrAnt5GB3[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_ALL_T]
+							.aiPwrAnt5GB3[k];
+				} else if (j == POWER_ANT_5G_BAND4) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_ALL_T]
+						.aiPwrAnt5GB4[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_ALL_T]
+							.aiPwrAnt5GB4[k];
+				}
+				i++;
+			}
+		}
 	}
 
 	if (fg1TSet) {
-		u1NextIdx = txPwrApplyPwrAnt(
-			u1NextIdx, POWER_ANT_MIMO_1T,
-			POWER_ANT_BAND_NUM, POWER_ANT_NUM,
-			prCmdPwrAnt, prCurElement);
+		tagIdx = POWER_ANT_MIMO_1T;
+		for (j = 0; j < POWER_ANT_BAND_NUM; j++) {
+			for (k = 0; k < POWER_ANT_NUM; k++) {
+				prCmdPwrAnt[i].cTagIdx = tagIdx;
+				prCmdPwrAnt[i].cBandIdx = j;
+				prCmdPwrAnt[i].cAntIdx = k;
+
+				if (j == POWER_ANT_2G4_BAND) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_1T]
+						.aiPwrAnt2G4[k]) {
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_1T]
+							.aiPwrAnt2G4[k];
+					}
+				} else if (j == POWER_ANT_5G_BAND1) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_1T]
+						.aiPwrAnt5GB1[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_1T]
+							.aiPwrAnt5GB1[k];
+				} else if (j == POWER_ANT_5G_BAND2) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_1T]
+						.aiPwrAnt5GB2[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_1T]
+							.aiPwrAnt5GB2[k];
+				} else if (j == POWER_ANT_5G_BAND3) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_1T]
+						.aiPwrAnt5GB3[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_1T]
+							.aiPwrAnt5GB3[k];
+				} else if (j == POWER_ANT_5G_BAND4) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_1T]
+						.aiPwrAnt5GB4[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_1T]
+							.aiPwrAnt5GB4[k];
+				}
+				i++;
+			}
+		}
 	}
 
 	if (fg2TSet) {
-		u1NextIdx = txPwrApplyPwrAnt(
-			u1NextIdx, POWER_ANT_MIMO_2T,
-			POWER_ANT_BAND_NUM, POWER_ANT_NUM,
-			prCmdPwrAnt, prCurElement);
+		tagIdx = POWER_ANT_MIMO_2T;
+		for (j = 0; j < POWER_ANT_BAND_NUM; j++) {
+			for (k = 0; k < POWER_ANT_NUM; k++) {
+				prCmdPwrAnt[i].cTagIdx = tagIdx;
+				prCmdPwrAnt[i].cBandIdx = j;
+				prCmdPwrAnt[i].cAntIdx = k;
+
+				if (j == POWER_ANT_2G4_BAND) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_2T]
+						.aiPwrAnt2G4[k]) {
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_2T]
+							.aiPwrAnt2G4[k];
+					}
+				} else if (j == POWER_ANT_5G_BAND1) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_2T]
+						.aiPwrAnt5GB1[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_2T]
+							.aiPwrAnt5GB1[k];
+				} else if (j == POWER_ANT_5G_BAND2) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_2T]
+						.aiPwrAnt5GB2[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_2T]
+							.aiPwrAnt5GB2[k];
+				} else if (j == POWER_ANT_5G_BAND3) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_2T]
+						.aiPwrAnt5GB3[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_2T]
+							.aiPwrAnt5GB3[k];
+				} else if (j == POWER_ANT_5G_BAND4) {
+					if (prCmdPwrAnt[i].cValue >
+						prCurElement->
+						aiPwrAnt[POWER_ANT_MIMO_2T]
+						.aiPwrAnt5GB4[k])
+						prCmdPwrAnt[i].cValue =
+							prCurElement->
+							aiPwrAnt
+							[POWER_ANT_MIMO_2T]
+							.aiPwrAnt5GB4[k];
+				}
+				i++;
+			}
+		}
 	}
 
-	if (fgAllT6GSet) {
-		u1NextIdx = txPwrApplyPwrAnt6G(
-			u1NextIdx, POWER_ANT_ALL_T_6G,
-			POWER_ANT_6G_BAND_NUM, POWER_ANT_NUM,
-			prCmdPwrAnt, prCurElement);
-	}
-
-	prCmd->ucNum = u1NextIdx;
+	prCmd->ucNum = i;
 	return 0;
 }
-#endif /* CFG_SUPPORT_DYNAMIC_PWR_LIMIT_ANT_TAG */
+#endif
 uint32_t txPwrApplyOneSetting(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT *prCmd,
 			      struct TX_PWR_CTRL_ELEMENT *prCurElement,
 			      uint8_t *bandedgeParam)
@@ -5380,7 +5197,7 @@ struct TX_PWR_CTRL_ELEMENT *txPwrCtrlStringToStruct(char *pcContent,
 		       pcContOld);
 		return NULL;
 	}
-	if (op != 1) {
+	if ((op != 1) || (value < 0)) {
 		DBGLOG(RLM, ERROR,
 		       "parse scenario sub index error: op=%u, val=%d\n",
 		       op, value);
@@ -5646,7 +5463,7 @@ skipLabel:
 							value : (0 - value);
 			}
 
-			for (j = 0; j < PWR_LIMIT_HE_BW160_NUM; j++) {
+			for (j = 0; j < PWR_CFG_PRAM_NUM_AX; j++) {
 				prTmpSetting->opHE[j] = op;
 				prTmpSetting->i8PwrLimitHE[j] = (op != 2) ?
 							value : (0 - value);
@@ -6484,21 +6301,6 @@ void rlmDomainSendPwrLimitCmd(struct ADAPTER *prAdapter)
 			    .aucCountryCode[0],
 			    &prCmdHE->u2CountryCode);
 
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	WLAN_GET_FIELD_BE16(&g_rRlmPowerLimitDefault
-			    [u2DefaultTableIndex]
-			    .aucCountryCode[0],
-			    &prCmd6E_1->u2CountryCode);
-	WLAN_GET_FIELD_BE16(&g_rRlmPowerLimitDefault
-			    [u2DefaultTableIndex]
-			    .aucCountryCode[0],
-			    &prCmd6E_2->u2CountryCode);
-	WLAN_GET_FIELD_BE16(&g_rRlmPowerLimitDefault
-			    [u2DefaultTableIndex]
-			    .aucCountryCode[0],
-			    &prCmd6E_3->u2CountryCode);
-#endif
-
 	if (prCmd->u2CountryCode == COUNTRY_CODE_NULL)
 		DBGLOG(RLM, TRACE,
 			   "CC={0x00,0x00},Power Limit use Default setting!");
@@ -7294,7 +7096,6 @@ void rlmDomainSendInfoToFirmware(IN struct ADAPTER *prAdapter)
 	struct regulatory_request request;
 	struct regulatory_request *prReq = NULL;
 
-	kalMemZero(&request, sizeof(request));
 	if (!regd_is_single_sku_en())
 		return; /*not support single sku*/
 

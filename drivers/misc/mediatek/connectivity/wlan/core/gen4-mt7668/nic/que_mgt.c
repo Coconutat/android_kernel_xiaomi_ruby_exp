@@ -806,12 +806,14 @@ P_SW_RFB_T qmFlushRxQueues(IN P_ADAPTER_T prAdapter)
 P_SW_RFB_T qmFlushStaRxQueue(IN P_ADAPTER_T prAdapter, IN UINT_32 u4StaRecIdx, IN UINT_32 u4Tid)
 {
 	/* UINT_32 i; */
-	P_SW_RFB_T prSwRfbListHead = NULL;
-	P_SW_RFB_T prSwRfbListTail = NULL;
-	P_RX_BA_ENTRY_T prReorderQueParm = NULL;
-	P_STA_RECORD_T prStaRec = NULL;
+	P_SW_RFB_T prSwRfbListHead;
+	P_SW_RFB_T prSwRfbListTail;
+	P_RX_BA_ENTRY_T prReorderQueParm;
+	P_STA_RECORD_T prStaRec;
 
 	DBGLOG(QM, TRACE, "QM: Enter qmFlushStaRxQueues(%u)\n", u4StaRecIdx);
+
+	prSwRfbListHead = prSwRfbListTail = NULL;
 
 	prStaRec = &prAdapter->arStaRec[u4StaRecIdx];
 	ASSERT(prStaRec);
@@ -823,9 +825,7 @@ P_SW_RFB_T qmFlushStaRxQueue(IN P_ADAPTER_T prAdapter, IN UINT_32 u4StaRecIdx, I
 #endif
 
 	/* Obtain the RX BA Entry pointer */
-	if (u4Tid < CFG_RX_MAX_BA_TID_NUM) {
-		prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[u4Tid]);
-	}
+	prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[u4Tid]);
 
 	/* Note: For each queued packet, prCurrSwRfb->eDst equals RX_PKT_DESTINATION_HOST */
 	if (prReorderQueParm) {
@@ -2570,10 +2570,7 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 
 					u2FrameCtrl = HAL_RX_STATUS_GET_FRAME_CTL_FIELD(prCurrSwRfb->prRxStatusGroup4);
 					/* Check FC type, if DATA, then no-reordering */
-					if (((u2FrameCtrl & MASK_FRAME_TYPE)
-						== MAC_FRAME_DATA)
-						|| (prCurrSwRfb->ucTid
-						>= CFG_RX_MAX_BA_TID_NUM)) {
+					if ((u2FrameCtrl & MASK_FRAME_TYPE) == MAC_FRAME_DATA) {
 						DBGLOG(QM, TRACE, "FC [0x%04X], no-reordering...\n", u2FrameCtrl);
 					} else {
 						prReorderQueParm =
@@ -3011,17 +3008,6 @@ VOID qmProcessPktWithReordering(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb,
 
 	RX_INC_CNT(&prAdapter->rRxCtrl, RX_DATA_REORDER_TOTAL_COUINT);
 
-	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
-		DBGLOG(QM, WARN, "TID from RXD = %d, out of range!!\n",
-			prSwRfb->ucTid);
-		DBGLOG_MEM8(QM, ERROR, prSwRfb->pucRecvBuff,
-			HAL_RX_STATUS_GET_RX_BYTE_CNT(prRxStatus));
-		prSwRfb->eDst = RX_PKT_DESTINATION_NULL;
-		QUEUE_INSERT_TAIL(prReturnedQue,
-			(P_QUE_ENTRY_T) prSwRfb);
-		return;
-	}
-
 	/* Check whether the BA agreement exists */
 	prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[prSwRfb->ucTid]);
 	if (!prReorderQueParm || !(prReorderQueParm->fgIsValid)) {
@@ -3157,14 +3143,6 @@ VOID qmProcessBarFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb, OUT P_QU
 		return;
 	}
 #endif
-	/* Check index out of bound */
-	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
-		DBGLOG(QM, WARN,
-			"QM: (Warning) index out of bound: ucTid = %d\n",
-			prSwRfb->ucTid);
-		return;
-	}
-
 
 	/* Check whether the BA agreement exists */
 	prReorderQueParm = prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid];
@@ -4032,11 +4010,9 @@ qmAddRxBaEntry(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(ucStaRecIdx < CFG_STA_REC_NUM);
 
-	if (ucStaRecIdx >= CFG_STA_REC_NUM || ucTid >= CFG_RX_MAX_BA_TID_NUM) {
+	if (ucStaRecIdx >= CFG_STA_REC_NUM) {
 		/* Invalid STA_REC index, discard the event packet */
-		DBGLOG(QM, WARN,
-			"QM: (WARNING) RX ADDBA Event for a invalid ucStaRecIdx = %d, ucTID=%d\n",
-			ucStaRecIdx, ucTid);
+		DBGLOG(QM, WARN, "QM: (WARNING) RX ADDBA Event for a invalid ucStaRecIdx = %d\n", ucStaRecIdx);
 		return FALSE;
 	}
 
@@ -4107,7 +4083,7 @@ qmAddRxBaEntry(IN P_ADAPTER_T prAdapter,
 
 VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 ucTid, IN BOOLEAN fgFlushToHost)
 {
-	P_RX_BA_ENTRY_T prRxBaEntry = NULL;
+	P_RX_BA_ENTRY_T prRxBaEntry;
 	P_STA_RECORD_T prStaRec;
 	P_SW_RFB_T prFlushedPacketList = NULL;
 	P_QUE_MGT_T prQM = &prAdapter->rQM;
@@ -4125,9 +4101,7 @@ VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 u
 #endif
 
 	/* Remove the BA entry for the same (STA, TID) tuple if it exists */
-	if (ucTid < CFG_RX_MAX_BA_TID_NUM) {
-		prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
-	}
+	prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
 
 	if (prRxBaEntry) {
 

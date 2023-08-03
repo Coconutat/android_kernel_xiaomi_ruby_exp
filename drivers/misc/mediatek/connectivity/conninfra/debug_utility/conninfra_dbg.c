@@ -495,7 +495,7 @@ static inline char* conninfra_dbg_spi_subsys_string(enum sys_spi_subsystem subsy
 		"SYS_SPI_MAX"
 	};
 
-	if (subsystem > SYS_SPI_MAX)
+	if (subsystem < 0 || subsystem > SYS_SPI_MAX)
 		return "UNKNOWN";
 
 	return subsys_name[subsystem];
@@ -530,7 +530,7 @@ static int conninfra_dbg_spi_read(int par1, int par2, int par3)
 
 	get_lock_ret = osal_lock_sleepable_lock(&g_dump_lock);
 	if (get_lock_ret) {
-		pr_notice("[%s] dump lock fail, ret=%d", __func__, get_lock_ret);
+		pr_err("[%] dump lock fail, ret=%d", get_lock_ret);
 		return 0;
 	}
 
@@ -540,8 +540,7 @@ static int conninfra_dbg_spi_read(int par1, int par2, int par3)
 			sz : CONNINFRA_DBG_DUMP_BUF_SIZE - g_dump_buf_len - 1;
 		strncpy(g_dump_buf + g_dump_buf_len, buf, sz);
 		g_dump_buf_len += sz;
-		if (g_dump_buf_len >= 0)
-			g_dump_buf[g_dump_buf_len] = '\0';
+		g_dump_buf[g_dump_buf_len] = '\0';
 	}
 	osal_unlock_sleepable_lock(&g_dump_lock);
 

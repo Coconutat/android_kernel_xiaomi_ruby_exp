@@ -30,7 +30,6 @@
 #include <linux/netdevice.h>
 #include <linux/inetdevice.h>
 #include <linux/string.h>
-#include <linux/workqueue.h>
 
 #include "connsys_debug_utility.h"
 
@@ -46,15 +45,10 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define WIFI_FW_LOG_INFO            2
 #define WIFI_FW_LOG_WARN            1
 #define WIFI_FW_LOG_ERR             0
-#define MANIFEST_BUFFER_SIZE 256
 
 uint32_t fwDbgLevel = WIFI_FW_LOG_DBG;
 unsigned int gLastFWLogOnOff;
 int gFwLogOnOffStatus;	/* 0: default, 1: success, -1: fail */
-
-char ver_name[MANIFEST_BUFFER_SIZE] = {0};
-int ver_length;
-struct work_struct getFwVerQ;
 
 #define WIFI_DBG_FUNC(fmt, arg...)	\
 	do { \
@@ -86,7 +80,6 @@ struct work_struct getFwVerQ;
 #define WIFI_FW_LOG_IOC_MAGIC        (0xfc)
 #define WIFI_FW_LOG_IOCTL_ON_OFF     _IOW(WIFI_FW_LOG_IOC_MAGIC, 0, int)
 #define WIFI_FW_LOG_IOCTL_SET_LEVEL  _IOW(WIFI_FW_LOG_IOC_MAGIC, 1, int)
-#define WIFI_FW_LOG_IOCTL_GET_VERSION  _IOR(WIFI_FW_LOG_IOC_MAGIC, 2, char*)
 
 #define WIFI_FW_LOG_CMD_ON_OFF        0
 #define WIFI_FW_LOG_CMD_SET_LEVEL     1
@@ -96,10 +89,7 @@ struct work_struct getFwVerQ;
 #endif
 
 typedef void (*wifi_fwlog_event_func_cb)(int, int);
-typedef void (*wifi_fwlog_get_fw_ver_func_cb)(uint8_t*, uint32_t*, uint32_t);
 wifi_fwlog_event_func_cb pfFwEventFuncCB;
-wifi_fwlog_get_fw_ver_func_cb pfFwGetFwVerCB;
-
 static wait_queue_head_t wq;
 
 #if (CFG_ANDORID_CONNINFRA_SUPPORT == 1)
@@ -125,13 +115,6 @@ void wifi_fwlog_event_func_register(wifi_fwlog_event_func_cb func)
 	pfFwEventFuncCB = func;
 }
 EXPORT_SYMBOL(wifi_fwlog_event_func_register);
-
-void wifi_fwlog_get_fw_ver_register(wifi_fwlog_get_fw_ver_func_cb func)
-{
-	WIFI_INFO_FUNC("wifi_fwlog_get_fw_ver_register %p\n", func);
-	pfFwGetFwVerCB = func;
-}
-EXPORT_SYMBOL(wifi_fwlog_get_fw_ver_register);
 
 int wifi_fwlog_onoff_status(void)
 {
@@ -183,7 +166,7 @@ static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd, unsi
 	int32_t wait_cnt = 0;
 
 	while (wait_cnt < 2000) {
-		if (pfFwEventFuncCB && pfFwGetFwVerCB)
+		if (pfFwEventFuncCB)
 			break;
 		if (wait_cnt % 20 == 0)
 			WIFI_ERR_FUNC("Wi-Fi driver is not ready for 2s\n");
@@ -222,18 +205,6 @@ static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd, unsi
 			WIFI_ERR_FUNC("WIFI_FW_LOG_IOCTL_ON_OFF invoke:%d failed\n", (int)log_level);
 
 		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_SET_LEVEL end\n");
-		break;
-	}
-	case WIFI_FW_LOG_IOCTL_GET_VERSION:{
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION start\n");
-
-		ver_length = 0;
-		memset(ver_name, 0, sizeof(ver_name));
-		schedule_work(&getFwVerQ);
-		flush_work(&getFwVerQ);
-
-		copy_to_user((char *) arg, ver_name, ver_length);
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION end\n");
 		break;
 	}
 	default:
@@ -348,20 +319,10 @@ static void fw_log_wifi_event_cb(void)
 	wake_up_interruptible(&wq);
 }
 
-static void mtk_get_fw_version_workQ(struct work_struct *work)
-{
-	if (pfFwGetFwVerCB) {
-		pfFwGetFwVerCB(ver_name, &ver_length, MANIFEST_BUFFER_SIZE);
-	} else
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION failed\n");
-}
-
 int fw_log_wifi_init(void)
 {
 	int result = 0;
 	int err = 0;
-
-	INIT_WORK(&getFwVerQ, mtk_get_fw_version_workQ);
 
 	fw_log_wifi_dev = kmalloc(sizeof(struct fw_log_wifi_device), GFP_KERNEL);
 
@@ -402,7 +363,6 @@ int fw_log_wifi_init(void)
 	connsys_log_register_event_cb(CONNLOG_TYPE_WIFI, fw_log_wifi_event_cb);
 	sema_init(&ioctl_mtx, 1);
 	pfFwEventFuncCB = NULL;
-	pfFwGetFwVerCB = NULL;
 	gLastFWLogOnOff = 0;
 	gFwLogOnOffStatus = 0;
 #if (CFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT == 1)

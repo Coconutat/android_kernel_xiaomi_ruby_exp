@@ -705,6 +705,9 @@ static void *pcieAllocRxBuf(struct GL_HIF_INFO *prHifInfo,
 		return NULL;
 	}
 
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	skb_reserve(pkt, CFG_RADIOTAP_HEADROOM);
+#endif
 	prDmaBuf->AllocVa = (void *)pkt->data;
 	memset(prDmaBuf->AllocVa, 0, prDmaBuf->AllocSize);
 

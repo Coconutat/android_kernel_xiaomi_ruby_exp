@@ -56,7 +56,6 @@
 #endif
 #endif
 #include <linux/proc_fs.h>
-#include <linux/thermal.h>
 #include <mtk_wcn_cmb_stub.h>
 #include "osal_typedef.h"
 #include "osal.h"
@@ -177,7 +176,7 @@ struct device *wmt_dev;
 
 /*LCM on/off ctrl for wmt varabile*/
 UINT32 hif_info;
-UINT8 gWmtClose = 1;
+UINT8 gWmtClose;
 static struct work_struct gPwrOnOffWork;
 static atomic_t g_es_lr_flag_for_quick_sleep = ATOMIC_INIT(1); /* for ctrl quick sleep flag */
 static atomic_t g_es_lr_flag_for_lpbk_onoff = ATOMIC_INIT(0); /* for ctrl lpbk on off */
@@ -624,9 +623,6 @@ LONG wmt_dev_tm_temp_query(VOID)
 	INT32 index = 0;
 	LONG return_temp = 0;
 	INT8 query_cond = 0;
-
-	if (gWmtClose != 0)
-		return THERMAL_TEMP_INVALID;
 
 	/* Let us work on the copied version of function static variables */
 	osal_lock_unsleepable_lock(&g_temp_query_spinlock);

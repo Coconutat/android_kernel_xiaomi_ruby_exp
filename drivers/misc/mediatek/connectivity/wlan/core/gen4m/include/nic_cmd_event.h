@@ -2844,19 +2844,6 @@ struct EVENT_LTE_SAFE_CHN {
 	struct LTE_SAFE_CHN_INFO rLteSafeChn;
 };
 
-#if CFG_SUPPORT_SNIFFER
-struct CMD_MONITOR_SET_INFO {
-	uint8_t ucEnable;
-	uint8_t ucBand;
-	uint8_t ucPriChannel;
-	uint8_t ucSco;
-	uint8_t ucChannelWidth;
-	uint8_t ucChannelS1;
-	uint8_t ucChannelS2;
-	uint8_t aucResv[9];
-};
-#endif
-
 struct EVENT_WIFI_RDD_TEST {
 	uint32_t u4FuncIndex;
 	uint32_t u4FuncLength;
@@ -3288,9 +3275,6 @@ enum _ENUM_NAN_SUB_EVENT {
 	NAN_EVENT_NDL_DISCONNECT,
 	NAN_EVENT_ID_PEER_CIPHER_SUITE_INFO,
 	NAN_EVENT_ID_PEER_SEC_CONTEXT_INFO,
-	NAN_EVENT_ID_DE_EVENT_IND,	/* 20 */
-	NAN_EVENT_SELF_FOLLOW_EVENT,
-	NAN_EVENT_DISABLE_IND,
 
 	NAN_EVENT_NUM
 };

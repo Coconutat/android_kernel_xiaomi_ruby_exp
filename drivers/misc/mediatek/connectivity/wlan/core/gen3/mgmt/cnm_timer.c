@@ -99,7 +99,7 @@ static BOOLEAN cnmTimerSetTimer(IN P_ADAPTER_T prAdapter,
 		fgNeedWakeLock = TRUE;
 
 		if (!prRootTimer->fgWakeLocked) {
-			KAL_WAKE_LOCK(prAdapter, prRootTimer->rWakeLock);
+			KAL_WAKE_LOCK(prAdapter, &prRootTimer->rWakeLock);
 			prRootTimer->fgWakeLocked = TRUE;
 		}
 	} else {
@@ -135,7 +135,7 @@ VOID cnmTimerInitialize(IN P_ADAPTER_T prAdapter)
 	prRootTimer->pucFileAndLineFor1stNode = NULL;
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 
-	KAL_WAKE_LOCK_INIT(prAdapter, prRootTimer->rWakeLock, "WLAN Timer");
+	KAL_WAKE_LOCK_INIT(prAdapter, &prRootTimer->rWakeLock, "WLAN Timer");
 	prRootTimer->fgWakeLocked = FALSE;
 }
 
@@ -160,10 +160,10 @@ VOID cnmTimerDestroy(IN P_ADAPTER_T prAdapter)
 	prRootTimer = &prAdapter->rRootTimer;
 
 	if (prRootTimer->fgWakeLocked) {
-		KAL_WAKE_UNLOCK(prAdapter, prRootTimer->rWakeLock);
+		KAL_WAKE_UNLOCK(prAdapter, &prRootTimer->rWakeLock);
 		prRootTimer->fgWakeLocked = FALSE;
 	}
-	KAL_WAKE_LOCK_DESTROY(prAdapter, prRootTimer->rWakeLock);
+	KAL_WAKE_LOCK_DESTROY(prAdapter, &prRootTimer->rWakeLock);
 
 	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 	LINK_INITIALIZE(&prRootTimer->rLinkHead);
@@ -275,7 +275,7 @@ static VOID cnmTimerStopTimer_impl(IN P_ADAPTER_T prAdapter, IN P_TIMER_T prTime
 			kalCancelTimer(prAdapter->prGlueInfo);
 
 			if (fgAcquireSpinlock && prRootTimer->fgWakeLocked) {
-				KAL_WAKE_UNLOCK(prAdapter, prRootTimer->rWakeLock);
+				KAL_WAKE_UNLOCK(prAdapter, &prRootTimer->rWakeLock);
 				prRootTimer->fgWakeLocked = FALSE;
 			}
 		}
@@ -503,7 +503,7 @@ VOID cnmTimerDoTimeOutCheck(IN P_ADAPTER_T prAdapter)
 	}
 
 	if (prRootTimer->fgWakeLocked && !fgNeedWakeLock) {
-		KAL_WAKE_UNLOCK(prAdapter, prRootTimer->rWakeLock);
+		KAL_WAKE_UNLOCK(prAdapter, &prRootTimer->rWakeLock);
 		prRootTimer->fgWakeLocked = FALSE;
 	}
 

@@ -80,12 +80,14 @@ MODULE_LICENSE("Dual BSD/GPL");
 	} while (0)
 #define ICS_ERR(fmt, arg...)	\
 	do { \
-		pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
+		if (icsDbgLevel >= ICS_FW_LOG_ERR) \
+			pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
 	} while (0)
 #define ICS_ERR_LIMITED(fmt, arg...)	\
 	do { \
-		pr_info_ratelimited(PFX "%s[E]: " fmt, __func__, \
-			##arg); \
+		if (icsDbgLevel >= ICS_FW_LOG_ERR) \
+			pr_info_ratelimited(PFX "%s[E]: " fmt, __func__, \
+				##arg); \
 	} while (0)
 
 typedef void (*ics_fwlog_event_func_cb)(int, int);

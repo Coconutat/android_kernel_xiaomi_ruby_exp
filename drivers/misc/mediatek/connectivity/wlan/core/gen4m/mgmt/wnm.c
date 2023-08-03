@@ -720,11 +720,6 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 		u2TmpLen += sizeof(*prBssTermDuration);
 	}
 	if (ucRequestMode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) {
-		if (prSwRfb->u2PacketLen < u2TmpLen + pucOptInfo[0]) {
-			DBGLOG(WNM, WARN,
-		       "BTM: Request frame length is less than a standard BTM frame\n");
-			return;
-		}
 		kalMemCopy(prBtmParam->aucSessionURL, &pucOptInfo[1],
 			   pucOptInfo[0]);
 		prBtmParam->ucSessionURLLen = pucOptInfo[0];

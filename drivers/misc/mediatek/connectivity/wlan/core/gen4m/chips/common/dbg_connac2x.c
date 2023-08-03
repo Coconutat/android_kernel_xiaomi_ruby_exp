@@ -74,10 +74,6 @@
 #include "mt_dmac.h"
 #include "wf_ple.h"
 
-#if CFG_MTK_MDDP_SUPPORT
-#include "mddp.h"
-#endif
-
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -3118,16 +3114,13 @@ void connac2x_show_wfdma_desc(IN struct ADAPTER *prAdapter)
 		DBGLOG(HAL, INFO, "Dump WFDMA Rx Ring[%s]\n", prGroup->name);
 		prRxRing = &prHifInfo->RxRing[i];
 		u4SwIdx = prGroup->didx;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
-					  u4SwIdx, true, 64);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
 		u4SwIdx = prGroup->didx == 0 ?
 			prGroup->cnt - 1 : prGroup->didx - 1;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
-					  u4SwIdx, true, 64);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
 		u4SwIdx = prGroup->didx == prGroup->cnt - 1 ?
 			0 : prGroup->didx + 1;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
-					  u4SwIdx, true, 64);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
 	}
 }
 
@@ -3342,9 +3335,6 @@ void connac2x_show_wfdma_info(IN struct ADAPTER *prAdapter)
 	connac2x_show_wfdma_desc(prAdapter);
 
 	connac2xDumpPPDebugCr(prAdapter);
-#if CFG_MTK_MDDP_SUPPORT
-	mddpNotifyDumpDebugInfo();
-#endif
 }
 
 void connac2x_show_dmashdl_info(IN struct ADAPTER *prAdapter)

@@ -263,6 +263,8 @@
 
 #define CFG_SUPPORT_ANT_SWAP		1
 
+#define CFG_SUPPORT_ANT_HALF            1
+
 /* If skb_buff mark field marked with pre-defined value, change priority to VO*/
 #define CFG_CHANGE_PRIORITY_BY_SKB_MARK_FIELD	1
 
@@ -456,7 +458,7 @@
  */
 #define CFG_DRV_OWN_VERSION	((uint16_t)((NIC_DRIVER_MAJOR_VERSION << 8) | \
 				(NIC_DRIVER_MINOR_VERSION)))
-#define CFG_DRV_PEER_VERSION	0x0000U
+#define CFG_DRV_PEER_VERSION	((uint16_t)0x0000)
 
 /*------------------------------------------------------------------------------
  * Flags and Parameters for TX path
@@ -517,6 +519,15 @@
 /* TODO: it should be 4096 under emulation mode */
 #define CFG_RX_MAX_PKT_SIZE	(28 + 2312 + 12 /*HIF_RX_HEADER_T*/)
 
+#define CFG_SUPPORT_SNIFFER_RADIOTAP_13K	0
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+#define CFG_RADIOTAP_HEADROOM	72
+#endif
+#if CFG_SUPPORT_SNIFFER_RADIOTAP_13K
+#define CFG_RX_MAX_MPDU_SIZE	13312 /* support amsdu 7 */
+#else
+#define CFG_RX_MAX_MPDU_SIZE	CFG_RX_MAX_PKT_SIZE
+#endif
 /*! Minimum RX packet size, if lower than this value, drop incoming packet */
 #define CFG_RX_MIN_PKT_SIZE	10 /*!< 802.11 Control Frame is 10 bytes */
 
@@ -735,17 +746,21 @@
  *------------------------------------------------------------------------------
  */
 #ifndef CFG_P2P_SCAN_REPORT_ALL_BSS
-#define CFG_P2P_SCAN_REPORT_ALL_BSS            0
+#define CFG_P2P_SCAN_REPORT_ALL_BSS            1
 #endif
 
 /* Allow connection with no P2P IE device */
 #ifndef CFG_P2P_CONNECT_ALL_BSS
-#define CFG_P2P_CONNECT_ALL_BSS            0
+#define CFG_P2P_CONNECT_ALL_BSS            1
 #endif
 
 /* Allow setting max P2P GO client count */
 #ifndef CFG_P2P_DEFAULT_CLIENT_COUNT
 #define CFG_P2P_DEFAULT_CLIENT_COUNT 0
+#endif
+
+#ifndef CFG_P2P_FORCE_ROC_CSA
+#define CFG_P2P_FORCE_ROC_CSA 1
 #endif
 
 /*------------------------------------------------------------------------------
@@ -1154,12 +1169,6 @@
  */
 #define CFG_SUPPORT_SCAN_RANDOM_MAC        (1)
 
-/*------------------------------------------------------------------------------
- * Flags of Sniffer SUPPORT
- *------------------------------------------------------------------------------
- */
-#define CFG_SUPPORT_SNIFFER                 1
-
 #define WLAN_INCLUDE_PROC                   1
 
 #if CFG_TC10_FEATURE
@@ -1412,7 +1421,7 @@
  * in mtk_cfg80211_get_station
  *------------------------------------------------------------------------------
  */
-#define CFG_REPORT_MAX_TX_RATE	0
+#define CFG_REPORT_MAX_TX_RATE	1
 
 /*------------------------------------------------------------------------------
  * Link Quality Monitor
@@ -1493,10 +1502,6 @@
 #define CFG_ROM_PATCH_NO_SEM_CTRL 0
 #endif
 
-#ifndef CFG_SUPPORT_MDDP_AOR
-#define CFG_SUPPORT_MDDP_AOR 0
-#endif
-
 /*------------------------------------------------------------------------------
  * Flags of Disconnect with disable channel based on REGD update
  *------------------------------------------------------------------------------
@@ -1510,7 +1515,7 @@
  * issues, eg. cross band switch.
  *------------------------------------------------------------------------------
  */
-#define CFG_SEND_DEAUTH_DURING_CHNL_SWITCH    1
+#define CFG_SEND_DEAUTH_DURING_CHNL_SWITCH    0
 
 /*------------------------------------------------------------------------------
  *Smart Gear Feature Configure
@@ -1545,7 +1550,7 @@
  *       COUNTRY_CHANNEL_TXPOWER_LIMIT_TYPE_COMP_11AC_V2
  *------------------------------------------------------------------------------
  */
-#define CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING 0
+#define CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING 1
 
 /*------------------------------------------------------------------------------
  * tx power control:
@@ -1637,14 +1642,6 @@
 #endif
 
 /*------------------------------------------------------------------------------
- * Support TxRing3 or not.
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_TRI_TX_RING
-#define CFG_TRI_TX_RING  0
-#endif
-
-/*------------------------------------------------------------------------------
  * Flags of Tp Enhance Mechanism
  *------------------------------------------------------------------------------
  */
@@ -1667,6 +1664,9 @@
 
 #define CFG_SUPPORT_LITTLE_CPU_BOOST 0
 
+#define ARP_BRUST_OPTIMIZE 1
+//Xiaomi add
+#define CFG_SUPPORT_SCAN_EXT_FLAG 1
 #define CFG_SUPPORT_ANDROID_DUAL_STA 0
 
 #define CFG_SUPPORT_LIMITED_PKT_PID  1

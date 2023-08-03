@@ -161,17 +161,11 @@ void asicConnac2xCapInit(
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	case MT_DEV_INF_PCIE:
 	case MT_DEV_INF_AXI:
-#if CFG_TRI_TX_RING
-		prChipInfo->u2TxInitCmdPort =
-			TX_RING_CMD_IDX_4; /* Ring17 for CMD */
-		prChipInfo->u2TxFwDlPort =
-			TX_RING_FWDL_IDX_5; /* Ring16 for FWDL */
-#else
+
 		prChipInfo->u2TxInitCmdPort =
 			TX_RING_CMD_IDX_3; /* Ring17 for CMD */
 		prChipInfo->u2TxFwDlPort =
 			TX_RING_FWDL_IDX_4; /* Ring16 for FWDL */
-#endif
 		prChipInfo->ucPacketFormat = TXD_PKT_FORMAT_TXD;
 		prChipInfo->u4HifDmaShdlBaseAddr = CONNAC2X_HIF_DMASHDL_BASE;
 
@@ -364,10 +358,6 @@ void asicConnac2xWfdmaReInit(
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 	prSwWfdmaInfo = &prBusInfo->rSwWfdmaInfo;
-
-	/* for bus hang debug purpose */
-	if (prAdapter->chip_info->checkbushang)
-		prAdapter->chip_info->checkbushang((void *) prAdapter, TRUE);
 
 	/*WFDMA re-init flow after chip deep sleep*/
 	asicConnac2xWfdmaDummyCrRead(prAdapter, &fgResult);
@@ -612,7 +602,7 @@ void asicConnac2xWfdmaTxRingBasePtrExtCtrl(
 			&u4RegValue);
 
 	phy_addr_ext |= u4RegValue;
-	DBGLOG(HAL, TRACE, "phy_addr_ext=0x%x\n", phy_addr_ext);
+	DBGLOG(HAL, INFO, "phy_addr_ext=0x%x\n", phy_addr_ext);
 
 	HAL_MCR_WR(prAdapter, tx_ring->hw_cnt_addr,
 			phy_addr_ext);
@@ -640,7 +630,7 @@ void asicConnac2xWfdmaRxRingBasePtrExtCtrl(
 			&u4RegValue);
 
 	phy_addr_ext |= u4RegValue;
-	DBGLOG(HAL, TRACE, "phy_addr_ext=0x%x\n", phy_addr_ext);
+	DBGLOG(HAL, INFO, "phy_addr_ext=0x%x\n", phy_addr_ext);
 
 	HAL_MCR_WR(prAdapter, rx_ring->hw_cnt_addr,
 			phy_addr_ext);
@@ -660,21 +650,6 @@ void asicConnac2xWfdmaTxRingExtCtrl(
 	prChipInfo = prGlueInfo->prAdapter->chip_info;
 	prBusInfo = prGlueInfo->prAdapter->chip_info->bus_info;
 
-#if CFG_TRI_TX_RING
-	if (index == TX_RING_CMD_IDX_4)
-		ext_offset = prBusInfo->tx_ring_cmd_idx * 4;
-	else if (index == TX_RING_FWDL_IDX_5)
-		ext_offset = prBusInfo->tx_ring_fwdl_idx * 4;
-	else if (prChipInfo->is_support_wacpu) {
-		if (index == TX_RING_DATA0_IDX_0)
-			ext_offset = prBusInfo->tx_ring0_data_idx * 4;
-		if (index == TX_RING_DATA1_IDX_1)
-			ext_offset = prBusInfo->tx_ring1_data_idx * 4;
-		if (index == TX_RING_WA_CMD_IDX_6)
-			ext_offset = prBusInfo->tx_ring_wa_cmd_idx * 4;
-	} else
-		ext_offset = index * 4;
-#else
 	if (index == TX_RING_CMD_IDX_3)
 		ext_offset = prBusInfo->tx_ring_cmd_idx * 4;
 	else if (index == TX_RING_FWDL_IDX_4)
@@ -688,7 +663,6 @@ void asicConnac2xWfdmaTxRingExtCtrl(
 			ext_offset = prBusInfo->tx_ring_wa_cmd_idx * 4;
 	} else
 		ext_offset = index * 4;
-#endif /* CFG_TRI_TX_RING */
 
 	tx_ring->hw_desc_base_ext =
 		prBusInfo->host_tx_ring_ext_ctrl_base + ext_offset;
@@ -938,27 +912,15 @@ void asicConnac2xProcessTxInterrupt(IN struct ADAPTER *prAdapter)
 	rIntrStatus = (union WPDMA_INT_STA_STRUCT)prHifInfo->u4IntStatus;
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_16)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_FWDL_IDX_5);
-#else
 			TX_RING_FWDL_IDX_4);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_17)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_CMD_IDX_4);
-#else
 			TX_RING_CMD_IDX_3);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_20)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_WA_CMD_IDX_6);
-#else
 			TX_RING_WA_CMD_IDX_5);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_18) {
 		halWpdmaProcessDataDmaDone(prAdapter->prGlueInfo,
@@ -1755,6 +1717,9 @@ void asicConnac2xInitRxdHook(
 	prRxDescOps->nic_rxd_sanity_check = nic_rxd_v2_sanity_check;
 	prRxDescOps->nic_rxd_check_wakeup_reason =
 		nic_rxd_v2_check_wakeup_reason;
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
+	prRxDescOps->nic_rxd_fill_radiotap = nic_rxd_v2_fill_radiotap;
+#endif
 }
 
 
@@ -1947,8 +1912,7 @@ void asicConnac2xRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	/* REMOVE DATA RATE Parsing Logic:Workaround only for 6885*/
 	/* Since MT6885 can not get Rx Data Rate dur to RXV HW Bug*/
 
-	/* if (ucBssIndex >= BSSID_NUM)*/
-	if (!(IS_BSS_INDEX_AIS(prAdapter, ucBssIndex)))
+	if (ucBssIndex >= BSSID_NUM)
 		return;
 
 	/* can't parse radiotap info if no rx vector */
@@ -1959,11 +1923,11 @@ void asicConnac2xRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 
 	prRxStatusGroup3 = prSwRfb->prRxStatusGroup3;
 
-	prStaRec = aisGetStaRecOfAP(prAdapter, ucBssIndex);
+	prStaRec = aisGetStaRecOfAP(prAdapter, AIS_DEFAULT_INDEX);
 	if (prStaRec) {
 		ucWlanIdx = prStaRec->ucWlanIndex;
 	} else {
-		/* DBGLOG(SW4, ERROR, "prStaRecOfAP is null\n");*/
+		DBGLOG(SW4, ERROR, "prStaRecOfAP is null\n");
 		return;
 	}
 
@@ -2091,12 +2055,17 @@ uint32_t downloadImgByDynMemMap(IN struct ADAPTER *prAdapter,
 #if defined(_HIF_PCIE)
 	uint32_t u4OrigValue = 0, u4ChangedValue = 0;
 #endif
+	uint8_t i;
+	uint32_t au4Buf[20];
 
 	if (eDlIdx != IMG_DL_IDX_PATCH && eDlIdx != IMG_DL_IDX_N9_FW)
 		return WLAN_STATUS_NOT_SUPPORTED;
 
 	DBGLOG(INIT, INFO, "u4Addr: 0x%x, u4Len: %u, eDlIdx: %u\n",
 			u4Addr, u4Len, eDlIdx);
+
+	if (u4Addr == 0x904000)
+		DBGLOG_MEM32(INIT, INFO, pucStartPtr, 64);
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 
@@ -2126,6 +2095,14 @@ uint32_t downloadImgByDynMemMap(IN struct ADAPTER *prAdapter,
 
 	RTMP_IO_MEM_COPY(&prAdapter->prGlueInfo->rHifInfo, u4ReMapReg,
 				pucStartPtr, u4Len);
+
+	kalMemZero(au4Buf, sizeof(au4Buf));
+	if (u4Addr == 0x904000) {
+		for (i = 0; i < 16; i++)
+			RTMP_IO_READ32(&prAdapter->prGlueInfo->rHifInfo,
+				u4ReMapReg+4*i, &au4Buf[i]);
+		DBGLOG_MEM32(INIT, INFO, au4Buf, 64);
+	}
 
 #if defined(_HIF_PCIE)
 	HAL_MCR_WR(prAdapter, prBusInfo->pcie2ap_remap_2,

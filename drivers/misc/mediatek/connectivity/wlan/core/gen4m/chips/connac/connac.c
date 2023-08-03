@@ -140,7 +140,7 @@ void connacConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[2] = {0};
 	int ret = 0;
 
-	kalGetFwFlavor(&aucFlavor[0]);
+	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
 	for (ucIdx = 0; apucConnacFwName[ucIdx]; ucIdx++) {
 		if ((*pucNameIdx + 3) >= ucMaxNameIdx) {
 			/* the table is not large enough */
@@ -157,7 +157,8 @@ void connacConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucConnacFwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -172,7 +173,8 @@ void connacConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucConnacFwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				1);
+				wlanGetEcoVersion(
+					prGlueInfo->prAdapter));
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else

@@ -111,7 +111,6 @@
 #define IOC_AP_SET_CFG          (SIOCIWFIRSTPRIV+23)
 #define IOC_AP_STA_DISASSOC     (SIOCIWFIRSTPRIV+25)
 #define IOC_AP_SET_NSS           (SIOCIWFIRSTPRIV+27)
-#define IOC_AP_SET_BW           (SIOCIWFIRSTPRIV+29)
 
 #define PRIV_CMD_REG_DOMAIN             0
 #define PRIV_CMD_BEACON_PERIOD          1
@@ -200,7 +199,8 @@
 #endif
 #define PRIV_CMD_SHOW_CHANNEL		46
 
-
+/* set ant half control */
+#define PRIV_CMD_SET_ANT_HALF_CTRL              51
 
 
 /* 802.3 Objects (Ethernet) */
@@ -297,7 +297,6 @@
 #define TX_POWER_DROP_CTRL                              0x2
 #endif
 
-#define IW_PRIV_BUF_SIZE			2000
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************

@@ -453,7 +453,6 @@ struct STA_RECORD {
 
 	uint16_t u2StatusCode;	/* Status of Auth/Assoc Req */
 	uint16_t u2ReasonCode;	/* Reason that been Deauth/Disassoc */
-	u_int8_t fgIsLocallyGenerated;
 
 	/* Point to an allocated buffer for storing Challenge */
 	/* Text for Shared Key Authentication */
@@ -1156,10 +1155,6 @@ void cnmStaFreeAllStaByNetwork(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
 
 struct STA_RECORD *cnmGetStaRecByIndex(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucIndex);
-
-struct STA_RECORD *cnmGetStaRecByIndexWithoutInUseCheck(
-	struct ADAPTER *prAdapter,
-	uint8_t ucIndex);
 
 struct STA_RECORD *cnmGetStaRecByAddress(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, uint8_t aucPeerMACAddress[]);

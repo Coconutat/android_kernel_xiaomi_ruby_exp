@@ -217,10 +217,6 @@ VOID aaaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 					fgReplyAuth = p2pFuncValidateAuth(prAdapter,
 									  prSwRfb, &prStaRec, &u2StatusCode);
 #if CFG_SUPPORT_802_11W
-					if (prBssInfo->u4RsnSelectedAKMSuite ==
-							RSN_AKM_SUITE_SAE)
-						break;
-
 					/* AP PMF, if PMF connection, ignore Rx auth */
 					/* Certification 4.3.3.4 */
 					if (rsnCheckBipKeyInstalled(prAdapter, prStaRec)) {

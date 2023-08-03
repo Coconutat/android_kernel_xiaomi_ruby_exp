@@ -276,7 +276,8 @@ static int opfunc_power_on_internal(unsigned int drv_type)
 	}
 
 	/* Check abnormal state */
-	if (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX) {
+	if ((g_conninfra_ctx.drv_inst[drv_type].drv_status < DRV_STS_POWER_OFF)
+	    || (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX)) {
 		pr_err("func(%d) status[0x%x] abnormal\n", drv_type,
 				g_conninfra_ctx.drv_inst[drv_type].drv_status);
 		return -EINVAL;
@@ -358,7 +359,8 @@ static int opfunc_power_off_internal(unsigned int drv_type)
 	}
 
 	/* Check abnormal state */
-	if (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX) {
+	if ((g_conninfra_ctx.drv_inst[drv_type].drv_status < DRV_STS_POWER_OFF)
+	    || (g_conninfra_ctx.drv_inst[drv_type].drv_status >= DRV_STS_MAX)) {
 		pr_err("func(%d) status[0x%x] abnormal\n", drv_type,
 			g_conninfra_ctx.drv_inst[drv_type].drv_status);
 		osal_unlock_sleepable_lock(&infra_ctx->core_lock);
@@ -1317,33 +1319,32 @@ int conninfra_core_pre_cal_start(void)
 	}
 
 	caller = cal_info->caller;
+	pr_info("[%s] [pre_cal] Caller = %u", __func__, caller);
 
 	/* Handle different pre_cal_mode */
 	switch (g_pre_cal_mode) {
 		case PRE_CAL_ALL_DISABLED:
-			pr_info("[%s] [pre_cal] Skip all pre-cal, caller = %u", __func__, caller);
+			pr_info("[%s] [pre_cal] Skip all pre-cal", __func__);
 			skip = true;
 			cal_info->status = PRE_CAL_DONE;
 			break;
 		case PRE_CAL_PWR_ON_DISABLED:
 			if (caller == PRE_CAL_BY_SUBDRV_REGISTER) {
-				pr_info("[%s] [pre_cal] Skip pre-cal triggered by subdrv register, "
-					"caller = %u", __func__, caller);
+				pr_info("[%s] [pre_cal] Skip pre-cal triggered by subdrv register", __func__);
 				skip = true;
 				cal_info->status = PRE_CAL_NOT_INIT;
 			}
 			break;
 		case PRE_CAL_SCREEN_ON_DISABLED:
 			if (caller == PRE_CAL_BY_SCREEN_ON) {
-				pr_info("[%s] [pre_cal] Skip pre-cal triggered by screen on, "
-					"caller = %u", __func__, caller);
+				pr_info("[%s] [pre_cal] Skip pre-cal triggered by screen on", __func__);
 				skip = true;
 				cal_info->status = PRE_CAL_DONE;
 			}
 			break;
 		default:
-			pr_info("[%s] [pre_cal] Begin pre-cal, g_pre_cal_mode: %u, caller = %u",
-				__func__, g_pre_cal_mode, caller);
+			pr_info("[%s] [pre_cal] Begin pre-cal, g_pre_cal_mode: %u",
+				__func__, g_pre_cal_mode);
 			break;
 	}
 
@@ -1700,7 +1701,7 @@ static inline char* conninfra_core_spi_subsys_string(enum sys_spi_subsystem subs
 		"SYS_SPI_MAX"
 	};
 
-	if (subsystem > SYS_SPI_MAX)
+	if (subsystem < 0 || subsystem > SYS_SPI_MAX)
 		return "UNKNOWN";
 
 	return subsys_name[subsystem];
@@ -1729,12 +1730,8 @@ int conninfra_core_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr
 	ret = msg_thread_send_wait_3(&(g_conninfra_ctx.msg_ctx), CONNINFRA_OPID_RFSPI_WRITE, 0,
 		subsystem, addr, data);
 	if (ret) {
-		pr_err("[%s] failed (ret = %d). subsystem=%s addr=0x%x data=0x%x\n",
+		pr_err("[%s] failed (ret = %d). subsystem=%s addr=0x%x data=%d\n",
 			__func__, ret, conninfra_core_spi_subsys_string(subsystem), addr, data);
-
-		if (ret == CONNINFRA_SPI_ADDR_INVALID)
-			return CONNINFRA_SPI_ADDR_INVALID;
-
 		return CONNINFRA_SPI_OP_FAIL;
 	}
 	return 0;
@@ -1839,7 +1836,7 @@ int conninfra_core_subsys_ops_reg(enum consys_drv_type type,
 	struct conninfra_ctx *infra_ctx = &g_conninfra_ctx;
 	int ret, trigger_pre_cal = 0;
 
-	if (type >= CONNDRV_TYPE_MAX)
+	if (type < CONNDRV_TYPE_BT || type >= CONNDRV_TYPE_MAX)
 		return -1;
 
 	spin_lock_irqsave(&g_conninfra_ctx.infra_lock, flag);
@@ -1878,7 +1875,7 @@ int conninfra_core_subsys_ops_unreg(enum consys_drv_type type)
 {
 	unsigned long flag;
 
-	if (type >= CONNDRV_TYPE_MAX)
+	if (type < CONNDRV_TYPE_BT || type >= CONNDRV_TYPE_MAX)
 		return -1;
 	spin_lock_irqsave(&g_conninfra_ctx.infra_lock, flag);
 	memset(&g_conninfra_ctx.drv_inst[type].ops_cb, 0,

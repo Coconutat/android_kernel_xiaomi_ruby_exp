@@ -2967,14 +2967,6 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
 
-	if (!wlanGetHifState(prGlueInfo))
-		return -EINVAL;
-
-	if (len < sizeof(NL80211_DRIVER_GET_STA_STATISTICS_PARAMS)) {
-		DBGLOG(OID, WARN, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
-
 	if (data && len)
 		prParams = (P_NL80211_DRIVER_GET_STA_STATISTICS_PARAMS) data;
 
@@ -2989,6 +2981,7 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 		DBGLOG(QM, TRACE, "%s allocate skb failed:%lx\n", __func__, rStatus);
 		return -ENOMEM;
 	}
+	DBGLOG(QM, TRACE, "Get [" MACSTR "] STA statistics\n", MAC2STR(prParams->aucMacAddr));
 
 	kalMemZero(&rQueryStaStatistics, sizeof(rQueryStaStatistics));
 	COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, prParams->aucMacAddr);

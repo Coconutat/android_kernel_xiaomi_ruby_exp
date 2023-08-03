@@ -29,17 +29,38 @@ static struct proc_dir_entry *gWmtUserProcEntry;
 
 static ssize_t wmt_user_proc_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos);
 
+static INT32 wmt_user_proc_func_ctrl(INT32 par1, INT32 par2, INT32 par3);
 static INT32 wmt_user_proc_wmt_assert_ctrl(INT32 par1, INT32 par2, INT32 par3);
 static INT32 wmt_user_proc_suspend_debug(INT32 par1, INT32 offset, INT32 size);
 static INT32 wmt_user_proc_alarm_ctrl(INT32 par1, INT32 offset, INT32 size);
 static INT32 wmt_user_proc_set_bt_link_status(INT32 par1, INT32 par2, INT32 par3);
 
 static const WMT_DEV_USER_PROC_FUNC wmt_dev_user_proc_func[] = {
+	[0x0] = wmt_user_proc_func_ctrl,
 	[0x1] = wmt_user_proc_wmt_assert_ctrl,
 	[0x2] = wmt_user_proc_suspend_debug,
 	[0x3] = wmt_user_proc_set_bt_link_status,
 	[0x4] = wmt_user_proc_alarm_ctrl,
 };
+
+INT32 wmt_user_proc_func_ctrl(INT32 par1, INT32 par2, INT32 par3)
+{
+	MTK_WCN_BOOL ret = MTK_WCN_BOOL_FALSE;
+
+	if (par2 < WMTDRV_TYPE_WMT || par2 == WMTDRV_TYPE_LPBK) {
+		if (par3 == 0) {
+			WMT_INFO_FUNC("function off test, type(%d)\n", par2);
+			ret = mtk_wcn_wmt_func_off(par2);
+		} else {
+			WMT_INFO_FUNC("function on test, type(%d)\n", par2);
+			ret = mtk_wcn_wmt_func_on(par2);
+		}
+		WMT_INFO_FUNC("function test return %d\n", ret);
+	} else
+		WMT_INFO_FUNC("function ctrl test, invalid type(%d)\n", par2);
+
+	return 0;
+}
 
 INT32 wmt_user_proc_wmt_assert_ctrl(INT32 par1, INT32 par2, INT32 par3)
 {

@@ -187,6 +187,7 @@ struct ROAMING_INFO {
 	uint8_t ucRcpi;
 	uint8_t ucThreshold;
 	struct ROAMING_EVENT_INFO rEventInfo;
+	uint8_t fgFwTxPerEnabled;
 };
 
 /*******************************************************************************

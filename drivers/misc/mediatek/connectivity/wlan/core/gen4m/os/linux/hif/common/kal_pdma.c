@@ -306,7 +306,6 @@ static bool kalWaitRxDmaDone(struct GLUE_INFO *prGlueInfo,
 			     uint16_t u2Port)
 {
 	uint32_t u4Count = 0;
-	uint32_t u4CpuIdx = 0;
 
 	for (u4Count = 0; pRxD->DMADONE == 0; u4Count++) {
 		if (u4Count > DMA_DONE_WAITING_COUNT) {
@@ -315,16 +314,6 @@ static bool kalWaitRxDmaDone(struct GLUE_INFO *prGlueInfo,
 			DBGLOG(HAL, INFO,
 			       "Rx DMA done P[%u] DMA[%u] CPU[%u]\n",
 			       u2Port, prRxRing->RxDmaIdx, prRxRing->RxCpuIdx);
-
-			u4CpuIdx = prRxRing->RxCpuIdx;
-			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
-						  true, 64);
-			INC_RING_INDEX(u4CpuIdx, prRxRing->u4RingSize);
-			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
-						  true, 64);
-			INC_RING_INDEX(u4CpuIdx, prRxRing->u4RingSize);
-			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
-						  true, 64);
 
 			return false;
 		}
@@ -925,7 +914,13 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 	struct RTMP_DMABUF *prDmaBuf;
 	u_int8_t fgRet = TRUE;
 	uint32_t u4CpuIdx = 0;
-
+#ifdef CFG_SUPPORT_PDMA_SCATTER
+	struct RTMP_DMACB *pRxCellScatter;
+	struct RXD_STRUCT *pRxDScatter;
+	uint32_t u4CpuIdxScatter = 0;
+	uint8_t ucScatterCnt = 0;
+	uint8_t *pucRecvBuff;
+#endif
 	ASSERT(prGlueInfo);
 
 	prAdapter = prGlueInfo->prAdapter;
@@ -952,6 +947,33 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 		DBGLOG(HAL, WARN,
 			"Skip Rx segmented data packet, SDL0[%u] LS0[%u]\n",
 			pRxD->SDLen0, pRxD->LastSec0);
+#ifdef CFG_SUPPORT_PDMA_SCATTER
+		if (prRxRing->fgRxSegPkt == FALSE) {
+			u4CpuIdxScatter = u4CpuIdx;
+			do {
+				pRxCellScatter =
+					&prRxRing->Cell[u4CpuIdxScatter];
+				pRxDScatter =
+					(struct RXD_STRUCT *)
+						pRxCellScatter->AllocVa;
+				ucScatterCnt++;
+
+				if (pRxDScatter->LastSec0 == 1)
+					break;
+
+				INC_RING_INDEX(u4CpuIdxScatter,
+					prRxRing->u4RingSize);
+			} while (TRUE);
+
+			prRxRing->pvPacket = kalPacketAlloc(prGlueInfo,
+					(ucScatterCnt * CFG_RX_MAX_MPDU_SIZE),
+						&pucRecvBuff);
+			prRxRing->u4PacketLen = 0;
+			RX_ADD_CNT(&prAdapter->rRxCtrl,
+				RX_PDMA_SCATTER_DATA_COUNT,
+				ucScatterCnt);
+		}
+#endif
 		if (pRxD->LastSec0 == 1) {
 			/* Last segmented packet */
 			prRxRing->fgRxSegPkt = FALSE;
@@ -961,6 +983,9 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 		}
 
 		fgRet = false;
+#ifdef CFG_SUPPORT_PDMA_SCATTER
+		if (prRxRing->pvPacket == NULL)
+#endif
 		goto skip;
 	}
 
@@ -985,6 +1010,28 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 		DMA_BITS_OFFSET) & DMA_HIGHER_4BITS_MASK;
 #else
 	pRxD->SDPtr1 = 0;
+#endif
+
+#ifdef CFG_SUPPORT_PDMA_SCATTER
+	if (fgRet == FALSE) {
+		pucRecvBuff = ((struct sk_buff *)prRxRing->pvPacket)->data;
+		pucRecvBuff += prRxRing->u4PacketLen;
+		kalMemCopy(pucRecvBuff, prSwRfb->pucRecvBuff, pRxD->SDLen0);
+		prRxRing->u4PacketLen += pRxD->SDLen0;
+
+		if (prRxRing->fgRxSegPkt == FALSE) {
+			RX_INC_CNT(&prAdapter->rRxCtrl,
+				RX_PDMA_SCATTER_INDICATION_COUNT);
+			/* Last Segment */
+			kalPacketFree(prGlueInfo, prSwRfb->pvPacket);
+			prSwRfb->pvPacket = prRxRing->pvPacket;
+			prSwRfb->pucRecvBuff =
+				((struct sk_buff *)prSwRfb->pvPacket)->data;
+			prSwRfb->prRxStatus = (void *)prSwRfb->pucRecvBuff;
+			prRxRing->pvPacket = NULL;
+			fgRet = TRUE;
+		}
+	}
 #endif
 skip:
 	pRxD->SDLen0 = prRxRing->u4BufSize;

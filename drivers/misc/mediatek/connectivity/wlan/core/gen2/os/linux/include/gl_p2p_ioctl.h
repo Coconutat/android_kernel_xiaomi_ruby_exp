@@ -404,9 +404,6 @@ int mtk_p2p_cfg80211_testmode_hotspot_block_cmd(IN struct wiphy *wiphy, IN void 
 
 int mtk_p2p_cfg80211_testmode_hotspot_config_cmd(IN struct wiphy *wiphy, IN void *data, IN int len);
 
-int mtk_p2p_cfg80211_testmode_update_sta_pmkid_cmd(IN struct wiphy *wiphy,
-				IN struct net_device *nDev, IN void *data, IN int len);
-
 #else
 #error "Please ENABLE kernel config (CONFIG_NL80211_TESTMODE)"
 #endif

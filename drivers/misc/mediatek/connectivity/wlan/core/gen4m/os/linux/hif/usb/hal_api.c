@@ -841,11 +841,7 @@ uint32_t halRxUSBEnqueueRFB(
 				switch (prSwRfb->ucPacketType) {
 				case RX_PKT_TYPE_RX_DATA:
 					spin_lock_bh(&prGlueInfo->rSpinLock[SPIN_LOCK_RX_DIRECT]);
-					if (HAL_MON_EN(prAdapter))
-						nicRxProcessMonitorPacket(
-							prAdapter, prSwRfb);
-					else
-						nicRxProcessDataPacket(
+					nicRxProcessDataPacket(
 							prAdapter, prSwRfb);
 					spin_unlock_bh(&prGlueInfo->rSpinLock[SPIN_LOCK_RX_DIRECT]);
 					break;
@@ -1275,11 +1271,6 @@ void halDevInit(IN struct ADAPTER *prAdapter)
 
 	glUdmaRxAggEnable(prGlueInfo, FALSE);
 	glUdmaTxRxEnable(prGlueInfo, TRUE);
-}
-
-u_int8_t halTxIsCmdBufEnough(IN struct ADAPTER *prAdapter)
-{
-	return TRUE;
 }
 
 u_int8_t halTxIsDataBufEnough(IN struct ADAPTER *prAdapter, IN struct MSDU_INFO *prMsduInfo)

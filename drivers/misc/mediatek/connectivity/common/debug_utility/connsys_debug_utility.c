@@ -259,9 +259,6 @@ static void connlog_ring_emi_to_cache(int conn_type)
 	static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
 	static DEFINE_RATELIMIT_STATE(_rs2, HZ, 1);
 
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
-	ratelimit_set_flags(&_rs2, RATELIMIT_MSG_ON_RELEASE);
-
 	if (conn_type < 0 || conn_type >= CONNLOG_TYPE_END)
 		return;
 
@@ -720,9 +717,6 @@ static void connlog_log_data_handler(struct work_struct *work)
 	int module = 0;
 	static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
 	static DEFINE_RATELIMIT_STATE(_rs2, 2 * HZ, 1);
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
-	ratelimit_set_flags(&_rs2, RATELIMIT_MSG_ON_RELEASE);
 
 	do {
 		ret = 0;
@@ -1227,8 +1221,6 @@ ssize_t connsys_log_read_to_user(int conn_type, char __user *buf, size_t count)
 	struct ring *ring;
 	unsigned int size = 0;
 
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
-
 	if (conn_type < 0 || conn_type >= CONNLOG_TYPE_END)
 		return 0;
 
@@ -1381,6 +1373,7 @@ int connsys_dedicated_log_set_ap_state(int state)
 	}
 
 	EMI_WRITE32(gDev.virAddrEmiLogBase + 32,  state);
+	pr_info("%s state: %d\n", __func__, state);
 	return 0;
 }
 

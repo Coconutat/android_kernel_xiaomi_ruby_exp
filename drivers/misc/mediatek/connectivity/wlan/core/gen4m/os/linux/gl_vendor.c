@@ -108,11 +108,8 @@ const struct nla_policy mtk_scan_param_policy[
 	[WIFI_ATTR_SCAN_PASSIVE_N_CH_BACK] = {.type = NLA_U8},
 };
 
-const struct nla_policy qca_wlan_vendor_attr_policy[
+const struct nla_policy nal_parse_wifi_setband[
 	QCA_WLAN_VENDOR_ATTR_MAX + 1] = {
-	[QCA_WLAN_VENDOR_ATTR_ROAMING_POLICY] = {.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_MAC_ADDR] = {.type = NLA_BINARY,
-					   .len = MAC_ADDR_LEN},
 	[QCA_WLAN_VENDOR_ATTR_SETBAND_VALUE] = {.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_SETBAND_MASK] = {.type = NLA_U32},
 };
@@ -753,7 +750,8 @@ int mtk_cfg80211_vendor_config_roaming(struct wiphy *wiphy,
 	DBGLOG(REQ, INFO, "Get the number of blacklist=%d\n",
 	       numOfList[0]);
 
-	if (numOfList[0] > MAX_FW_ROAMING_BLACKLIST_SIZE)
+	if (numOfList[0] < 0
+	    || numOfList[0] > MAX_FW_ROAMING_BLACKLIST_SIZE)
 		return -EINVAL;
 
 	/*Refresh all the FWKBlacklist */
@@ -1911,7 +1909,8 @@ int mtk_cfg80211_vendor_get_version(struct wiphy *wiphy,
 	if (attrlist->nla_type == LOGGER_ATTRIBUTE_DRIVER_VER) {
 		char aucDriverVersionStr[] = STR(NIC_DRIVER_MAJOR_VERSION) "_"
 					     STR(NIC_DRIVER_MINOR_VERSION) "_"
-					     STR(NIC_DRIVER_SERIAL_VERSION);
+					     STR(NIC_DRIVER_SERIAL_VERSION) "-"
+					     STR(DRIVER_BUILD_DATE);
 
 		u2Len = kalStrLen(aucDriverVersionStr);
 		DBGLOG(REQ, TRACE, "Get driver version len: %d\n", u2Len);
@@ -2001,8 +2000,9 @@ int mtk_cfg80211_vendor_get_supported_feature_set(struct wiphy *wiphy,
 	ASSERT(wiphy);
 	ASSERT(wdev);
 
-	WIPHY_PRIV(wiphy, prGlueInfo);
-	ASSERT(prGlueInfo);
+	prGlueInfo = wlanGetGlueInfo();
+	if (!prGlueInfo)
+		return -EFAULT;
 
 	u8FeatureSet = wlanGetSupportedFeatureSet(prGlueInfo);
 

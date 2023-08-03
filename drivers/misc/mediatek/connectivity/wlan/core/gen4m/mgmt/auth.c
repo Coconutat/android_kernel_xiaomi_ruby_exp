@@ -610,8 +610,7 @@ uint32_t authCheckRxAuthFrameTransSeq(IN struct ADAPTER *prAdapter,
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	if (prStaRec &&
-		(IS_STA_IN_AIS(prStaRec) ||
-		(IS_STA_IN_P2P(prStaRec) && IS_AP_STA(prStaRec)))) {
+		(IS_STA_IN_AIS(prStaRec) || IS_STA_IN_P2P(prStaRec))) {
 		if (prStaRec->eAuthAssocState == SAA_STATE_EXTERNAL_AUTH) {
 			saaFsmRunEventRxAuth(prAdapter, prSwRfb);
 			return WLAN_STATUS_SUCCESS;
@@ -1114,13 +1113,14 @@ authSendDeauthFrame(IN struct ADAPTER *prAdapter,
 			     + MAC_TX_RESERVED_FIELD);
 
 			prDeauthFrame->u2FrameCtrl |= MASK_FC_PROTECTED_FRAME;
-
-			/* Set deauth flag except p2p gc scenario*/
-			GET_BSS_INFO_BY_INDEX(prAdapter,
-				prStaRec->ucBssIndex)
-				->encryptedDeauthIsInProcess
-					= TRUE;
-
+			if (GET_BSS_INFO_BY_INDEX(prAdapter,
+				prStaRec->ucBssIndex)->eNetworkType ==
+				(uint8_t) NETWORK_TYPE_AIS) {
+				GET_BSS_INFO_BY_INDEX(prAdapter,
+					prStaRec->ucBssIndex)
+					->encryptedDeauthIsInProcess
+						= TRUE;
+			}
 			DBGLOG(SAA, INFO,
 			       "Reason=%d, DestAddr=" MACSTR
 			       " srcAddr=" MACSTR " BSSID=" MACSTR "\n",
