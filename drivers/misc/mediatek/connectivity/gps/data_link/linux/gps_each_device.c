@@ -14,6 +14,7 @@
 #include "gps_data_link_devices.h"
 #include "gps_dl_subsys_reset.h"
 #include "gps_dl_hist_rec.h"
+#include "gps_dl_linux_plat_drv.h"
 
 static ssize_t gps_each_device_read(struct file *filp,
 	char __user *buf, size_t count, loff_t *f_pos)
@@ -162,15 +163,15 @@ static int gps_each_device_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int gps_each_device_hw_resume(enum gps_dl_link_id_enum link_id)
+static int gps_each_device_hw_resume(enum gps_dl_link_id_enum link_id, bool revert_for_mvcd)
 {
 	int pid;
 	int retval;
 
 	pid = current->pid;
-	GDL_LOGXW(link_id, "pid = %d", pid);
+	GDL_LOGXW(link_id, "pid = %d, revert_for_mvcd = %d", pid, revert_for_mvcd);
 
-	retval = gps_each_link_hw_resume(link_id);
+	retval = gps_each_link_hw_resume(link_id, revert_for_mvcd);
 
 	/* device read may arrive before resume, not reset the recording here
 	 * gps_each_link_rec_reset(link_id);
@@ -224,11 +225,13 @@ static int gps_each_device_hw_suspend(enum gps_dl_link_id_enum link_id, bool nee
 #define GPSDL_IOC_GPS_HW_SUSPEND       18
 #define GPSDL_IOC_GPS_HW_RESUME        19
 #define GPSDL_IOC_GPS_LISTEN_RST_EVT   20
+#define GPSDL_IOC_GPS_GET_MD_STATUS    21
 
 static int gps_each_device_ioctl_inner(struct file *filp, unsigned int cmd, unsigned long arg, bool is_compat)
 {
 	struct gps_each_device *dev; /* device information */
 	int retval;
+	unsigned int md2gps_status = 0;
 
 #if 0
 	dev = container_of(inode->i_cdev, struct gps_each_device, cdev);
@@ -364,7 +367,10 @@ static int gps_each_device_ioctl_inner(struct file *filp, unsigned int cmd, unsi
 			"GPSDL_IOC_GPS_HW_SUSPEND: arg = %ld, ret = %d", arg, retval);
 		break;
 	case GPSDL_IOC_GPS_HW_RESUME:
-		retval = gps_each_device_hw_resume(dev->index);
+		/* arg == 2 is exit dpstop mode with mvcd, otherwise is exit dpstop mode normally */
+		retval = gps_each_device_hw_resume(dev->index, (arg == 2));
+		if ((arg == 2) && (retval == 0))
+			retval = -EINVAL;
 		GDL_LOGXI_ONF(dev->index,
 			"GPSDL_IOC_GPS_HW_RESUME: arg = %ld, ret = %d", arg, retval);
 		break;
@@ -379,6 +385,24 @@ static int gps_each_device_ioctl_inner(struct file *filp, unsigned int cmd, unsi
 		/* known unsupported cmd */
 		retval = -EFAULT;
 		GDL_LOGXD_DRW(dev->index, "cmd = %d, not support", cmd);
+		break;
+	case GPSDL_IOC_GPS_GET_MD_STATUS:
+		retval = 0;
+		if (b13_gps_status_addr != 0) {
+			do {
+				char *addr = ioremap((phys_addr_t)b13_gps_status_addr, 0x4);
+
+				md2gps_status = *(unsigned int *)addr;
+				GDL_LOGXI_ONF(dev->index, "MD2GPS_REG (0x%x), md2gps_status=0x%x\n",
+					b13_gps_status_addr, md2gps_status);
+				if (copy_to_user((int __user *)arg, &md2gps_status, sizeof(md2gps_status)))
+					retval = -EFAULT;
+				iounmap(addr);
+			} while (0);
+		} else {
+			retval = -EFAULT;
+			GDL_LOGXE_ONF(dev->index, "Can't get MD2GPS_REG in this platform\n");
+		}
 		break;
 	default:
 		retval = -EFAULT;

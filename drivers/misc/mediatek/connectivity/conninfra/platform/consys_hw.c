@@ -120,6 +120,7 @@ static int g_platform_config;
 
 static struct notifier_block conninfra_pm_notifier;
 
+static atomic_t g_hw_init_done = ATOMIC_INIT(0);
 /*******************************************************************************
 *                           P R I V A T E   D A T A
 ********************************************************************************
@@ -199,8 +200,7 @@ int consys_hw_pwr_off(unsigned int curr_status, unsigned int off_radio)
 	int ret = 0;
 
 	if (next_status == 0) {
-		pr_info("Last power off: %d\n", off_radio);
-		pr_info("Power off CONNSYS PART 1\n");
+		pr_info("Last power off: %d, Power off CONNSYS PART 1\n", off_radio);
 		consys_hw_raise_voltage(off_radio, false, true);
 		if (consys_hw_ops->consys_plt_conninfra_on_power_ctrl)
 			consys_hw_ops->consys_plt_conninfra_on_power_ctrl(0);
@@ -743,11 +743,14 @@ int mtk_conninfra_probe(struct platform_device *pdev)
 
 	osal_sleepable_lock_init(&g_adie_chipid_lock);
 
+	atomic_set(&g_hw_init_done, 1);
 	return 0;
 }
 
 int mtk_conninfra_remove(struct platform_device *pdev)
 {
+	atomic_set(&g_hw_init_done, 0);
+
 	if (consys_hw_ops->consys_plt_clk_detach)
 		consys_hw_ops->consys_plt_clk_detach();
 	else
@@ -827,16 +830,28 @@ void consys_hw_set_mcu_control(int type, bool onoff)
 
 int consys_hw_init(struct conninfra_dev_cb *dev_cb)
 {
-	int iRet = 0, ret = 0;
+	int iRet = 0, ret = 0, retry = 0;
 	phys_addr_t emi_addr = 0;
 	unsigned int emi_size = 0;
+	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
 
+	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
 	g_conninfra_dev_cb = dev_cb;
+
+	pmic_mng_register_device();
+	clock_mng_register_device();
+
 	iRet = platform_driver_register(&mtk_conninfra_dev_drv);
 	if (iRet)
 		pr_err("Conninfra platform driver registered failed(%d)\n", iRet);
-	pmic_mng_register_device();
-	clock_mng_register_device();
+	else {
+		while (atomic_read(&g_hw_init_done) == 0) {
+			osal_sleep_ms(50);
+			retry++;
+			if (__ratelimit(&_rs))
+				pr_info("g_hw_init_done = 0, retry = %d", retry);
+		}
+	}
 
 	conninfra_get_phy_addr(&emi_addr, &emi_size);
 	connectivity_export_conap_scp_init(consys_hw_get_ic_info(CONNSYS_SOC_CHIPID), emi_addr);

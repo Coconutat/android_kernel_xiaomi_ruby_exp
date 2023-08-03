@@ -53,6 +53,7 @@ struct gps_dl_iomem_addr_map_entry g_gps_dl_tia1_gps;
 struct gps_dl_iomem_addr_map_entry g_gps_dl_tia2_gps_on;
 struct gps_dl_iomem_addr_map_entry g_gps_dl_tia2_gps_rc_sel;
 struct gps_dl_iomem_addr_map_entry g_gps_dl_tia2_gps_debug;
+struct gps_dl_iomem_addr_map_entry g_gps_dl_b13_status_cr;
 
 
 void __iomem *gps_dl_host_addr_to_virt(unsigned int host_addr)
@@ -401,6 +402,30 @@ static int gps_dl_get_reserved_memory_lk(struct device *dev)
 }
 #endif
 
+unsigned int b13_gps_status_addr;
+static int gps_dl_get_b13_status_addr(struct device *dev)
+{
+	struct device_node *node;
+	unsigned int phy_addr = 0;
+
+	node = dev->of_node;
+	if (!node) {
+		pr_info("gps_dl_get_b13_status_addr: unable to get consys node\n");
+		return -1;
+	}
+
+	if (of_property_read_u32(node, "b13b14-status-addr", &phy_addr)) {
+		pr_info("gps_dl_get_b13_status_addr: unable to get emi_addr\n");
+		return -1;
+	}
+
+	pr_info("gps_dl_get_b13_status_addr: b13b14-status-addr %x\n", phy_addr);
+	b13_gps_status_addr = phy_addr;
+
+	return 0;
+
+}
+
 static int gps_dl_probe(struct platform_device *pdev)
 {
 	struct resource *irq = NULL;
@@ -433,6 +458,10 @@ static int gps_dl_probe(struct platform_device *pdev)
 	gps_dl_get_iomem_by_name(pdev, "tia2_gps_on", &g_gps_dl_tia2_gps_on);
 	gps_dl_get_iomem_by_name(pdev, "tia2_gps_rc_sel", &g_gps_dl_tia2_gps_rc_sel);
 	gps_dl_get_iomem_by_name(pdev, "tia2_gps_debug", &g_gps_dl_tia2_gps_debug);
+
+	/* B13B14-status-addr*/
+	if (gps_dl_get_b13_status_addr(&pdev->dev) < 0)
+		GDL_LOGW_INI("warning : get B13B14 status addr fail");
 
 	for (i = 0; i < GPS_DL_IRQ_NUM; i++) {
 		irq = platform_get_resource(pdev, IORESOURCE_IRQ, i);

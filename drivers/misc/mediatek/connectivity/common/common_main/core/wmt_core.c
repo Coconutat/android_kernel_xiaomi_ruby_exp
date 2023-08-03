@@ -1116,6 +1116,7 @@ static INT32 wmt_core_hw_check(VOID)
 	case 0x6768:
 	case 0x6785:
 	case 0x6781:
+	case 0x6789:
 	case 0x6833:
 	case 0x6853:
 	case 0x6855:
@@ -1663,7 +1664,6 @@ static INT32 opfunc_pwr_sv(P_WMT_OP pWmtOp)
 		}
 		WMT_DBG_FUNC("Send wakeup command OK!\n");
 	} else if (pWmtOp->au4OpData[0] == HOST_AWAKE) {
-
 		WMT_DBG_FUNC("**** Send host awake command\n");
 
 		psm_cb = (STP_PSM_CB) pWmtOp->au4OpData[1];
@@ -3588,6 +3588,8 @@ static INT32 opfunc_try_pwr_off(P_WMT_OP pWmtOp)
 	    (gMtkWmtCtx.eDrvStatus[WMTDRV_TYPE_COREDUMP] == DRV_STS_POWER_OFF)) {
 		WMT_INFO_FUNC("WMT-CORE:Fun(%d) [POWER_OFF] and power down chip\n", drvType);
 		mtk_wcn_wmt_system_state_reset();
+		/* avoid CONN_LOG_IRQ clear problem*/
+		osal_sleep_ms(1);
 		iRet = opfunc_pwr_off(pWmtOp);
 		if (iRet) {
 			WMT_ERR_FUNC("WMT-CORE: wmt_pwr_off fail(%d) when turn off func(%d)\n",

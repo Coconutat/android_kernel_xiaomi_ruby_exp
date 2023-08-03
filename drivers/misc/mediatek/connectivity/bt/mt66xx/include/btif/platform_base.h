@@ -242,9 +242,9 @@ static inline void compose_fw_name(u_int8_t has_flavor, uint8_t flavor,
 		if (snprintf(g_fwp_names[1][1], FW_NAME_LEN, "%s%c_1_hdr-u.bin", bin_bt_name, flavor) < 0)
 			BTMTK_ERR("%s: has_flavor[1][1]", __func__);
 	} else	{
-		if (snprintf(g_fwp_names[0][1], FW_NAME_LEN, "%s_1_hdr.bin", bin_mcu_name) < 0)
+		if (snprintf(g_fwp_names[0][1], FW_NAME_LEN, "%s_1_hdr-u.bin", bin_mcu_name) < 0)
 			BTMTK_ERR("%s: no_flavor[0][1]", __func__);
-		if (snprintf(g_fwp_names[1][1], FW_NAME_LEN, "%s_1_hdr.bin", bin_bt_name) < 0)
+		if (snprintf(g_fwp_names[1][1], FW_NAME_LEN, "%s_1_hdr-u.bin", bin_bt_name) < 0)
 			BTMTK_ERR("%s: no_flavor[1][1]", __func__);
 	}
 #endif

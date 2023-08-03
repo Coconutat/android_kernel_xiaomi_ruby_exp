@@ -261,6 +261,8 @@ EXPORT_SYMBOL(conninfra_spi_read);
 
 int conninfra_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr, unsigned int data)
 {
+	int ret = 0;
+
 	if (conninfra_core_is_rst_locking()) {
 		DUMP_LOG();
 		return CONNINFRA_ERR_RST_ONGOING;
@@ -270,8 +272,13 @@ int conninfra_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr, uns
 		pr_err("[%s] wrong subsys %d", __func__, subsystem);
 		return -EINVAL;
 	}
-	return conninfra_core_spi_write(subsystem, addr, data);
-;
+
+	ret = conninfra_core_spi_write(subsystem, addr, data);
+
+	if (ret == CONNINFRA_SPI_ADDR_INVALID)
+		pr_info("[%s] Error: write invalid spi addr=[0x%x], value=[0x%x]\n", __func__, addr, data);
+
+	return ret;
 }
 EXPORT_SYMBOL(conninfra_spi_write);
 

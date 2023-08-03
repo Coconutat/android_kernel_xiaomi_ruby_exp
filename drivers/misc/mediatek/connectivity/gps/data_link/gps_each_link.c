@@ -518,7 +518,7 @@ int gps_each_link_hw_suspend(enum gps_dl_link_id_enum link_id, bool need_clk_ext
 	return gps_each_link_close_or_suspend(link_id, op);
 }
 
-int gps_each_link_hw_resume(enum gps_dl_link_id_enum link_id)
+int gps_each_link_hw_resume(enum gps_dl_link_id_enum link_id, bool revert_for_mvcd)
 {
 	enum gps_each_link_state_enum state;
 	long sigval = 0;
@@ -547,7 +547,11 @@ int gps_each_link_hw_resume(enum gps_dl_link_id_enum link_id)
 		gps_dma_buf_align_as_byte_mode(&p_link->tx_dma_buf);
 		gps_dma_buf_align_as_byte_mode(&p_link->rx_dma_buf);
 #endif
-		gps_dl_link_event_send(GPS_DL_EVT_LINK_LEAVE_DPSTOP, link_id);
+		if (revert_for_mvcd)
+			gps_dl_link_event_send(GPS_DL_EVT_LINK_LEAVE_DPSTOP2, link_id);
+		else
+			gps_dl_link_event_send(GPS_DL_EVT_LINK_LEAVE_DPSTOP, link_id);
+
 		gps_dl_link_open_wait(link_id, &sigval);
 		if (sigval != 0) {
 			GDL_LOGXW_ONF(link_id, "sigval = %ld", sigval);

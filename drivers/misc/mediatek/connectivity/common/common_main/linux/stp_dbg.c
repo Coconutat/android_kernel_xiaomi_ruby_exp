@@ -2160,7 +2160,7 @@ VOID stp_dbg_set_keyword(PINT8 keyword)
 		else if (osal_strchr(keyword, '<') != NULL || osal_strchr(keyword, '>') != NULL)
 			STP_DBG_PR_INFO("Keyword has < or >, keywrod: %s\n", keyword);
 		else
-			osal_strncat(&g_stp_dbg_cpupcr->keyword[0], keyword, osal_strlen(keyword));
+			osal_strncpy(&g_stp_dbg_cpupcr->keyword[0], keyword, osal_strlen(keyword));
 	} else {
 		g_stp_dbg_cpupcr->keyword[0] = '\0';
 	}

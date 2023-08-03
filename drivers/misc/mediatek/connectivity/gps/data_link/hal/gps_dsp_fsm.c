@@ -305,6 +305,12 @@ void gps_dsp_fsm(enum gps_dsp_event_t evt, enum gps_dl_link_id_enum link_id)
 
 	case GPS_DSP_ST_HW_STOP_MODE:
 		if (GPS_DSP_EVT_HW_STOP_EXIT == evt) {
+			/*enter revert_for_mvcd, in this case, will change state to turned on*/
+			if (gps_dl_hal_get_deep_stop_mode_revert_for_mvcd(link_id)) {
+				gps_dsp_state_change_to(GPS_DSP_ST_TURNED_ON, link_id);
+				abnormal_flag = false;
+				break;
+			}
 			/* GPS_Reroute_Ext_Power_Ctrl_Inner(5); */
 			gps_dsp_state_change_to(GPS_DSP_ST_WAKEN_UP, link_id);
 			abnormal_flag = false;

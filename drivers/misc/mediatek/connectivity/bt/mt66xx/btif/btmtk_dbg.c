@@ -684,8 +684,8 @@ ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count,
 	if (copy_from_user(buf, buffer, len))
 		return -EFAULT;
 	buf[len] = '\0';
-	BTMTK_INFO("%s: bt_state[%d], dbg_enable[%d], len[%d], data = %s",
-		__func__, bt_state, g_bt_dbg_enable, (int)len, buf);
+	BTMTK_INFO("%s: bt_state[%d], dbg_enable[%d], len[%d]",
+		__func__, bt_state, g_bt_dbg_enable, (int)len);
 
 	/* Check debug function is enabled or not
 	 *   - not enable yet: user should enable it
@@ -731,7 +731,7 @@ ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count,
 	if (pToken != NULL) {
 		bt_osal_strtol(pToken, 16, &res);
 		y = (int)res;
-		BTMTK_INFO("%s: y = 0x%08x\n\r", __func__, y);
+		BTMTK_INFO("%s: y = 0x%08x", __func__, y);
 	} else {
 		y = 3000;
 		/*efuse, register read write default value */

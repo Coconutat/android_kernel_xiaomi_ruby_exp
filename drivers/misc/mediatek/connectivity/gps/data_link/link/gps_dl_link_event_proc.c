@@ -99,6 +99,7 @@ void gps_dl_link_event_proc(enum gps_dl_link_event_id evt,
 		/* gps_dl_set_show_reg_rw_log(show_log); */
 		break;
 	case GPS_DL_EVT_LINK_LEAVE_DPSTOP:
+	case GPS_DL_EVT_LINK_LEAVE_DPSTOP2:
 		/*leave deep stop mode with incorrect status*/
 		if (GPS_DSP_ST_WAKEN_UP == gps_dsp_state_get(link_id)) {
 			GDL_LOGXE(link_id, "not leave stop mode correct due to dsp state keep wakeup");
@@ -110,6 +111,8 @@ void gps_dl_link_event_proc(enum gps_dl_link_event_id evt,
 		gps_each_dsp_reg_gourp_read_init(link_id);
 		gps_each_link_inc_session_id(link_id);
 		gps_each_link_set_active(link_id, true);
+		if (evt == GPS_DL_EVT_LINK_LEAVE_DPSTOP2)
+			gps_dl_hal_set_deep_stop_mode_revert_for_mvcd(link_id, true);
 		gps_each_link_set_bool_flag(link_id, LINK_NEED_A2Z_DUMP, false);
 		ret = gps_dl_hal_link_power_ctrl(link_id, GPS_DL_HAL_LEAVE_DPSTOP);
 		if (ret != 0)
@@ -119,6 +122,8 @@ void gps_dl_link_event_proc(enum gps_dl_link_event_id evt,
 			gps_dl_link_irq_set(link_id, true);
 			gps_dl_link_open_ack(link_id, true, true);
 		}
+		if (evt == GPS_DL_EVT_LINK_LEAVE_DPSTOP2)
+			gps_dl_hal_set_deep_stop_mode_revert_for_mvcd(link_id, false);
 		break;
 	case GPS_DL_EVT_LINK_LEAVE_DPSLEEP:
 		gps_dl_hal_link_power_ctrl(link_id, GPS_DL_HAL_LEAVE_DPSLEEP);

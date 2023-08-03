@@ -40,6 +40,7 @@ bool g_gps_irqs_dis[GPS_DATA_LINK_NUM][GPS_DL_IRQ_TYPE_NUM];
 bool g_gps_need_clk_ext[GPS_DATA_LINK_NUM];
 int g_gps_conn_clock_flag = GPSDL_CLOCK_FLAG_COTMS;
 unsigned int g_conn_user;
+bool g_gps_need_revert_for_mvcd[GPS_DATA_LINK_NUM];
 
 enum gps_blanking_setting_enum {
 	USE_PTA_DEFAULT,
@@ -696,5 +697,20 @@ void gps_dl_hal_load_clock_flag(void)
 	GDL_LOGW("clk: no conninfra drv, default flag = 0x%x", gps_clock_flag);
 #endif
 	g_gps_conn_clock_flag = gps_clock_flag;
+}
+
+bool gps_dl_hal_get_deep_stop_mode_revert_for_mvcd(enum gps_dl_link_id_enum link_id)
+{
+	bool need = false;
+
+	ASSERT_LINK_ID(link_id, false);
+	need = g_gps_need_revert_for_mvcd[link_id];
+	return need;
+}
+
+void gps_dl_hal_set_deep_stop_mode_revert_for_mvcd(enum gps_dl_link_id_enum link_id, bool revert_for_mvcd)
+{
+	ASSERT_LINK_ID(link_id, GDL_VOIDF());
+	g_gps_need_revert_for_mvcd[link_id] = revert_for_mvcd;
 }
 

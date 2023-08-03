@@ -1373,7 +1373,6 @@ int connsys_dedicated_log_set_ap_state(int state)
 	}
 
 	EMI_WRITE32(gDev.virAddrEmiLogBase + 32,  state);
-	pr_info("%s state: %d\n", __func__, state);
 	return 0;
 }
 

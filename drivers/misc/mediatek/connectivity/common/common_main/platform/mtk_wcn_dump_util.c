@@ -44,40 +44,6 @@
 int g_mapped_reg_table_sz;
 P_REG_MAP_ADDR g_mapped_reg_table;
 
-int __weak g_mapped_reg_table_sz_mt6580;
-int __weak g_mapped_reg_table_sz_mt6739;
-int __weak g_mapped_reg_table_sz_mt8163;
-int __weak g_mapped_reg_table_sz_mt8167;
-int __weak g_mapped_reg_table_sz_mt6771;
-int __weak g_mapped_reg_table_sz_mt6765;
-int __weak g_mapped_reg_table_sz_mt6761;
-int __weak g_mapped_reg_table_sz_mt6779;
-int __weak g_mapped_reg_table_sz_mt6768;
-int __weak g_mapped_reg_table_sz_mt6785;
-int __weak g_mapped_reg_table_sz_mt6781;
-int __weak g_mapped_reg_table_sz_mt6833;
-int __weak g_mapped_reg_table_sz_mt6853;
-int __weak g_mapped_reg_table_sz_mt6855;
-int __weak g_mapped_reg_table_sz_mt6873;
-int __weak g_mapped_reg_table_sz_mt8168;
-
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6580[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6739[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt8163[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt8167[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6771[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6765[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6761[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6779[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6768[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6785[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6781[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6833[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6853[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6855[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt6873[] = {};
-REG_MAP_ADDR __weak g_mapped_reg_table_mt8168[] = {};
-
 static struct reg_map_addr *get_mapped_reg(unsigned int mapped_tbl_idx)
 {
 	struct reg_map_addr *reg_addr = NULL;
@@ -183,75 +149,17 @@ INT32 execute_dump_action(const char *trg_str, const char *dump_prefix, struct c
 
 VOID init_dump_util_variable(UINT32 chipid)
 {
-	switch (chipid) {
-	case 0x6580:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6580;
-		g_mapped_reg_table = g_mapped_reg_table_mt6580;
-		break;
-	case 0x6739:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6739;
-		g_mapped_reg_table = g_mapped_reg_table_mt6739;
-		break;
-	case 0x8163:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt8163;
-		g_mapped_reg_table = g_mapped_reg_table_mt8163;
-		break;
-	case 0x8167:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt8167;
-		g_mapped_reg_table = g_mapped_reg_table_mt8167;
-		break;
-	case 0x6771:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6771;
-		g_mapped_reg_table = g_mapped_reg_table_mt6771;
-		break;
-	case 0x6765:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6765;
-		g_mapped_reg_table = g_mapped_reg_table_mt6765;
-		break;
-	case 0x6761:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6761;
-		g_mapped_reg_table = g_mapped_reg_table_mt6761;
-		break;
-	case 0x6779:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6779;
-		g_mapped_reg_table = g_mapped_reg_table_mt6779;
-		break;
-	case 0x6768:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6768;
-		g_mapped_reg_table = g_mapped_reg_table_mt6768;
-		break;
-	case 0x6785:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6785;
-		g_mapped_reg_table = g_mapped_reg_table_mt6785;
-		break;
-	case 0x6781:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6781;
-		g_mapped_reg_table = g_mapped_reg_table_mt6781;
-		break;
-	case 0x6833:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6833;
-		g_mapped_reg_table = g_mapped_reg_table_mt6833;
-		break;
-	case 0x6853:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6853;
-		g_mapped_reg_table = g_mapped_reg_table_mt6853;
-		break;
-	case 0x6855:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6855;
-		g_mapped_reg_table = g_mapped_reg_table_mt6855;
-		break;
-	case 0x6873:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt6873;
-		g_mapped_reg_table = g_mapped_reg_table_mt6873;
-		break;
-	case 0x8168:
-		g_mapped_reg_table_sz = g_mapped_reg_table_sz_mt8168;
-		g_mapped_reg_table = g_mapped_reg_table_mt8168;
-		break;
-	default:
+	int table_ary_sz = 0;
+	P_REG_MAP_ADDR table_ary = NULL;
+
+	table_ary_sz = mtk_wcn_consys_get_debug_reg_ary_size();
+	table_ary = mtk_wcn_consys_get_debug_reg_ary();
+
+	if (table_ary_sz && table_ary) {
+		g_mapped_reg_table_sz = table_ary_sz;
+		g_mapped_reg_table = table_ary;
+	} else
 		WMT_PLAT_PR_INFO("chipid(0x%x) not support\n", chipid);
-		break;
-	}
 }
 
 VOID mtk_wcn_dump_util_init(UINT32 chipid)

@@ -805,12 +805,15 @@ static signed int connac2x_PowerUp(unsigned short *chip_id, unsigned short *devi
 		return ret;
 	}
 
-	/* B1 Enable Top Clock */
-	ret = fm_top_reg_write(0xA00, 0xFFFFFFFF);
-	if (ret) {
-		WCN_DBG(FM_ALT | CHIP, "Enable top clock failed\n");
-		return ret;
-	}
+	if (!(ei->is_aoc_support())) {
+		/* B1 Enable Top Clock */
+		ret = fm_top_reg_write(0xA00, 0xFFFFFFFF);
+		if (ret) {
+			WCN_DBG(FM_ALT | CHIP, "Enable top clock failed\n");
+			return ret;
+		}
+	} else
+		WCN_DBG(FM_NTC | CHIP, "skip 0xA00 write\n");
 
 	/* B2 Read A-die id */
 	ret = fm_top_reg_read(0x02C, &tem);

@@ -30,5 +30,6 @@ void gps_dl_wake_lock_deinit(void);
 void gps_dl_wake_lock_hold(bool hold);
 #endif
 
+extern unsigned int b13_gps_status_addr;
 #endif /* _GPS_DL_LINUX_PLAT_DRV_H */
 

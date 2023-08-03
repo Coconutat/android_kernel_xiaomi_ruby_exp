@@ -1319,32 +1319,33 @@ int conninfra_core_pre_cal_start(void)
 	}
 
 	caller = cal_info->caller;
-	pr_info("[%s] [pre_cal] Caller = %u", __func__, caller);
 
 	/* Handle different pre_cal_mode */
 	switch (g_pre_cal_mode) {
 		case PRE_CAL_ALL_DISABLED:
-			pr_info("[%s] [pre_cal] Skip all pre-cal", __func__);
+			pr_info("[%s] [pre_cal] Skip all pre-cal, caller = %u", __func__, caller);
 			skip = true;
 			cal_info->status = PRE_CAL_DONE;
 			break;
 		case PRE_CAL_PWR_ON_DISABLED:
 			if (caller == PRE_CAL_BY_SUBDRV_REGISTER) {
-				pr_info("[%s] [pre_cal] Skip pre-cal triggered by subdrv register", __func__);
+				pr_info("[%s] [pre_cal] Skip pre-cal triggered by subdrv register, "
+					"caller = %u", __func__, caller);
 				skip = true;
 				cal_info->status = PRE_CAL_NOT_INIT;
 			}
 			break;
 		case PRE_CAL_SCREEN_ON_DISABLED:
 			if (caller == PRE_CAL_BY_SCREEN_ON) {
-				pr_info("[%s] [pre_cal] Skip pre-cal triggered by screen on", __func__);
+				pr_info("[%s] [pre_cal] Skip pre-cal triggered by screen on, "
+					"caller = %u", __func__, caller);
 				skip = true;
 				cal_info->status = PRE_CAL_DONE;
 			}
 			break;
 		default:
-			pr_info("[%s] [pre_cal] Begin pre-cal, g_pre_cal_mode: %u",
-				__func__, g_pre_cal_mode);
+			pr_info("[%s] [pre_cal] Begin pre-cal, g_pre_cal_mode: %u, caller = %u",
+				__func__, g_pre_cal_mode, caller);
 			break;
 	}
 
@@ -1730,8 +1731,12 @@ int conninfra_core_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr
 	ret = msg_thread_send_wait_3(&(g_conninfra_ctx.msg_ctx), CONNINFRA_OPID_RFSPI_WRITE, 0,
 		subsystem, addr, data);
 	if (ret) {
-		pr_err("[%s] failed (ret = %d). subsystem=%s addr=0x%x data=%d\n",
+		pr_err("[%s] failed (ret = %d). subsystem=%s addr=0x%x data=0x%x\n",
 			__func__, ret, conninfra_core_spi_subsys_string(subsystem), addr, data);
+
+		if (ret == CONNINFRA_SPI_ADDR_INVALID)
+			return CONNINFRA_SPI_ADDR_INVALID;
+
 		return CONNINFRA_SPI_OP_FAIL;
 	}
 	return 0;

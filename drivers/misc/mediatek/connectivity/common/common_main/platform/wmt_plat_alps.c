@@ -299,6 +299,7 @@ static VOID wmt_plat_bgf_eirq_cb(VOID)
 irqreturn_t wmt_plat_bgf_irq_isr(INT32 irq, PVOID arg)
 {
 #if CFG_WMT_PS_SUPPORT
+	mtk_wcn_consys_wakeup_btif_irq_pull_low();
 	wmt_plat_eirq_ctrl(PIN_BGF_EINT, PIN_STA_EINT_DIS);
 	wmt_plat_bgf_eirq_cb();
 #else

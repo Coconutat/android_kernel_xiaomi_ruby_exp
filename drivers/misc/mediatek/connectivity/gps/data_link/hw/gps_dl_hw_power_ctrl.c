@@ -374,9 +374,10 @@ unsigned int g_gps_pwr_stat;
 int gps_dl_hw_gps_pwr_stat_ctrl(enum dsp_ctrl_enum ctrl)
 {
 	bool clk_ext = false;
-
+	unsigned int if_clk_ext = 0;
 #if GPS_DL_ON_LINUX
 	clk_ext = gps_dl_hal_get_need_clk_ext_flag(GPS_DATA_LINK_ID0);
+	if_clk_ext = (clk_ext == true) ? 1 : 0;
 #endif
 	switch (ctrl) {
 	case GPS_L1_DSP_ON:
@@ -403,7 +404,7 @@ int gps_dl_hw_gps_pwr_stat_ctrl(enum dsp_ctrl_enum ctrl)
 	case GPS_L1_DSP_ENTER_DSTOP:
 	case GPS_L5_DSP_ENTER_DSTOP:
 		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_GPS_PWR_STAT, 1);
-		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_FORCE_OSC_EN_ON, clk_ext);
+		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_FORCE_OSC_EN_ON, if_clk_ext);
 		if (clk_ext)
 			GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_DIS_HW_RST_CNT, 1);
 		else
@@ -414,6 +415,14 @@ int gps_dl_hw_gps_pwr_stat_ctrl(enum dsp_ctrl_enum ctrl)
 
 	case GPS_L1_DSP_EXIT_DSTOP:
 	case GPS_L5_DSP_EXIT_DSTOP:
+		/*gps enter mvcd flow*/
+		if (gps_dl_hal_get_deep_stop_mode_revert_for_mvcd(GPS_DATA_LINK_ID0) ||
+			gps_dl_hal_get_deep_stop_mode_revert_for_mvcd(GPS_DATA_LINK_ID1)) {
+			GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_GPS_PWR_STAT, 0);
+			GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_FORCE_OSC_EN_ON, 0);
+			GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_DIS_HW_RST_CNT, 1);
+			break;
+		}
 		/* do nothing */
 		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_DIS_HW_RST_CNT, 1);
 		gps_dl_hw_print_ms_counter_status();
@@ -422,7 +431,7 @@ int gps_dl_hw_gps_pwr_stat_ctrl(enum dsp_ctrl_enum ctrl)
 	case GPS_L1_DSP_ENTER_DSLEEP:
 	case GPS_L5_DSP_ENTER_DSLEEP:
 		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_GPS_PWR_STAT, 3);
-		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_FORCE_OSC_EN_ON, clk_ext);
+		GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_FORCE_OSC_EN_ON, if_clk_ext);
 		if (clk_ext)
 			GDL_HW_SET_GPS_ENTRY(GPS_AON_TOP_DSLEEP_CTL_DIS_HW_RST_CNT, 1);
 		else
@@ -696,7 +705,6 @@ void gps_dl_hw_gps_adie_force_off(void)
 	/* GPS: 0x0[15] = 1'b1 */
 	spi_data = 0;
 	rd_status = conninfra_spi_read(SYS_SPI_GPS, 0x518, &spi_data);
-
 	ASSERT_ZERO(rd_status, GDL_VOIDF());
 	GDL_LOGW("spi_data(GPS:0x518) = 0x%x", spi_data);
 	spi_data = 0;

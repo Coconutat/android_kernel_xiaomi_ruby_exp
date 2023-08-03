@@ -195,7 +195,7 @@ int gps_each_link_open(enum gps_dl_link_id_enum link_id);
 int gps_each_link_enter_dsleep(enum gps_dl_link_id_enum link_id);
 int gps_each_link_leave_dsleep(enum gps_dl_link_id_enum link_id);
 int gps_each_link_hw_suspend(enum gps_dl_link_id_enum link_id, bool need_clk_ext);
-int gps_each_link_hw_resume(enum gps_dl_link_id_enum link_id);
+int gps_each_link_hw_resume(enum gps_dl_link_id_enum link_id, bool revert_for_mvcd);
 int gps_each_link_close(enum gps_dl_link_id_enum link_id);
 int gps_each_link_check(enum gps_dl_link_id_enum link_id, int reason);
 int gps_each_link_reset(enum gps_dl_link_id_enum link_id);
@@ -238,9 +238,10 @@ enum gps_dl_link_event_id {
 	GPS_DL_EVT_LINK_ENTER_DPSLEEP,
 	GPS_DL_EVT_LINK_LEAVE_DPSLEEP,
 	GPS_DL_EVT_LINK_ENTER_DPSTOP,
-	GPS_DL_EVT_LINK_LEAVE_DPSTOP,
+	GPS_DL_EVT_LINK_LEAVE_DPSTOP,/*purpose: is changing status to wake(then to working)*/
 	GPS_DL_EVT_LINK_UPDATE_SETTING,
 	GPS_DL_EVT_LINK_PRINT_DATA_STATUS,
+	GPS_DL_EVT_LINK_LEAVE_DPSTOP2,/*purpose: is revert deep stop mode to wait for mvcd(reset done)*/
 	GPS_DL_LINK_EVT_NUM,
 };
 
