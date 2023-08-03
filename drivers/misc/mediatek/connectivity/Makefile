@@ -50,7 +50,7 @@ endif
         ccflags-y += -D CFG_CONNADP_BUILD_IN
     endif
     # Do build-in for Makefile checking
-    # export CONFIG_WLAN_DRV_BUILD_IN=y
+    export CONFIG_WLAN_DRV_BUILD_IN=y
 
     ifeq ($(CONFIG_WLAN_DRV_BUILD_IN),y)
 
