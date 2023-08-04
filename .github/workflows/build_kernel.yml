@@ -50,6 +50,10 @@ jobs:
         rm -rf drivers/kernelsu
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
         export PATH=$(pwd)/proton-clang/bin/:$PATH
+        export CONFIG_BUILD_ARM64_DT_OVERLAY=y
+        export DTC_EXT=dtc
+        export ARCH=arm64
+        export SUBARCH=arm64
         make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang"
         make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all)
         cp out/arch/arm64/boot/Image.gz tools/AnyKernel3/Image.gz
