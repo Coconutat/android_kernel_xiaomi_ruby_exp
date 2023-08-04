@@ -10,4 +10,4 @@ MTK kernel modules port from(Because Xiaomi's official source is not fully open)
 ***
 Compiler:[Proton-Clang](https://github.com/kdrag0n/proton-clang)  
 ***
-This branch is for support KernelSU. 
+This branch is for support [KernelSU](https://github.com/tiann/KernelSU). 
