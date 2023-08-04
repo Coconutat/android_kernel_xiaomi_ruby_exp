@@ -21,7 +21,7 @@ start_time=$(date +%Y.%m.%d-%I-%M)
 
 start_time_sum=$(date +%s)
 
-make ARCH=arm64 O=out CC=clang ruby_stock_mod_defconfig
+make ARCH=arm64 O=out CC=clang ruby_stock_mod_ksu_defconfig
 # 定义编译线程数
 make ARCH=arm64 O=out CC=clang -j$(nproc) 2>&1 | tee kernel_log-${start_time}.txt
 
@@ -45,9 +45,9 @@ if [ -f out/arch/arm64/boot/Image.gz ]; then
 	# cp out/arch/arm64/boot/Image.gz Image.gz
 	cp out/arch/arm64/boot/Image.gz tools/AnyKernel3/Image.gz
 	cd tools/AnyKernel3
-	zip -r9 RedmiNote12_Pro_kernel-${end_time}.zip * > /dev/null
+	zip -r9 RedmiNote12_Pro_kernel-KSU-${end_time}.zip * > /dev/null
 	cd ../..
-	mv tools/AnyKernel3/RedmiNote12_Pro_kernel-${end_time}.zip RedmiNote12_Pro_kernel-${end_time}.zip
+	mv tools/AnyKernel3/RedmiNote12_Pro_kernel-KSU-${end_time}.zip RedmiNote12_Pro_kernel-KSU-${end_time}.zip
 	rm -rf tools/AnyKernel3/Image.gz
 	echo " "
 	echo "***Sucessfully built kernel...***"
