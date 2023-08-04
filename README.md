@@ -9,3 +9,5 @@ MTK kernel modules port from(Because Xiaomi's official source is not fully open)
 3. PQEnablers-Devces:[android_kernel_xiaomi_mt6877](https://github.com/PQEnablers-Devices/android_kernel_xiaomi_mt6877)  
 ***
 Compiler:[Proton-Clang](https://github.com/kdrag0n/proton-clang)  
+***
+This branch is for support KernelSU. 
