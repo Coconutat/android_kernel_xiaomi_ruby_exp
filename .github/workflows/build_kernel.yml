@@ -19,7 +19,7 @@ jobs:
       CCACHE_NOHASHDIR: "true"
       CCACHE_MAXSIZE: "2G"
       CCACHE_HARDLINK: "true"
-      KERNEL_DEFCONFIG: "ruby_stock_mod_ksu_defconfig"
+      KERNEL_DEFCONFIG: "ruby_user_mod_ksu_defconfig"
       KERNEL_CMDLINE: "ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- O=out"
     steps:
     - name: Checkout
