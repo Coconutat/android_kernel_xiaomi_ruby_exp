@@ -382,7 +382,9 @@ BOOLEAN halSetDriverOwn(IN P_ADAPTER_T prAdapter)
 				if (prAdapter->u4OwnFailedLogCount > LP_OWN_BACK_FAILED_RESET_CNT) {
 					/* Trigger RESET */
 #if CFG_CHIP_RESET_SUPPORT
-					glResetTrigger(prAdapter);
+					glGetRstReason(RST_DRV_OWN_FAIL);
+					GL_RESET_TRIGGER(prAdapter,
+							 RST_FLAG_CHIP_RESET);
 #endif
 				}
 				GET_CURRENT_SYSTIME(&prAdapter->rLastOwnFailedLogTime);
@@ -423,7 +425,9 @@ BOOLEAN halSetDriverOwn(IN P_ADAPTER_T prAdapter)
 					"Skip waiting CR4 ready for next %ums\n", LP_OWN_BACK_FAILED_LOG_SKIP_MS);
 				fgStatus = FALSE;
 #if CFG_CHIP_RESET_SUPPORT
-				glResetTrigger(prAdapter);
+				glGetRstReason(RST_DRV_OWN_FAIL);
+				GL_RESET_TRIGGER(prAdapter,
+						 RST_FLAG_CHIP_RESET);
 #endif
 				break;
 			}
@@ -1724,6 +1728,21 @@ WLAN_STATUS halHifPowerOffWifi(IN P_ADAPTER_T prAdapter)
 VOID halPrintHifDbgInfo(IN P_ADAPTER_T prAdapter)
 {
 
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Check if HIF state is READY for upper layer cfg80211
+*
+* @param prAdapter      Pointer to the Adapter structure.
+*
+* @return (TRUE: ready, FALSE: not ready)
+*/
+/*----------------------------------------------------------------------------*/
+BOOLEAN halIsHifStateReady(IN P_ADAPTER_T prAdapter)
+{
+	/* PCIE owner should implement this function */
+	return TRUE;
 }
 
 BOOLEAN halIsTxResourceControlEn(IN P_ADAPTER_T prAdapter)

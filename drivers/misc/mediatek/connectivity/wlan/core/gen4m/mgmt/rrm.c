@@ -1451,16 +1451,16 @@ int rrmReportElem(struct RM_MEASURE_REPORT_ENTRY *reportEntry,
 	const uint8_t *data, uint32_t data_len)
 {
 	uint8_t *report = reportEntry->pucMeasReport;
-	uint16_t len = reportEntry->u2MeasReportLen;
-	uint32_t size = (uint32_t)len + 5 + data_len;
+	uint8_t len = reportEntry->u2MeasReportLen;
+	uint32_t size = len + 5 + data_len;
 	uint8_t *buf;
 
-	buf = (uint8_t *)kalMemAlloc((uint16_t)size, VIR_MEM_TYPE);
+	buf = kalMemAlloc(size, VIR_MEM_TYPE);
 	if (!buf) {
 		DBGLOG(RRM, ERROR, "alloc report elem fail\n");
 		return -ENOMEM;
 	}
-	reportEntry->u2MeasReportLen = (uint16_t)size;
+	reportEntry->u2MeasReportLen = size;
 	reportEntry->pucMeasReport = buf;
 
 	if (len) {

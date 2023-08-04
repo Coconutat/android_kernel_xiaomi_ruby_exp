@@ -491,9 +491,13 @@ VOID nicRxProcessPktWithoutReorder(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 	 * => still available for $C to use
 	 *
 	 */
+#ifndef LINUX
 	fgIsRetained = (((u4CurrentRxBufferCount +
 			  qmGetRxReorderQueuedBufferCount(prAdapter) +
 			  prTxCtrl->i4PendingFwdFrameCount) < CFG_RX_RETAINED_PKT_THRESHOLD) ? TRUE : FALSE);
+#else
+	fgIsRetained = FALSE;
+#endif
 
 	/* DBGLOG(RX, INFO, ("fgIsRetained = %d\n", fgIsRetained)); */
 
@@ -526,6 +530,7 @@ VOID nicRxProcessPktWithoutReorder(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 		prRxCtrl->ucNumIndPacket++;
 		wlanPktStatusDebugTraceInfoSeq(prAdapter, prSwRfb->prHifRxHdr->u2SeqNoTid);
 
+#ifndef LINUX
 	if (fgIsRetained) {
 		prRxCtrl->apvRetainedPacket[prRxCtrl->ucNumRetainedPacket] = prSwRfb->pvPacket;
 		prRxCtrl->ucNumRetainedPacket++;
@@ -534,10 +539,14 @@ VOID nicRxProcessPktWithoutReorder(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 			fgIsUninitRfb = TRUE;
 		nicRxReturnRFBwithUninit(prAdapter, prSwRfb, fgIsUninitRfb);
 	} else {
+#endif
 		prSwRfb->pvPacket = NULL;
 		prSwRfb->pucRecvBuff = NULL;
 		nicRxReturnRFBwithUninit(prAdapter, prSwRfb, fgIsUninitRfb);
+#ifndef LINUX
 	}
+#endif
+
 }
 
 /*----------------------------------------------------------------------------*/

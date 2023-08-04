@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -286,6 +286,11 @@ struct EVENT_LTE_SAFE_CHN g_rLteSafeChInfo;
 		(_prCmdBody)->ucRfBand = g_rDbdcInfo.eRfBand; \
 		DBDC_SET_WMMBAND_FW_AUTO_DEFAULT(); \
 	}
+
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+#define CNM_GET_EBAND_BY_CH_NUM(_ucChNum) \
+	((_ucChNum <= HW_CHNL_NUM_MAX_2G4) ? BAND_2G4 : BAND_5G)
+#endif /* CFG_SUPPORT_P2P_CSA_ACS */
 
 #endif
 
@@ -1108,6 +1113,15 @@ void cnmCsaDoneEvent(IN struct ADAPTER *prAdapter,
 
 	prAdapter->rWifiVar.fgCsaInProgress = FALSE;
 
+	/* Clean up CSA variables */
+	prAdapter->rWifiVar.ucChannelSwitchMode = 0;
+	prAdapter->rWifiVar.ucNewChannelNumber = 0;
+	prAdapter->rWifiVar.ucChannelSwitchCount = 0;
+	prAdapter->rWifiVar.ucSecondaryOffset = 0;
+	prAdapter->rWifiVar.ucNewChannelWidth = 0;
+	prAdapter->rWifiVar.ucNewChannelS1 = 0;
+	prAdapter->rWifiVar.ucNewChannelS2 = 0;
+
 	p2pFunChnlSwitchNotifyDone(prAdapter);
 }
 #endif
@@ -1186,8 +1200,11 @@ uint8_t cnmIdcCsaReq(IN struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo = NULL;
 	uint8_t ucBssIdx = 0;
 	struct RF_CHANNEL_INFO rRfChnlInfo;
+	enum ENUM_BAND eBandCsa = BAND_NULL;
 
 	ASSERT(ch_num);
+	kalMemZero(&rRfChnlInfo,
+		sizeof(struct RF_CHANNEL_INFO));
 
 	if (p2pFuncRoleToBssIdx(
 		prAdapter, ucRoleIdx, &ucBssIdx) !=
@@ -1199,21 +1216,22 @@ uint8_t cnmIdcCsaReq(IN struct ADAPTER *prAdapter,
 		ucRoleIdx, ch_num, ucBssIdx);
 
 	prBssInfo = prAdapter->aprBssInfo[ucBssIdx];
+	eBandCsa = (ch_num <= 14) ? BAND_2G4 :
+#if (CFG_SUPPORT_WIFI_6G == 1)
+		(ch_num > HW_CHNL_NUM_MAX_5G) ? BAND_6G :
+#endif
+		BAND_5G;
 
-
-	if (prBssInfo->ucPrimaryChannel != ch_num) {
-		rRfChnlInfo.ucChannelNum = ch_num;
-		rRfChnlInfo.eBand =
-			(rRfChnlInfo.ucChannelNum <= 14)
-			? BAND_2G4 : BAND_5G;
-		rRfChnlInfo.ucChnlBw =
-			rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo);
-		rRfChnlInfo.u2PriChnlFreq =
-			nicChannelNum2Freq(
-				ch_num, prBssInfo->eBand) / 1000;
-		rRfChnlInfo.u4CenterFreq1 =
-			rRfChnlInfo.u2PriChnlFreq;
-		rRfChnlInfo.u4CenterFreq2 = 0;
+	if (prBssInfo->ucPrimaryChannel != ch_num
+#if (CFG_SUPPORT_P2P_CSA == 1)
+		&& prBssInfo->eBand == eBandCsa
+#endif
+	) {
+		rlmGetChnlInfoForCSA(prAdapter,
+			eBandCsa,
+			ch_num,
+			ucBssIdx,
+			&rRfChnlInfo);
 
 		DBGLOG(REQ, INFO,
 		"[CSA]CH=%d,Band=%d,BW=%d,PriFreq=%d,S1=%d\n",
@@ -1222,6 +1240,11 @@ uint8_t cnmIdcCsaReq(IN struct ADAPTER *prAdapter,
 			rRfChnlInfo.ucChnlBw,
 			rRfChnlInfo.u2PriChnlFreq,
 			rRfChnlInfo.u4CenterFreq1);
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+		p2pFuncSetChannel(prAdapter, ucRoleIdx, &rRfChnlInfo);
+#endif
+
 #if(CFG_SUPPORT_DFS_MASTER == 1)
 		cnmSapChannelSwitchReq(prAdapter, &rRfChnlInfo, ucRoleIdx);
 #endif
@@ -1325,6 +1348,100 @@ void cnmIdcDetectHandler(IN struct ADAPTER *prAdapter,
 	}
 
 }
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+void cnmSCCAutoSwitchMode(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucAISChannel)
+{
+	uint8_t ucBssIndex;
+	struct BSS_INFO *prBssInfo;
+	uint32_t u4Ret = 0;
+
+	if (!prAdapter)
+		return;
+	if (!ucAISChannel)
+		return;
+
+	/* Choose New Ch & Start CSA */
+	for (ucBssIndex = 0; ucBssIndex < BSS_DEFAULT_NUM; ucBssIndex++) {
+		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+		if (prBssInfo &&
+			(prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT)) {
+			/* check bss of GO */
+			struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
+				(struct P2P_ROLE_FSM_INFO *)NULL;
+			prP2pRoleFsmInfo = p2pFuncGetRoleByBssIdx(prAdapter,
+				ucBssIndex);
+
+			u4Ret = cnmIdcCsaReq(prAdapter,	ucAISChannel,
+				prP2pRoleFsmInfo->ucRoleIndex);
+
+			DBGLOG(CNM, STATE,
+				"[CSA]BssIdx= %d, NewCH= %d\n",
+					ucBssIndex, ucAISChannel);
+
+			if (u4Ret != 0)
+				DBGLOG(CNM, ERROR,
+					"[CSA] channel switch failed\n");
+			break;
+		}
+	}
+}
+
+u_int8_t cnmIsSCCAutoSwitch(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucAISChannel)
+{
+	uint8_t ucBssIndex;
+	enum ENUM_BAND eAISBand;
+	struct BSS_INFO *prBssInfo;
+
+	uint8_t ucActiveChannelSwitch = FALSE;
+
+	if (!prAdapter)
+		return 0;
+	if (!ucAISChannel)
+		return 0;
+
+	eAISBand = (ucAISChannel <= HW_CHNL_NUM_MAX_2G4) ?
+					BAND_2G4 : BAND_5G;
+
+	/* Choose New Ch & Start CSA */
+	for (ucBssIndex = 0; ucBssIndex < BSS_DEFAULT_NUM; ucBssIndex++) {
+		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+		/* check the connected BSS is GO */
+		if (prBssInfo &&
+			(prBssInfo->eCurrentOPMode ==
+				OP_MODE_ACCESS_POINT)) {
+			DBGLOG(CNM, STATE,
+				"[CSA]BssIdx= %d, CurCH= %d, AISConnCH= %d\n",
+					ucBssIndex,
+					prBssInfo->ucPrimaryChannel,
+					ucAISChannel);
+
+			/* If it is going to be MCC, trigger channel switch */
+			if (prBssInfo->ucPrimaryChannel != ucAISChannel
+#if (CFG_SUPPORT_DBDC == 1)
+				&& prBssInfo->eBand == eAISBand
+#endif
+			) {
+				DBGLOG(CNM, STATE,
+					"Diff channel: activate CSA\n");
+				ucActiveChannelSwitch = TRUE;
+			} else {
+				DBGLOG(CNM, STATE,
+					"No CSA needed\n");
+			}
+
+			break;
+		}
+	}
+	return ucActiveChannelSwitch;
+}
+
+#endif /* CFG_SUPPORT_AUTO_SCC */
+
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -1878,10 +1995,11 @@ uint8_t cnmGetBssMaxBw(struct ADAPTER *prAdapter,
 
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
 	if (IS_BSS_AIS(prBssInfo) && prBssDesc)
-		ucChannelBw = rlmDomainGetChannelBw(prBssDesc->ucChannelNum);
+		ucChannelBw = rlmDomainGetChannelBw(prBssDesc->eBand,
+			prBssDesc->ucChannelNum);
 	else
-		ucChannelBw =
-			rlmDomainGetChannelBw(prBssInfo->ucPrimaryChannel);
+		ucChannelBw = rlmDomainGetChannelBw(prBssInfo->eBand,
+			prBssInfo->ucPrimaryChannel);
 	if (ucMaxBandwidth > ucChannelBw)
 		ucMaxBandwidth = ucChannelBw;
 #endif
@@ -2027,6 +2145,15 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 			prBssInfo->ucBMCWlanIndexS[i] = WTBL_RESERVED_ENTRY;
 			prBssInfo->wepkeyUsed[i] = FALSE;
 		}
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+		cnmTimerInitTimer(prAdapter,
+			&prBssInfo->rCsaTimer,
+			(PFN_MGMT_TIMEOUT_FUNC) rlmCsaTimeout,
+			(unsigned long)ucBssIndex);
+		rlmResetCSAParams(prBssInfo);
+		prBssInfo->fgHasStopTx = FALSE;
+#endif
 	}
 	return prBssInfo;
 }
@@ -2046,6 +2173,10 @@ void cnmFreeBssInfo(struct ADAPTER *prAdapter,
 {
 	ASSERT(prAdapter);
 	ASSERT(prBssInfo);
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
+#endif
 
 	prBssInfo->fgIsInUse = FALSE;
 }
@@ -2496,6 +2627,8 @@ void cnmDbdcOpModeChangeDoneCallback(
 	}
 
 	if (!g_rDbdcInfo.fgDbdcDisableOpmodeChangeDone) {
+		g_rDbdcInfo.fgDbdcDisableOpmodeChangeDone = true;
+
 		if (fgIsAllActionFrameSuccess) {
 			DBDC_FSM_EVENT_HANDLER(prAdapter,
 				DBDC_FSM_EVENT_ACTION_FRAME_ALL_SUCCESS);
@@ -2503,8 +2636,6 @@ void cnmDbdcOpModeChangeDoneCallback(
 			DBDC_FSM_EVENT_HANDLER(prAdapter,
 				DBDC_FSM_EVENT_ACTION_FRAME_SOME_FAIL);
 		}
-
-		g_rDbdcInfo.fgDbdcDisableOpmodeChangeDone = true;
 	}
 }
 
@@ -4579,5 +4710,112 @@ void cnmStopPendingJoinTimerForSuspend(IN struct ADAPTER *prAdapter)
 		/* Release Channel */
 		aisFsmReleaseCh(prAdapter, AIS_DEFAULT_INDEX);
 	}
+}
+#endif
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief get p2p bss info
+ *
+ * @param prAdapter
+ *
+ * @return
+ */
+/*----------------------------------------------------------------------------*/
+struct BSS_INFO *cnmGetP2pBssInfo(struct ADAPTER *prAdapter)
+{
+	struct BSS_INFO *prBssInfo;
+	uint8_t i;
+
+	if (!prAdapter)
+		return NULL;
+	for (i = 0; i < prAdapter->ucHwBssIdNum; i++) {
+		prBssInfo = prAdapter->aprBssInfo[i];
+		if (prBssInfo &&
+		    IS_BSS_P2P(prBssInfo) &&
+		    !p2pFuncIsAPMode(
+		    prAdapter->rWifiVar.prP2PConnSettings
+		    [prBssInfo->u4PrivateData]) &&
+		    IS_BSS_ALIVE(prAdapter, prBssInfo))
+			return prBssInfo;
+	}
+	return NULL;
+}
+
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+uint8_t cnmCheckStateForCsa(IN struct ADAPTER *prAdapter)
+{
+	struct BSS_INFO *prBssInfo = NULL;
+	struct BSS_INFO *prP2pBssInfo = NULL;
+	uint8_t ucAisChnl = 0;
+	uint8_t ucP2pChnl = 0;
+	enum ENUM_BAND eBandAis = BAND_NULL,
+		eBandP2p = BAND_NULL;
+
+	if (!prAdapter)
+		return 2; /* return fail */
+
+	/* get ais and p2p bss to decide the policy */
+	prBssInfo = aisGetConnectedBssInfo(prAdapter);
+	prP2pBssInfo = cnmGetP2pBssInfo(prAdapter);
+
+	if (!prBssInfo) {
+		/* no AIS */
+		ucAisChnl = 0;
+		eBandAis = BAND_NULL;
+	} else {
+		ucAisChnl = prBssInfo->ucPrimaryChannel;
+		eBandAis = CNM_GET_EBAND_BY_CH_NUM(ucAisChnl);
+	}
+
+	if (!prP2pBssInfo) {
+		/* no P2P */
+		ucP2pChnl = 0;
+		eBandP2p = BAND_NULL;
+		return 2; /* return fail */
+	}
+
+	ucP2pChnl = prP2pBssInfo->ucPrimaryChannel;
+	eBandP2p = CNM_GET_EBAND_BY_CH_NUM(ucP2pChnl);
+
+	/* Check state */
+	if (eBandAis == BAND_NULL && eBandP2p != BAND_NULL) {
+		/* Pure P2P */
+		DBGLOG(CNM, TRACE, "State: Pure P2P\n");
+		DBGLOG(CNM, TRACE, "try CSA to better channel\n");
+		p2pFuncSetCsaChnlScanReq(prAdapter);
+	} else if ((eBandAis == eBandP2p) &&
+				(ucAisChnl == ucP2pChnl)) {
+		/* SCC */
+		DBGLOG(CNM, TRACE, "State: SCC\n");
+		DBGLOG(CNM, TRACE, "Do not need CSA\n");
+		return 1;
+	} else if ((eBandAis == eBandP2p) &&
+				(ucAisChnl != ucP2pChnl)) {
+		/* MCC */
+		DBGLOG(CNM, TRACE, "State: MCC\n");
+		DBGLOG(CNM, TRACE, "Do not need CSA\n");
+	} else if ((eBandAis != eBandP2p) && (eBandAis != BAND_NULL)
+				&& (eBandP2p != BAND_NULL)) {
+		/* DBDC */
+		DBGLOG(CNM, TRACE, "State: DBDC, check p2p band\n");
+
+		if (eBandAis == BAND_2G4 && ucAisChnl < 14) {
+			/* DBDC, P2P at 5G */
+			DBGLOG(CNM, TRACE, "State: P2P DBDC at 5G\n");
+			DBGLOG(CNM, TRACE, "try CSA to better channel\n");
+			p2pFuncSetCsaChnlScanReq(prAdapter);
+		} else {
+			/* DBDC, P2P at 2.4G */
+			DBGLOG(CNM, TRACE, "State: P2P DBDC at 2.4G\n");
+			DBGLOG(CNM, TRACE, "Do not need CSA\n");
+			return 1;
+		}
+	} else {
+		DBGLOG(CNM, ERROR, "Error: should not in this state\n");
+		return 2; /* return fail */
+	}
+
+	return 0; /* return success */
 }
 #endif

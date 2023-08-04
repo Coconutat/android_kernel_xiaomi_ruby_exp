@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -75,6 +75,8 @@
 #define PHY_RATE_MCS7           0x7
 #define PHY_RATE_MCS8           0x8
 #define PHY_RATE_MCS9           0x9
+#define PHY_RATE_MCS10          0xA
+#define PHY_RATE_MCS11          0xB
 #define PHY_RATE_MCS32          0x20
 
 #define PHY_RATE_DCM			0x10
@@ -129,6 +131,8 @@
 #define RATE_VHT_MCS_7          (TX_MODE_VHT | PHY_RATE_MCS7)
 #define RATE_VHT_MCS_8          (TX_MODE_VHT | PHY_RATE_MCS8)
 #define RATE_VHT_MCS_9          (TX_MODE_VHT | PHY_RATE_MCS9)
+#define RATE_VHT_MCS_10         (TX_MODE_VHT | PHY_RATE_MCS10)
+#define RATE_VHT_MCS_11         (TX_MODE_VHT | PHY_RATE_MCS11)
 
 #define RATE_HE_ER_DCM_MCS_0	(TX_MODE_HE_ER_SU | PHY_RATE_DCM)
 #define RATE_HE_ER_TONE_106_MCS_0	(TX_MODE_HE_ER_SU | PHY_RATE_TONE_106)
@@ -215,7 +219,10 @@
 
 #if (CFG_SUPPORT_802_11AX == 1)
 #define PHY_TYPE_SET_802_11AX   (PHY_TYPE_BIT_HE)
-
+#define PHY_TYPE_SET_802_11ANACAX (PHY_TYPE_BIT_OFDM | \
+				   PHY_TYPE_BIT_HT | \
+				   PHY_TYPE_BIT_VHT | \
+				   PHY_TYPE_BIT_HE)
 #define PHY_TYPE_SET_802_11ABGNACAX (PHY_TYPE_BIT_OFDM | \
 				   PHY_TYPE_BIT_HR_DSSS | \
 				   PHY_TYPE_BIT_ERP | \
@@ -569,7 +576,9 @@ enum ENUM_VHT_RATE_INDEX {
 	VHT_RATE_MCS7_INDEX,
 	VHT_RATE_MCS8_INDEX,
 	VHT_RATE_MCS9_INDEX,
-	VHT_RATE_NUM		/* 10 */
+	VHT_RATE_MCS10_INDEX,
+	VHT_RATE_MCS11_INDEX,
+	VHT_RATE_NUM		/* 12 */
 };
 
 enum ENUM_PREMABLE_OPTION {

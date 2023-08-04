@@ -127,7 +127,7 @@ nanRegGet20MHzPrimaryChnlIndex(uint8_t ucOperatingClass,
 
 uint8_t
 nanRegGetChannelByOrder(uint8_t ucOperatingClass, uint16_t *pu2ChnlBitmap) {
-	int i, j;
+	uint8_t i, j;
 
 	i = nanRegFindRecordIdx(ucOperatingClass);
 	if (i != REG_MAX_DB_SIZE) {
@@ -148,7 +148,7 @@ nanRegGetChannelByOrder(uint8_t ucOperatingClass, uint16_t *pu2ChnlBitmap) {
 uint32_t
 nanRegGetChannelBitmap(uint8_t ucOperatingClass, uint8_t ucChannel,
 		       uint16_t *pu2ChnlBitmap) {
-	int i, j;
+	uint8_t i, j;
 	uint8_t *pucBuf;
 
 	pucBuf = (uint8_t *)pu2ChnlBitmap;
@@ -314,7 +314,7 @@ nanRegGenNanChnlInfo(uint8_t ucPriChannel,
 
 	rChnlInfo.u4RawData = 0;
 
-	if (eChannelWidth >= CW_80P80MHZ) {
+	if (eChannelWidth > CW_80P80MHZ) {
 		DBGLOG(NAN, ERROR, "eChannelWidth is over!\n");
 		return rChnlInfo;
 	}
@@ -340,6 +340,7 @@ nanRegGenNanChnlInfo(uint8_t ucPriChannel,
 
 	case CW_80P80MHZ:
 		/* Fixme */
+		DBGLOG(NAN, ERROR, "Not support 80+80!!\n");
 		break;
 
 	default:

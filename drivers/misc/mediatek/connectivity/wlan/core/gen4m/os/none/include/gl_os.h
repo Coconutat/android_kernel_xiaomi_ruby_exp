@@ -320,6 +320,14 @@ enum ENUM_NET_REG_STATE {
 	ENUM_NET_REG_STATE_UNREGISTERING,
 	ENUM_NET_REG_STATE_NUM
 };
+
+enum ENUM_P2P_REG_STATE {
+	ENUM_P2P_REG_STATE_UNREGISTERED,
+	ENUM_P2P_REG_STATE_REGISTERING,
+	ENUM_P2P_REG_STATE_REGISTERED,
+	ENUM_P2P_REG_STATE_UNREGISTERING,
+	ENUM_P2P_REG_STATE_NUM
+};
 #endif
 
 enum ENUM_PKT_FLAG {
@@ -516,8 +524,8 @@ struct GLUE_INFO {
 	/* TODO: os-related */
 	uint32_t u4ReadyFlag;	/* check if card is ready */
 
-#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
 	uint8_t fgIsEnableMon;
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
 	uint8_t ucPriChannel;
 	uint8_t ucChannelS1;
 	uint8_t ucChannelS2;

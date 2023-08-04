@@ -267,7 +267,8 @@ enum fm_timer_ctrl {
 	FM_TIMER_CTRL_MAX
 };
 
-#define FM_TIMER_FLAG_ACTIVATED (1<<0)
+#define FM_TIMER_FLAG_INITED (1<<0)
+#define FM_TIMER_FLAG_ACTIVATED (1<<1)
 
 struct fm_timer {
 	signed int ref;

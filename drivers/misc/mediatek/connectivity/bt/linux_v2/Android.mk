@@ -41,6 +41,7 @@ LOCAL_MODULE := btmtk_sdio_unify.ko
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_OWNER := mtk
 LOCAL_INIT_RC := init.btmtk_sdio.rc
+LOCAL_REQUIRED_MODULES := wlan_sdio_reset.ko
 LOCAL_SRC_FILES := $(patsubst $(LOCAL_PATH)/%,%,$(shell find $(LOCAL_PATH) -type f -name '*.[cho]')) Makefile
 
 include $(MTK_KERNEL_MODULE)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -237,6 +237,15 @@ uint8_t cnmIdcCsaReq(IN struct ADAPTER *prAdapter,
 
 void cnmIdcDetectHandler(IN struct ADAPTER *prAdapter,
        IN struct WIFI_EVENT *prEvent);
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+void cnmSCCAutoSwitchMode(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucAISChannel);
+
+u_int8_t cnmIsSCCAutoSwitch(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucAISChannel);
+#endif /* CFG_SUPPORT_AUTO_SCC */
+
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 void cnmRadarDetectEvent(struct ADAPTER *prAdapter,
        struct WIFI_EVENT *prEvent);
@@ -342,6 +351,12 @@ void cnmOpmodeEventHandler(
 	IN struct ADAPTER *prAdapter,
 	IN struct WIFI_EVENT *prEvent
 );
+
+struct BSS_INFO *cnmGetP2pBssInfo(struct ADAPTER *prAdapter);
+
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+uint8_t cnmCheckStateForCsa(IN struct ADAPTER *prAdapter);
+#endif
 
 /*******************************************************************************
  *                              F U N C T I O N S

@@ -154,6 +154,10 @@
 		(((_prRxVector) & SOC5_0_RX_VT_TXMODE_MASK)	\
 			 >> SOC5_0_RX_VT_TXMODE_OFFSET)
 
+#define RXV_GET_MUMIMO(_prRxVector)				\
+		(((_prRxVector) & SOC5_0_RX_VT_MUMIMO_MASK)	\
+			 >> SOC5_0_RX_VT_MUMIMO_OFFSET)
+
 /*******************************************************************************
 *                         D A T A   T Y P E S
 ********************************************************************************
@@ -177,7 +181,6 @@ extern u_int8_t g_IsWfsysBusHang;
 extern struct completion g_triggerComp;
 extern u_int8_t fgIsResetting;
 extern u_int8_t g_fgRstRecover;
-extern struct regmap *g_regmap;
 #endif
 
 #if (CFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT == 1)
@@ -209,6 +212,7 @@ void soc5_0_dump_mac_info(
 	IN struct ADAPTER *prAdapter);
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIdx,
 		OUT uint32_t *pu4Rate, OUT uint32_t *pu4Nss,
 		OUT uint32_t *pu4RxMode, OUT uint32_t *pu4FrMode,
 		OUT uint32_t *pu4Sgi);

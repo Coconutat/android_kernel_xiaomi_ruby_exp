@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -5994,7 +5994,8 @@ nanSchedNegoAddNdcCrb(struct ADAPTER *prAdapter,
 	uint32_t u4SlotIdx;
 	struct _NAN_CRB_NEGO_CTRL_T *prNegoCtrl;
 	struct _NAN_NDC_CTRL_T *prNdcCtrl;
-	uint32_t u4SysTime;
+	uint8_t rRandMacAddr[6] = {0};
+	uint8_t rRandMacMask[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 	uint32_t au4AvailMap[NAN_TOTAL_DW];
 	struct _NAN_TIMELINE_MGMT_T *prNanTimelineMgmt;
 
@@ -6062,8 +6063,9 @@ nanSchedNegoAddNdcCrb(struct ADAPTER *prAdapter,
 		prNdcCtrl = &prNegoCtrl->rSelectedNdcCtrl;
 		if (prNdcCtrl->fgValid == FALSE) {
 			prNdcCtrl->fgValid = TRUE;
-			u4SysTime = (uint32_t)kalGetTimeTick();
-			kalMemCopy(prNdcCtrl->aucNdcId, (uint8_t *)&u4SysTime,
+			get_random_mask_addr(
+				rRandMacAddr, rRandMacMask, rRandMacMask);
+			kalMemCopy(prNdcCtrl->aucNdcId, rRandMacAddr,
 				   NAN_NDC_ATTRIBUTE_ID_LENGTH);
 			kalMemCopy(prNdcCtrl->arTimeline[0].au4AvailMap,
 				   (uint8_t *)au4AvailMap, sizeof(au4AvailMap));
@@ -6290,7 +6292,8 @@ nanSchedNegoGenNdcCrb(struct ADAPTER *prAdapter) {
 	uint32_t u4Idx;
 	struct _NAN_CRB_NEGO_CTRL_T *prNegoCtrl;
 	struct _NAN_NDC_CTRL_T *prNdcCtrl;
-	uint32_t u4SysTime;
+	uint8_t rRandMacAddr[6] = {0};
+	uint8_t rRandMacMask[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 	uint32_t u4SlotIdx;
 	uint32_t u4Num;
 	uint32_t u4SlotOffset;
@@ -6442,8 +6445,8 @@ nanSchedNegoGenNdcCrb(struct ADAPTER *prAdapter) {
 		prNdcCtrl->fgValid = TRUE;
 		kalMemZero(&prNdcCtrl->arTimeline[0].au4AvailMap,
 			   sizeof(prNdcCtrl->arTimeline[0].au4AvailMap));
-		u4SysTime = (uint32_t)kalGetTimeTick();
-		kalMemCopy(prNdcCtrl->aucNdcId, (uint8_t *)&u4SysTime,
+		get_random_mask_addr(rRandMacAddr, rRandMacMask, rRandMacMask);
+		kalMemCopy(prNdcCtrl->aucNdcId, rRandMacAddr,
 			   NAN_NDC_ATTRIBUTE_ID_LENGTH);
 		prNdcCtrl->arTimeline[0].ucMapId = prNanTimelineMgmt->ucMapId;
 

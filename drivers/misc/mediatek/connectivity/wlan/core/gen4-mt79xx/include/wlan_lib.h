@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -97,6 +97,10 @@
 /* Support Random P2P MAC */
 #define WIFI_FEATURE_P2P_RAND_MAC  (0x80000000)
 
+/* Low Latency modes */
+#define WIFI_FEATURE_LOW_LATENCY        (0x40000000)
+
+
 /* note: WIFI_FEATURE_GSCAN be enabled just for ACTS test item: scanner */
 #if CFG_SUPPORT_DYNAMIC_PWR_LIMIT
 #define WIFI_HAL_FEATURE_SET ((WIFI_FEATURE_P2P) |\
@@ -106,7 +110,7 @@
 			      (WIFI_FEATURE_RSSI_MONITOR) |\
 			      (WIFI_FEATURE_CONTROL_ROAMING) |\
 			      (WIFI_FEATURE_SET_TX_POWER_LIMIT) |\
-			      (WIFI_FEATURE_P2P_RAND_MAC)\
+			      (WIFI_FEATURE_P2P_RAND_MAC) \
 			      )
 #else
 #define WIFI_HAL_FEATURE_SET ((WIFI_FEATURE_P2P) |\
@@ -115,7 +119,7 @@
 			      (WIFI_FEATURE_TDLS) |\
 			      (WIFI_FEATURE_RSSI_MONITOR) |\
 			      (WIFI_FEATURE_CONTROL_ROAMING) |\
-			      (WIFI_FEATURE_P2P_RAND_MAC)\
+			      (WIFI_FEATURE_P2P_RAND_MAC) \
 			      )
 #endif
 
@@ -647,6 +651,13 @@ struct WOW_CTRL {
 	uint8_t ucReason;
 	uint8_t aucReserved2[3];
 };
+
+#if CFG_DC_USB_WOW_CALLBACK
+enum ENUM_WOW_SCENARIO {
+	WOW_NORMAL = 0,
+	WOW_HOST_STANDBY = 1
+};
+#endif
 
 #if CFG_SUPPORT_MDNS_OFFLOAD
 #define MDNS_RESPONSE_RECORD_MAX_LEN	500

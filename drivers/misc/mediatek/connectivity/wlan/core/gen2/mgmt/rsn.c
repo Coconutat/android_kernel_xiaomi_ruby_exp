@@ -220,6 +220,11 @@ BOOLEAN rsnParseRsnIE(IN P_ADAPTER_T prAdapter, IN P_RSN_INFO_ELEM_T prInfoElem,
 				u2PmkidCount);
 			return FALSE;
 		}
+		if (u2PmkidCount > 0 && cp != NULL) {
+			kalMemCopy(prRsnInfo->aucPmkid, cp, IW_PMKID_LEN);
+			cp += IW_PMKID_LEN;
+			u4RemainRsnIeLen -= IW_PMKID_LEN;
+		}
 	} while (FALSE);
 
 	/* Save the RSN information for the BSS. */
@@ -304,8 +309,10 @@ BOOLEAN rsnParseRsnIE(IN P_ADAPTER_T prAdapter, IN P_RSN_INFO_ELEM_T prInfoElem,
 	prRsnInfo->u2RsnCap = u2Cap;
 #if CFG_SUPPORT_802_11W
 	prRsnInfo->fgRsnCapPresent = TRUE;
+	prRsnInfo->u2PmkidCount = u2PmkidCount;
 #endif
-	DBGLOG(RSN, LOUD, "RSN cap: 0x%04x\n", prRsnInfo->u2RsnCap);
+	DBGLOG(RSN, LOUD, "RSN cap: 0x%04x, PMKID count: %d\n",
+			prRsnInfo->u2RsnCap, prRsnInfo->u2PmkidCount);
 
 	return TRUE;
 }				/* rsnParseRsnIE */
@@ -1680,6 +1687,7 @@ void rsnParserCheckForRSNCCMPPSK(P_ADAPTER_T prAdapter, P_RSN_INFO_ELEM_T prIe,
 {
 
 	RSN_INFO_T rRsnIe;
+	P_BSS_INFO_T prBssInfo;
 	UINT_8 i;
 	UINT_16 statusCode;
 
@@ -1687,6 +1695,10 @@ void rsnParserCheckForRSNCCMPPSK(P_ADAPTER_T prAdapter, P_RSN_INFO_ELEM_T prIe,
 	ASSERT(prIe);
 	ASSERT(prStaRec);
 	ASSERT(pu2StatusCode);
+
+	prBssInfo = &(prAdapter->rWifiVar.arBssInfo[prStaRec->ucNetTypeIndex]);
+	if (prBssInfo == NULL)
+		return;
 
 	*pu2StatusCode = STATUS_CODE_INVALID_INFO_ELEMENT;
 
@@ -1719,6 +1731,40 @@ void rsnParserCheckForRSNCCMPPSK(P_ADAPTER_T prAdapter, P_RSN_INFO_ELEM_T prIe,
 			*pu2StatusCode = STATUS_CODE_INVALID_AKMP;
 			return;
 		}
+		if (prAdapter->rWifiVar.fgSapCheckPmkidInDriver
+			&& prBssInfo->u4RsnSelectedAKMSuite
+				== RSN_AKM_SUITE_SAE
+			&& rRsnIe.u2PmkidCount > 0) {
+			P_PMKID_ENTRY_T entry =
+				rsnSearchPmkidEntry(prAdapter,
+				prStaRec->aucMacAddr);
+
+			DBGLOG(RSN, LOUD,
+				"Parse PMKID " PMKSTR " from " MACSTR "\n",
+				rRsnIe.aucPmkid[0], rRsnIe.aucPmkid[1],
+				rRsnIe.aucPmkid[2], rRsnIe.aucPmkid[3],
+				rRsnIe.aucPmkid[4], rRsnIe.aucPmkid[5],
+				rRsnIe.aucPmkid[6], rRsnIe.aucPmkid[7],
+				rRsnIe.aucPmkid[8], rRsnIe.aucPmkid[9],
+				rRsnIe.aucPmkid[10], rRsnIe.aucPmkid[11],
+				rRsnIe.aucPmkid[12] + rRsnIe.aucPmkid[13],
+				rRsnIe.aucPmkid[14], rRsnIe.aucPmkid[15],
+				MAC2STR(prStaRec->aucMacAddr));
+
+			if (!entry) {
+				DBGLOG(RSN, WARN, "RSN with no PMKID\n");
+				*pu2StatusCode = STATUS_INVALID_PMKID;
+				return;
+			} else if (kalMemCmp(
+				rRsnIe.aucPmkid,
+				entry->rBssidInfo.arPMKID,
+				IW_PMKID_LEN) != 0) {
+				DBGLOG(RSN, WARN, "RSN with invalid PMKID\n");
+				*pu2StatusCode = STATUS_INVALID_PMKID;
+				return;
+			}
+
+		}
 
 		DBGLOG(RSN, TRACE, "RSN with CCMP-PSK\n");
 		*pu2StatusCode = WLAN_STATUS_SUCCESS;
@@ -1729,6 +1775,7 @@ void rsnParserCheckForRSNCCMPPSK(P_ADAPTER_T prAdapter, P_RSN_INFO_ELEM_T prIe,
 		 * error 30 ASSOC_REJECTED_TEMPORARILY
 		 */
 		if (rsnCheckBipKeyInstalled(prAdapter, prStaRec)) {
+			DBGLOG(AAA, INFO, "Drop RxAssoc\n");
 			*pu2StatusCode = STATUS_CODE_ASSOC_REJECTED_TEMPORARILY;
 			return;
 		}
@@ -2273,12 +2320,12 @@ VOID rsnGeneratePmkidIndication(IN P_ADAPTER_T prAdapter)
 P_PMKID_ENTRY_T rsnSearchPmkidEntry(IN P_ADAPTER_T prAdapter,
 			     IN PUINT_8 pucBssid)
 {
-	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecBssInfo;
+	P_BSS_INFO_T prBssInfo;
 	P_PMKID_ENTRY_T entry;
 	P_LINK_T cache;
 
-	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
-	cache = &prAisSpecBssInfo->rPmkidCache;
+	prBssInfo = &prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX];
+	cache = &prBssInfo->rPmkidCache;
 
 	LINK_FOR_EACH_ENTRY(entry, cache, rLinkEntry, PMKID_ENTRY_T) {
 		if (EQUAL_MAC_ADDR(entry->rBssidInfo.arBSSID, pucBssid))
@@ -2342,12 +2389,12 @@ void rsnCheckPmkidCache(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBss)
 uint32_t rsnSetPmkid(IN P_ADAPTER_T prAdapter,
 		    IN P_PARAM_PMKID_T prPmkid)
 {
-	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecBssInfo;
+	P_BSS_INFO_T prBssInfo;
 	P_PMKID_ENTRY_T entry;
 	P_LINK_T cache;
 
-	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
-	cache = &prAisSpecBssInfo->rPmkidCache;
+	prBssInfo = &prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX];
+	cache = &prBssInfo->rPmkidCache;
 
 	entry = rsnSearchPmkidEntry(prAdapter, prPmkid->arBSSID);
 	if (!entry) {
@@ -2384,7 +2431,7 @@ uint32_t rsnSetPmkid(IN P_ADAPTER_T prAdapter,
 uint32_t rsnDelPmkid(IN P_ADAPTER_T prAdapter,
 		    IN P_PARAM_PMKID_T prPmkid)
 {
-	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecBssInfo;
+	P_BSS_INFO_T prBssInfo;
 	P_PMKID_ENTRY_T entry;
 	P_LINK_T cache;
 
@@ -2395,8 +2442,8 @@ uint32_t rsnDelPmkid(IN P_ADAPTER_T prAdapter,
 		prPmkid->ucBssIdx,
 		MAC2STR(prPmkid->arBSSID));
 
-	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
-	cache = &prAisSpecBssInfo->rPmkidCache;
+	prBssInfo = &prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX];
+	cache = &prBssInfo->rPmkidCache;
 	entry = rsnSearchPmkidEntry(prAdapter, prPmkid->arBSSID);
 	if (entry) {
 		if (kalMemCmp(prPmkid->arPMKID,
@@ -2420,12 +2467,12 @@ uint32_t rsnDelPmkid(IN P_ADAPTER_T prAdapter,
 /*----------------------------------------------------------------------------*/
 uint32_t rsnFlushPmkid(IN P_ADAPTER_T prAdapter)
 {
-	AIS_SPECIFIC_BSS_INFO_T *prAisSpecBssInfo;
+	P_BSS_INFO_T prBssInfo;
 	P_PMKID_ENTRY_T entry;
 	P_LINK_T cache;
 
-	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
-	cache = &prAisSpecBssInfo->rPmkidCache;
+	prBssInfo = &prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX];
+	cache = &prBssInfo->rPmkidCache;
 
 	DBGLOG(RSN, INFO, "Flush Pmkid total:%d\n",
 		cache->u4NumElem);

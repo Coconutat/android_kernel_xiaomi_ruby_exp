@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1399,6 +1399,10 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 	pPmkid = (struct PARAM_PMKID_CANDIDATE_LIST *)(pStatus + 1);
 
 	prDevHandler = wlanGetNetDev(prGlueInfo, ucBssIndex);
+	if (!prDevHandler) {
+		DBGLOG(INIT, ERROR, "wlanGetNetDev fail %d\n", ucBssIndex);
+		return;
+	}
 
 	switch (eStatus) {
 	case WLAN_STATUS_ROAM_OUT_FIND_BEST:
@@ -2399,7 +2403,7 @@ kalHardStartXmit(struct sk_buff *prOrgSkb,
 		       [u2QueueIdx]));
 
 	if (HAL_IS_TX_DIRECT(prGlueInfo->prAdapter)) {
-#if defined(_HIF_PCIE) && (HIF_TX_PREALLOC_DATA_BUFFER == 0)
+#if defined(_HIF_PCIE) && (CFG_HIF_TX_PREALLOC_DATA_BUFFER == 0)
 		/* To reduce L3 buffer usage, release original owner ASAP */
 		skb_orphan(prSkb);
 #endif
@@ -4304,7 +4308,9 @@ int main_thread(void *data)
 	struct GL_IO_REQ *prIoReq = NULL;
 	int ret = 0;
 	u_int8_t fgNeedHwAccess = FALSE;
+#if CFG_SUPPORT_SDIO_READ_WRITE_PATTERN
 	u_int8_t uResult;
+#endif
 #if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T *prTxThreadWakeLock;
 #endif
@@ -4665,11 +4671,6 @@ u_int8_t kalRetrieveNetworkAddress(IN struct GLUE_INFO *prGlueInfo,
 			IN OUT uint8_t *prMacAddr)
 {
 	ASSERT(prGlueInfo);
-/* fos_change begin */
-#if IS_ENABLED(CONFIG_IDME)
-	COPY_MAC_ADDR(prMacAddr, &prGlueInfo->rRegInfo.aucMacAddr);
-	return TRUE;
-#else /* fos_change end */
 
 	/* Get MAC address override from wlan feature option */
 	prGlueInfo->fgIsMacAddrOverride =
@@ -4710,7 +4711,6 @@ u_int8_t kalRetrieveNetworkAddress(IN struct GLUE_INFO *prGlueInfo,
 
 		return TRUE;
 	}
-#endif  /* fos_change oneline */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -6012,9 +6012,11 @@ kalReadyOnChannel(IN struct GLUE_INFO *prGlueInfo,
 			return;
 		}
 
-		cfg80211_ready_on_channel(
-			prDevHandler->ieee80211_ptr,
-			u8Cookie, prChannel, u4DurationMs, GFP_KERNEL);
+		if (prDevHandler != NULL)
+			cfg80211_ready_on_channel(
+				prDevHandler->ieee80211_ptr,
+				u8Cookie, prChannel, u4DurationMs,
+				GFP_KERNEL);
 	}
 
 }
@@ -6102,9 +6104,10 @@ kalRemainOnChannelExpired(IN struct GLUE_INFO *prGlueInfo,
 			return;
 		}
 
-		cfg80211_remain_on_channel_expired(
-			prDevHandler->ieee80211_ptr,
-			u8Cookie, prChannel, GFP_KERNEL);
+		if (prDevHandler != NULL)
+			cfg80211_remain_on_channel_expired(
+				prDevHandler->ieee80211_ptr,
+				u8Cookie, prChannel, GFP_KERNEL);
 	}
 
 }
@@ -6142,6 +6145,11 @@ kalIndicateMgmtTxStatus(IN struct GLUE_INFO *prGlueInfo,
 
 		prDevHandler =
 			wlanGetNetDev(prGlueInfo, ucBssIndex);
+		if (!prDevHandler) {
+			DBGLOG(AIS, ERROR,
+			       "wlanGetNetDev fail %d\n", ucBssIndex);
+			break;
+		}
 
 		cfg80211_mgmt_tx_status(
 			prDevHandler->ieee80211_ptr,
@@ -6199,6 +6207,11 @@ void kalIndicateRxMgmtFrame(IN struct ADAPTER *prAdapter,
 
 		prDevHandler =
 			wlanGetNetDev(prGlueInfo, ucBssIndex);
+		if (!prDevHandler) {
+			DBGLOG(AIS, ERROR,
+			       "wlanGetNetDev fail %d\n", ucBssIndex);
+			break;
+		}
 
 #if (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
 		cfg80211_rx_mgmt(prDevHandler->ieee80211_ptr,
@@ -6514,17 +6527,36 @@ void kalIndicateRxAuthToUpperLayer(struct net_device *prDevHandler,
 	cfg80211AddToPktQueue(prDevHandler, prAuthFrame, u2FrameLen, NULL,
 				CFG80211_RX, MAC_FRAME_AUTH);
 #else
+	kalAcquireWDevMutex(prDevHandler);
 #if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_rx_mlme_mgmt(prDevHandler, prAuthFrame, u2FrameLen);
 #else
 	cfg80211_send_rx_auth(prDevHandler, prAuthFrame, u2FrameLen);
 #endif
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
 void kalIndicateRxAssocToUpperLayer(struct net_device *prDevHandler,
 			uint8_t *prAssocRspFrame, struct cfg80211_bss *bss, uint16_t u2FrameLen)
 {
+#if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
+	uint8_t ucBssIdx = 0;
+	struct CONNECTION_SETTINGS *prConnSettings;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct BSS_INFO *prBssInfo = NULL;
+
+	prGlueInfo = (prDevHandler != NULL) ?
+		*((struct GLUE_INFO **) netdev_priv(prDevHandler)) : NULL;
+
+	if (!prGlueInfo) {
+		DBGLOG(RX, WARN, "prGlueInfo == NULL unexpected\n");
+		return;
+	}
+	ucBssIdx = wlanGetBssIdxByNetInterface(prGlueInfo, prDevHandler);
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIdx);
+	prConnSettings = aisGetConnSettings(prGlueInfo->prAdapter, ucBssIdx);
+#endif
 	DBGLOG(REQ, INFO, "\n");
 
 #if CFG_SUPPORT_CFG80211_QUEUE
@@ -6533,11 +6565,16 @@ void kalIndicateRxAssocToUpperLayer(struct net_device *prDevHandler,
 			u2FrameLen, bss, CFG80211_RX,
 			MAC_FRAME_ASSOC_RSP);
 #else
-
+	kalAcquireWDevMutex(prDevHandler);
 #if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
-	/* [TODO] Set uapsd_queues/req_ies/req_ies_len properly */
-	cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame,
-		u2FrameLen, 0, NULL, 0);
+	/* [TODO] Set uapsd_queues properly */
+	if (prBssInfo && prBssInfo->eNetworkType == NETWORK_TYPE_AIS)
+		cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame,
+			u2FrameLen, 0, prConnSettings->aucReqIe,
+			prConnSettings->u4ReqIeLength);
+	else
+		cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame,
+			u2FrameLen, 0, NULL, 0);
 #elif (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
 	/* [TODO] Set uapsd_queues field to zero first,fill it if needed*/
 	cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame, u2FrameLen, 0);
@@ -6546,7 +6583,7 @@ void kalIndicateRxAssocToUpperLayer(struct net_device *prDevHandler,
 #else
 	cfg80211_send_rx_assoc(prDevHandler, bss, prAssocRspFrame, u2FrameLen);
 #endif
-
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
@@ -6564,11 +6601,13 @@ void kalIndicateRxDeauthToUpperLayer(struct net_device *prDevHandler,
 			CFG80211_RX,
 			MAC_FRAME_DEAUTH);
 #else
+	kalAcquireWDevMutex(prDevHandler);
 #if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_rx_mlme_mgmt(prDevHandler, prDeauthFrame, u2FrameLen);
 #else
 	cfg80211_send_deauth(prDevHandler, prDeauthFrame, u2FrameLen);
 #endif
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
@@ -6586,11 +6625,13 @@ void kalIndicateRxDisassocToUpperLayer(struct net_device *prDevHandler,
 			CFG80211_RX,
 			MAC_FRAME_DISASSOC);
 #else
+	kalAcquireWDevMutex(prDevHandler);
 #if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_rx_mlme_mgmt(prDevHandler, prDisassocFrame, u2FrameLen);
 #else
 	cfg80211_send_disassoc(prDevHandler, prDisassocFrame, u2FrameLen);
 #endif
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
@@ -6607,6 +6648,7 @@ void kalIndicateTxDeauthToUpperLayer(struct net_device *prDevHandler,
 			CFG80211_TX,
 			MAC_FRAME_DEAUTH);
 #else
+	kalAcquireWDevMutex(prDevHandler);
 #if KERNEL_VERSION(5, 11, 0) <= CFG80211_VERSION_CODE
 		/* TODO: need quick reconnect here? */
 		cfg80211_tx_mlme_mgmt(prDevHandler, prDeauthFrame,
@@ -6616,6 +6658,7 @@ void kalIndicateTxDeauthToUpperLayer(struct net_device *prDevHandler,
 #else
 		cfg80211_send_deauth(prDevHandler, prDeauthFrame, u2FrameLen);
 #endif
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
@@ -6632,11 +6675,13 @@ void kalIndicateTxDisassocToUpperLayer(struct net_device *prDevHandler,
 			CFG80211_TX,
 			MAC_FRAME_DISASSOC);
 #else
+	kalAcquireWDevMutex(prDevHandler);
 #if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_tx_mlme_mgmt(prDevHandler, prDisassocFrame, u2FrameLen);
 #else
 	cfg80211_send_disassoc(prDevHandler, prDisassocFrame, u2FrameLen);
 #endif
+	kalReleaseWDevMutex(prDevHandler);
 #endif
 }
 
@@ -6671,7 +6716,7 @@ u_int8_t kalValidateDevHandler(IN struct GLUE_INFO *prGlueInfo,
 	return ret;
 }
 
-#if CFG_SUPPORT_CFG80211_QUEUE
+
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief This function is provided by GLUE Layer for internal driver stack to
@@ -6709,6 +6754,7 @@ void kalReleaseWDevMutex(IN struct net_device *pDev)
 	DBGLOG(INIT, TEMP, "WDEV_UNLOCK\n");
 }				/* end of kalReleaseWDevMutex() */
 
+#if CFG_SUPPORT_CFG80211_QUEUE
 void cfg80211AddToPktQueue(struct net_device *prDevHandler, void *buf,
 			uint16_t u2FrameLength, struct cfg80211_bss *bss,
 			uint8_t ucflagTx, uint8_t ucFrameType)
@@ -6824,6 +6870,27 @@ static void kalProcessCfg80211TxPkt(struct PARAM_CFG80211_REQ *prCfg80211Req)
 
 static void kalProcessCfg80211RxPkt(struct PARAM_CFG80211_REQ *prCfg80211Req)
 {
+#if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
+	uint8_t ucBssIdx = 0;
+	struct CONNECTION_SETTINGS *prConnSettings;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct BSS_INFO *prBssInfo = NULL;
+
+	prGlueInfo = (prCfg80211Req->prDevHandler != NULL) ?
+		*((struct GLUE_INFO **)
+		 netdev_priv(prCfg80211Req->prDevHandler)) : NULL;
+
+	if (!prGlueInfo) {
+		DBGLOG(RX, WARN, "prGlueInfo == NULL unexpected\n");
+		return;
+	}
+	ucBssIdx = wlanGetBssIdxByNetInterface(prGlueInfo,
+					 prCfg80211Req->prDevHandler);
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIdx);
+	prConnSettings = aisGetConnSettings(prGlueInfo->prAdapter, ucBssIdx);
+#endif
+
+
 	ASSERT(prCfg80211Req);
 
 	DBGLOG(REQ, INFO, "\n");
@@ -6855,10 +6922,18 @@ static void kalProcessCfg80211RxPkt(struct PARAM_CFG80211_REQ *prCfg80211Req)
 	case MAC_FRAME_ASSOC_RSP:
 #if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
 		/* [TODO] Set uapsd_queues/req_ies/req_ies_len properly */
-		cfg80211_rx_assoc_resp(prCfg80211Req->prDevHandler,
-			prCfg80211Req->bss,
-			(const u8 *)prCfg80211Req->prFrame,
-			prCfg80211Req->frameLen, 0, NULL, 0);
+		if (prBssInfo && prBssInfo->eNetworkType == NETWORK_TYPE_AIS)
+			cfg80211_rx_assoc_resp(prCfg80211Req->prDevHandler,
+				prCfg80211Req->bss,
+				(const u8 *)prCfg80211Req->prFrame,
+				prCfg80211Req->frameLen, 0,
+				prConnSettings->aucReqIe,
+				prConnSettings->u4ReqIeLength);
+		else
+			cfg80211_rx_assoc_resp(prCfg80211Req->prDevHandler,
+				prCfg80211Req->bss,
+				(const u8 *)prCfg80211Req->prFrame,
+				prCfg80211Req->frameLen, 0, NULL, 0);
 #elif (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
 		cfg80211_rx_assoc_resp(prCfg80211Req->prDevHandler, prCfg80211Req->bss,
 			(const u8 *)prCfg80211Req->prFrame, prCfg80211Req->frameLen, 0);
@@ -6919,6 +6994,11 @@ void wlanSchedCfg80211WorkQueue(struct work_struct *work)
 						prCfg80211Req->ucFrameType,
 						prCfg80211Req->frameLen);
 					kalProcessCfg80211RxPkt(prCfg80211Req);
+				} else if (prCfg80211Req->ucFlagTx
+							== REG_SET) {
+					kalApplyCustomRegulatory(
+						prCfg80211Req->prWiphy,
+						prCfg80211Req->prRegdom);
 				}
 			} else {
 				DBGLOG(REQ, ERROR, "Adapter is not ready\n");
@@ -7375,7 +7455,7 @@ static ssize_t kalMetWriteProcfs(struct file *file,
 static ssize_t kalMetCtrlWriteProcfs(struct file *file,
 		     const char __user *buffer, size_t count, loff_t *off)
 {
-	char acBuf[128 + 1];	/* + 1 for "\0" */
+	char acBuf[128 + 1] = {0};	/* + 1 for "\0" */
 	uint32_t u4CopySize;
 	int u8MetProfEnable = 0;
 	ssize_t result;
@@ -7400,9 +7480,9 @@ static ssize_t kalMetCtrlWriteProcfs(struct file *file,
 static ssize_t kalMetPortWriteProcfs(struct file *file,
 		     const char __user *buffer, size_t count, loff_t *off)
 {
-	char acBuf[128 + 1];	/* + 1 for "\0" */
+	char acBuf[128 + 1] = {0};	/* + 1 for "\0" */
 	uint32_t u4CopySize;
-	int u16MetUdpPort;
+	int u16MetUdpPort = 0;
 	ssize_t result;
 
 	IN struct GLUE_INFO *prGlueInfo;
@@ -8675,6 +8755,8 @@ void kalPerfIndReset(IN struct ADAPTER *prAdapter)
 		prAdapter->prGlueInfo->PerfIndCache.u2CurRxRate[i] = 0;
 		prAdapter->prGlueInfo->PerfIndCache.ucCurRxRCPI0[i] = 0;
 		prAdapter->prGlueInfo->PerfIndCache.ucCurRxRCPI1[i] = 0;
+		prAdapter->prGlueInfo->PerfIndCache.ucCurRxNss[i] = 0;
+		prAdapter->prGlueInfo->PerfIndCache.ucCurRxNss2[i] = 0;
 	}
 } /* kalPerfIndReset */
 
@@ -8715,6 +8797,8 @@ void kalSetPerfReport(IN struct ADAPTER *prAdapter)
 			prAdapter->prGlueInfo->PerfIndCache.ucCurRxRCPI1[i];
 		prCmdPerfReport->ucCurRxNss[i] =
 			prAdapter->prGlueInfo->PerfIndCache.ucCurRxNss[i];
+		prCmdPerfReport->ucCurRxNss2[i] =
+			prAdapter->prGlueInfo->PerfIndCache.ucCurRxNss2[i];
 		u4CurrentTp += (prCmdPerfReport->ulCurTxBytes[i] +
 			prCmdPerfReport->ulCurRxBytes[i]);
 	}
@@ -9397,7 +9481,7 @@ void kalIndicateChannelSwitch(IN struct GLUE_INFO *prGlueInfo,
 #endif
 				IN uint8_t ucChannelNum)
 {
-	struct cfg80211_chan_def chandef;
+	struct cfg80211_chan_def chandef = {0};
 	struct ieee80211_channel *prChannel = NULL;
 	enum nl80211_channel_type rChannelType;
 
@@ -9459,7 +9543,11 @@ void kalIndicateChannelSwitch(IN struct GLUE_INFO *prGlueInfo,
 	DBGLOG(REQ, STATE, "DFS channel switch to %d\n", ucChannelNum);
 
 	cfg80211_chandef_create(&chandef, prChannel, rChannelType);
-	cfg80211_ch_switch_notify(prGlueInfo->prDevHandler, &chandef);
+	cfg80211_ch_switch_notify(prGlueInfo->prDevHandler, &chandef
+#if (CFG_ADVANCED_80211_MLO == 1)
+		, 0
+#endif
+		);
 }
 #endif
 
@@ -9974,6 +10062,12 @@ kalApplyCustomRegulatory(IN struct wiphy *pWiphy,
 	/* update to kernel */
 	wiphy_apply_custom_regulatory(pWiphy, pRegdom);
 }
+#else
+void kalApplyCustomRegulatory(IN struct wiphy *pWiphy,
+			IN const struct ieee80211_regdomain *pRegdom)
+{
+	DBGLOG(RLM, TRACE, "not support SINGLE_SKU_LOCAL_DB\n");
+}
 #endif
 
 const uint8_t *kalFindIeMatchMask(uint8_t eid,
@@ -10039,12 +10133,7 @@ void kal_napi_schedule(struct napi_struct *n)
 {
 	if (!n)
 		return;
-#if KERNEL_VERSION(4, 0, 0) <= LINUX_VERSION_CODE
-	if (in_interrupt())
-		napi_schedule_irqoff(n);
-	else
-#endif /* KERNEL_VERSION(4, 0, 0) */
-		napi_schedule(n);
+	napi_schedule(n);
 }
 
 

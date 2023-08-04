@@ -1199,6 +1199,7 @@ int btmtk_load_code_from_bin(u8 **image, char *bin_name, struct device *dev,
 			*image = NULL;
 			BTMTK_INFO("%s: request_firmware %d times fail, maybe file not exist, err = %d",
 				__func__, 10, err);
+			release_firmware(fw_entry);
 			return -1;
 		}
 		BTMTK_INFO("%s: request_firmware fail, maybe file not exist, err = %d, retry = %d",
@@ -1209,6 +1210,7 @@ int btmtk_load_code_from_bin(u8 **image, char *bin_name, struct device *dev,
 	*image = vmalloc(ALIGN_4(fw_entry->size));
 	if (*image == NULL) {
 		*code_len = 0;
+		release_firmware(fw_entry);
 		BTMTK_ERR("%s: vmalloc failed!! error code = %d", __func__, err);
 		return -1;
 	}
@@ -4136,8 +4138,10 @@ void __exit main_driver_exit(void)
 	main_exit();
 }
 
+#ifndef MTK_WCN_REMOVE_KERNEL_MODULE
 module_init(main_driver_init);
 module_exit(main_driver_exit);
+#endif
 
 /**
  * Module Common Information

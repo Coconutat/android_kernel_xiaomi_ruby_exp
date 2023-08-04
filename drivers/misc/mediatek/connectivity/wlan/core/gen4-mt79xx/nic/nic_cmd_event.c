@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -2956,6 +2956,9 @@ void nicCmdEventQueryMibInfo(IN struct ADAPTER *prAdapter,
 		kalMemCopy(&prMibInfo->rHwMib2Cnt,
 			   &prEventMibInfo->rHwMib2Cnt,
 			   sizeof(struct HW_MIB2_COUNTER));
+		kalMemCopy(&prMibInfo->rHwMib3Cnt,
+			   &prEventMibInfo->rHwMib3Cnt,
+			   sizeof(struct HW_MIB3_COUNTER));
 		kalMemCopy(&prMibInfo->rHwTxAmpduMts,
 			   &prEventMibInfo->rHwTxAmpduMts,
 			   sizeof(struct HW_TX_AMPDU_METRICS));
@@ -4096,7 +4099,7 @@ void nicExtEventPhyIcsRawData(IN struct ADAPTER *prAdapter,
 				"Enqueue PHY ICS log into queue fail\n");
 		}
 #endif
-
+		kalPacketFree(prAdapter->prGlueInfo, pvPacket);
 	}
 
 
@@ -5018,6 +5021,19 @@ void nicEventBeaconTimeout(IN struct ADAPTER *prAdapter,
 		DeauthReasonCode =
 			prEventBssBeaconTimeout->u2RxDeauthReason;
 
+/* fos_change begin */
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+		prAdapter->total_beacon_timeout_count++;
+		if (prEventBssBeaconTimeout->ucReasonCode >=
+			BEACON_TIMEOUT_DUE_2_NUM) {
+			DBGLOG(RX, WARN, "Invaild Beacon Timeout Reason: %d\n",
+				prEventBssBeaconTimeout->ucReasonCode);
+		} else {
+			prAdapter->beacon_timeout_count
+				[prEventBssBeaconTimeout->ucReasonCode]++;
+		}
+#endif /* fos_change end */
+
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 			prEventBssBeaconTimeout->ucBssIndex);
 
@@ -5416,6 +5432,7 @@ void nicEventRssiMonitor(IN struct ADAPTER *prAdapter,
 	int32_t rssi = 0;
 	struct GLUE_INFO *prGlueInfo;
 	struct wiphy *wiphy;
+	struct net_device *prNetDev;
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	wiphy = priv_to_wiphy(prGlueInfo);
@@ -5423,9 +5440,10 @@ void nicEventRssiMonitor(IN struct ADAPTER *prAdapter,
 	kalMemCopy(&rssi, prEvent->aucBuffer, sizeof(int32_t));
 	DBGLOG(RX, TRACE, "EVENT_ID_RSSI_MONITOR value=%d\n", rssi);
 #if KERNEL_VERSION(3, 16, 0) <= LINUX_VERSION_CODE
-	mtk_cfg80211_vendor_event_rssi_beyond_range(wiphy,
-		wlanGetNetDev(prAdapter->prGlueInfo,
-			AIS_DEFAULT_INDEX)->ieee80211_ptr, rssi);
+	prNetDev = wlanGetNetDev(prAdapter->prGlueInfo, AIS_DEFAULT_INDEX);
+	if (prNetDev)
+		mtk_cfg80211_vendor_event_rssi_beyond_range(wiphy,
+			prNetDev->ieee80211_ptr, rssi);
 #endif
 }
 
@@ -6705,8 +6723,14 @@ void nicNanEventSTATxCTL(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf)
 void nicNanVendorEventHandler(IN struct ADAPTER *prAdapter,
 			 IN struct WIFI_EVENT *prEvent)
 {
-	ASSERT(prAdapter);
-	ASSERT(prEvent);
+	if (!prAdapter) {
+		DBGLOG(NAN, ERROR, "prAdapter error!\n");
+		return;
+	}
+	if (!prEvent) {
+		DBGLOG(NAN, ERROR, "prEvent error!\n");
+		return;
+	}
 
 	DBGLOG(NAN, INFO, "[%s] IN, Guiding to Vendor event handler\n",
 	       __func__);

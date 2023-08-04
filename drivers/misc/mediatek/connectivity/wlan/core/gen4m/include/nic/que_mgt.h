@@ -77,9 +77,6 @@
  */
 extern uint8_t g_arTdlsLink[MAXNUM_TDLS_PEER];
 extern const uint8_t *apucACI2Str[4];
-#if ARP_MONITER_ENABLE
-extern uint8_t aucGatewayMacAddr[MAC_ADDR_LEN];
-#endif
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -809,13 +806,6 @@ enum ENUM_BA_ENTRY_STATUS {
 #define QM_RX_GET_NEXT_SW_RFB(_prSwRfb) \
 	((struct SW_RFB *)(((_prSwRfb)->rQueEntry).prNext))
 
-#if 0
-#define QM_GET_STA_REC_PTR_FROM_INDEX(_prAdapter, _ucIndex) \
-	((((_ucIndex) != STA_REC_INDEX_BMCAST) && \
-	((_ucIndex) != STA_REC_INDEX_NOT_FOUND)) ? \
-	 &(_prAdapter->arStaRec[_ucIndex]) : NULL)
-#endif
-
 #define QM_GET_STA_REC_PTR_FROM_INDEX(_prAdapter, _ucIndex) \
 	cnmGetStaRecByIndex(_prAdapter, _ucIndex)
 
@@ -1227,14 +1217,11 @@ void qmAdjustTcQuotaPle(IN struct ADAPTER *prAdapter,
 #if ARP_MONITER_ENABLE
 void qmDetectArpNoResponse(struct ADAPTER *prAdapter,
 			   struct MSDU_INFO *prMsduInfo);
-void qmResetArpDetect(struct ADAPTER *prAdapter,
-			uint8_t ucBssIndex);
+void qmResetArpDetect(void);
 void qmHandleRxArpPackets(struct ADAPTER *prAdapter,
 			  struct SW_RFB *prSwRfb);
 void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
 			   struct SW_RFB *prSwRfb);
-void qmGetRxSrcMac(IN struct ADAPTER *prAdapter,
-	IN struct SW_RFB *prSwRfb, OUT uint8_t *prMacAddr);
 #endif
 
 #if defined(CFG_SUPPORT_REPLAY_DETECTION) || \

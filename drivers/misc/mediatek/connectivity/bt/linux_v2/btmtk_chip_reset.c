@@ -79,8 +79,17 @@ void btmtk_reset_waker(struct work_struct *work)
 		return;
 	}
 
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	if (rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_DUMP_START, NULL) == RST_MODULE_RET_FAIL)
+		return;
+#endif
+
 	if (bmain_info->hif_hook.dump_debug_sop)
 		bmain_info->hif_hook.dump_debug_sop(bdev);
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_DUMP_END, NULL);
+#endif
 
 	DUMP_TIME_STAMP("chip_reset_start");
 	cif_event = HIF_EVENT_SUBSYS_RESET;

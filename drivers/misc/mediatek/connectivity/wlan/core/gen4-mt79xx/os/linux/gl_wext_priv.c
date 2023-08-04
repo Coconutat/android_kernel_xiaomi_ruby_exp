@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1405,6 +1405,19 @@ __priv_get_int(IN struct net_device *prNetDev,
 		DBGLOG(INIT, INFO, "CMD get_band=\n");
 		prIwReqData->mode = 0;
 		return status;
+
+	case PRIV_CMD_SHOW_CHANNEL:
+	{
+		uint32_t freq = 0;
+
+		status = wlanQueryInformation(prGlueInfo->prAdapter,
+			wlanoidQueryFrequency,
+			&freq, sizeof(uint32_t), &u4BufLen);
+		if (status == 0)
+			prIwReqData->mode = freq/1000; /* Hz->MHz */
+
+		return status;
+	}
 
 	default:
 		break;
@@ -2973,6 +2986,424 @@ static u_int8_t reqSearchSupportedOidEntry(IN uint32_t rOid,
 	return FALSE;
 }				/* reqSearchSupportedOidEntry */
 
+/* fos_change begin */
+int
+priv_get_string(IN struct net_device *prNetDev,
+		IN struct iw_request_info *prIwReqInfo,
+		IN union iwreq_data *prIwReqData, IN OUT char *pcExtra)
+
+{
+	uint32_t u4SubCmd = 0;
+	uint32_t u4TotalLen = 2000;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t u4BufLen = 0;
+	int32_t i, pos = 0;
+	char *buf = pcExtra;
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+
+	if (!prNetDev || !prIwReqData) {
+		DBGLOG(REQ, INFO,
+			"priv_get_string(): invalid param(0x%p, 0x%p)\n",
+			prNetDev, prIwReqData);
+		return -EINVAL;
+	}
+
+
+	u4SubCmd = (uint32_t) prIwReqData->data.flags;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+	if (!prGlueInfo) {
+		DBGLOG(REQ, INFO,
+			"priv_get_string(): invalid prGlueInfo(0x%p, 0x%p)\n",
+			prNetDev,
+			*((struct GLUE_INFO **) netdev_priv(prNetDev)));
+		return -EINVAL;
+	}
+
+	if (pcExtra)
+		pcExtra[u4TotalLen-1] = '\0';
+
+	pos += kalScnprintf(buf + pos, u4TotalLen - pos, "\n");
+
+	switch (u4SubCmd) {
+	case PRIV_CMD_CONNSTATUS:
+	{
+		uint8_t arBssid[PARAM_MAC_ADDR_LEN];
+		struct PARAM_SSID rSsid = {0};
+
+		kalMemZero(arBssid, PARAM_MAC_ADDR_LEN);
+		rStatus = kalIoctl(prGlueInfo, wlanoidQueryBssid,
+				   &arBssid[0], sizeof(arBssid),
+				   TRUE, FALSE, FALSE,
+				   &u4BufLen);
+		if (rStatus == WLAN_STATUS_SUCCESS) {
+			kalIoctl(prGlueInfo, wlanoidQuerySsid,
+				 &rSsid, sizeof(rSsid),
+				 TRUE, FALSE, FALSE,
+				 &u4BufLen);
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"connStatus: Connected (AP: %s ",
+				rSsid.aucSsid);
+
+			for (i = 0; i < PARAM_MAC_ADDR_LEN; i++) {
+				pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos, "%02x", arBssid[i]);
+				if (i != PARAM_MAC_ADDR_LEN - 1)
+					pos += kalScnprintf(buf + pos,
+						u4TotalLen - pos, ":");
+			}
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos, ")");
+		} else {
+			pos += kalScnprintf(buf + pos,
+				u4TotalLen - pos,
+				"connStatus: Not connected");
+		}
+	}
+	break;
+#if CFG_SUPPORT_STAT_STATISTICS
+	case PRIV_CMD_STAT:
+	{
+		static uint8_t aucBuffer[512];
+		struct CMD_SW_DBG_CTRL *pSwDbgCtrl = NULL;
+		int32_t i4Rssi = -127;
+		uint32_t u4Rate = 0;
+		int8_t ucAvgNoise = 0;
+		uint8_t arBssid[PARAM_MAC_ADDR_LEN];
+		struct ADAPTER *prAdapter = NULL;
+		struct BSS_INFO *prBssInfo = NULL;
+		struct STA_RECORD *prStaRec = NULL;
+		struct RX_CTRL *prRxCtrl = NULL;
+		struct PARAM_GET_STA_STATISTICS rQueryStaStatistics;
+		struct PARAM_HW_MIB_INFO *prHwMibInfo;
+		uint8_t ucBssIndex = 0;
+
+		prAdapter = prGlueInfo->prAdapter;
+		pSwDbgCtrl = (struct CMD_SW_DBG_CTRL *)aucBuffer;
+		prRxCtrl = &prGlueInfo->prAdapter->rRxCtrl;
+
+		ucBssIndex = GET_IOCTL_BSSIDX(prAdapter);
+
+		prHwMibInfo = (struct PARAM_HW_MIB_INFO *)kalMemAlloc(
+			sizeof(struct PARAM_HW_MIB_INFO), VIR_MEM_TYPE);
+		if (!prHwMibInfo)
+			return -1;
+		prHwMibInfo->u4Index = 0;
+
+		kalMemZero(arBssid, MAC_ADDR_LEN);
+		kalMemZero(&rQueryStaStatistics, sizeof(rQueryStaStatistics));
+
+		if (kalIoctl(prGlueInfo, wlanoidQueryBssid,
+				 &arBssid[0], sizeof(arBssid),
+				 TRUE, TRUE, TRUE,
+				 &u4BufLen) == WLAN_STATUS_SUCCESS) {
+
+			COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, arBssid);
+			rQueryStaStatistics.ucReadClear = TRUE;
+
+			rStatus = kalIoctl(prGlueInfo,
+				wlanoidQueryStaStatistics,
+				&rQueryStaStatistics,
+				sizeof(rQueryStaStatistics),
+				TRUE, FALSE, TRUE, &u4BufLen);
+		}
+
+		if (kalIoctl(prGlueInfo, wlanoidQueryMibInfo, prHwMibInfo,
+			sizeof(struct PARAM_HW_MIB_INFO),
+			TRUE, TRUE, TRUE, &u4BufLen) == WLAN_STATUS_SUCCESS) {
+			if (prHwMibInfo != NULL && prRxCtrl != NULL) {
+				if (pSwDbgCtrl->u4Data == SWCR_DBG_TYPE_ALL) {
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Tx success = %d\n",
+					rQueryStaStatistics
+					.u4TransmitCount);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Tx retry count = %d\n",
+					prHwMibInfo->rHwMibCnt
+					.au4FrameRetryCnt[BSSID_1]);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Tx fail to Rcv ACK after retry = %d\n",
+					rQueryStaStatistics
+					.u4TxFailCount +
+					rQueryStaStatistics
+					.u4TxLifeTimeoutCount);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Rx success = %d\n",
+					RX_GET_CNT(prRxCtrl,
+					RX_MPDU_TOTAL_COUNT));
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Rx with CRC = %d\n",
+					prHwMibInfo->rHwMibCnt
+					.u4RxFcsErrCnt);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Rx drop due to out of resource = %d\n",
+					prHwMibInfo->rHwMibCnt
+					.u4RxFifoFullCnt);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"Rx duplicate frame = %d\n",
+					RX_GET_CNT(prRxCtrl,
+					SWCR_DBG_ALL_RX_DUP_DROP_CNT));
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"False CCA(total) =%d\n",
+					prHwMibInfo->rHwMibCnt
+					.u4PCcaTime);
+
+					pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos,
+					"False CCA(one-second) =%d\n",
+					prHwMibInfo->rHwMibCnt
+					.u4SCcaTime);
+				}
+			}
+		}
+		kalMemFree(prHwMibInfo, VIR_MEM_TYPE,
+			sizeof(struct PARAM_HW_MIB_INFO));
+
+		if (kalIoctl(prGlueInfo, wlanoidQueryRssi,
+			&i4Rssi, sizeof(i4Rssi),
+			TRUE, TRUE, TRUE, &u4BufLen) == WLAN_STATUS_SUCCESS) {
+			prStaRec = cnmGetStaRecByAddress(prAdapter,
+				prAdapter->prAisBssInfo[ucBssIndex]->ucBssIndex,
+				prAdapter->rWlanInfo
+				.rCurrBssId[ucBssIndex].arMacAddress);
+			if (prStaRec)
+				ucAvgNoise = prStaRec->ucNoise_avg - 127;
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"RSSI = %d\n", i4Rssi);
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"P2P GO RSSI =\n");
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"SNR-A =\n");
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"SNR-B (if available) =\n");
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"NoiseLevel-A = %d\n", ucAvgNoise);
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"NoiseLevel-B =\n");
+		}
+
+		kalIoctl(prGlueInfo, wlanoidQueryLinkSpeed, &u4Rate,
+				sizeof(u4Rate), TRUE, TRUE, TRUE, &u4BufLen);
+
+		/* STA stats */
+		if (kalIoctl(prGlueInfo, wlanoidQueryBssid,
+				 &arBssid[0], sizeof(arBssid),
+				 TRUE, TRUE, TRUE,
+				 &u4BufLen) == WLAN_STATUS_SUCCESS) {
+
+			prBssInfo =
+				&(prAdapter->rWifiVar
+				.arBssInfoPool[KAL_NETWORK_TYPE_AIS_INDEX]);
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"\n(STA) connected AP MAC Address = ");
+
+			for (i = 0; i < PARAM_MAC_ADDR_LEN; i++) {
+
+				pos += kalScnprintf(buf + pos,
+					u4TotalLen - pos, "%02x", arBssid[i]);
+				if (i != PARAM_MAC_ADDR_LEN - 1)
+					pos += kalScnprintf(buf + pos,
+						u4TotalLen - pos, ":");
+			}
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos, "\n");
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"PhyMode:");
+			DBGLOG(REQ, INFO,
+				"priv_get_string(): PhyMode=%x\n",
+				prBssInfo->ucPhyTypeSet);
+			switch (prBssInfo->ucPhyTypeSet) {
+			case PHY_TYPE_SET_802_11B:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11b\n");
+				break;
+			case PHY_TYPE_SET_802_11ABG:
+			case PHY_TYPE_SET_802_11BG:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11g\n");
+				break;
+			case PHY_TYPE_SET_802_11A:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11a\n");
+				break;
+			case PHY_TYPE_SET_802_11ABGN:
+			case PHY_TYPE_SET_802_11BGN:
+			case PHY_TYPE_SET_802_11AN:
+			case PHY_TYPE_SET_802_11GN:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11n\n");
+				break;
+			case PHY_TYPE_SET_802_11ABGNAC:
+			case PHY_TYPE_SET_802_11ANAC:
+			case PHY_TYPE_SET_802_11AC:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11ac\n");
+				break;
+#if (CFG_SUPPORT_802_11AX == 1)
+			case PHY_TYPE_SET_802_11ABGNACAX:
+			case PHY_TYPE_SET_802_11ANACAX:
+			case PHY_TYPE_SET_802_11AX:
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"802.11ax\n");
+				break;
+#endif
+			default:
+				break;
+			}
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"RSSI =\n");
+
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"Last TX Rate = %d\n", u4Rate*100);
+
+
+			if (prStaRec) {
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"Last RX Rate = %d\n",
+					prStaRec->u4LastPhyRate * 100000);
+			} else {
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"Last RX Rate =\n");
+			}
+		} else {
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"\n(STA) Not connected\n");
+		}
+	}
+	break;
+#endif
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	case PRIV_CMD_INT_STAT:
+	{
+		struct WAKEUP_STATISTIC *prWakeupSta = NULL;
+
+		prWakeupSta = g_arWakeupStatistic;
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"Abnormal Interrupt:%u\n"
+				"Software Interrupt:%u\n"
+				"TX Interrupt:%u\n"
+				"RX data:%u\n"
+				"RX Event:%u\n"
+				"RX mgmt:%u\n"
+				"RX others:%u\n",
+				prWakeupSta[0].u4Count,
+				prWakeupSta[1].u4Count,
+				prWakeupSta[2].u4Count,
+				prWakeupSta[3].u4Count,
+				prWakeupSta[4].u4Count,
+				prWakeupSta[5].u4Count,
+				prWakeupSta[6].u4Count);
+		for (i = 0; i < EVENT_ID_END; i++) {
+			if (g_wake_event_count[i] > 0)
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"RX EVENT(0x%0x):%u\n", i,
+					g_wake_event_count[i]);
+		}
+	}
+	break;
+#endif
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+	case PRIV_CMD_EXCEPTION_STAT:
+	{
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalBeaconTimeout:%d\n",
+				prAdapter->total_beacon_timeout_count);
+		for (i = 0; i < BEACON_TIMEOUT_DUE_2_NUM; i++) {
+			if (prAdapter->beacon_timeout_count[i] > 0)
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"BeaconTimeout Reason(0x%0x):%d\n", i,
+					prAdapter->beacon_timeout_count[i]);
+		}
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalTxDoneFail:%d\n",
+				prAdapter->total_tx_done_fail_count);
+		for (i = 0; i < TX_RESULT_NUM; i++) {
+			if (prAdapter->tx_done_fail_count[i] > 0)
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"TxDoneFail Reason(0x%0x):%d\n", i,
+					prAdapter->tx_done_fail_count[i]);
+		}
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalRxDeauth:%d\n",
+				prAdapter->total_deauth_rx_count);
+		for (i = 0; i < (REASON_CODE_BEACON_TIMEOUT + 1); i++) {
+			if (prAdapter->deauth_rx_count[i] > 0)
+				pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+					"RxDeauth Reason(0x%0x):%d\n", i,
+					prAdapter->deauth_rx_count[i]);
+		}
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalScanDoneTimeout:%d\n",
+				prAdapter->total_scandone_timeout_count);
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalTxMgmtTimeout:%d\n",
+				prAdapter->total_mgmtTX_timeout_count);
+		pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+				"TotalRxMgmtTimeout:%d\n",
+				prAdapter->total_mgmtRX_timeout_count);
+	}
+	break;
+#endif
+	case PRIV_CMD_GET_BAND_WIDTH:
+	{
+		uint8_t rQueryBandWith;
+
+		rStatus = kalIoctl(prGlueInfo, wlanoidQueryBandWidth,
+				   &rQueryBandWith, sizeof(rQueryBandWith),
+				   TRUE, FALSE, TRUE,
+				   &u4BufLen);
+
+		if (rStatus == WLAN_STATUS_SUCCESS) {
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+						    "bandwidth = %d\n",
+						    rQueryBandWith);
+		} else {
+			pos += kalScnprintf(buf + pos, u4TotalLen - pos,
+						    "get bandwidth fail\n");
+		}
+		break;
+	}
+	default:
+		DBGLOG(REQ, WARN, "get string cmd:0x%x\n", u4SubCmd);
+		break;
+	}
+
+	DBGLOG(REQ, INFO, "%s i4BytesWritten = %d\n", __func__, pos);
+	if (pos > 0) {
+
+		if (pos > 2000)
+			pos = 2000;
+		prIwReqData->data.length = pos;
+
+	} else if (pos == 0) {
+		prIwReqData->data.length = pos;
+	}
+	return 0;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Private ioctl driver handler.
@@ -3464,6 +3895,7 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 #define	CMD_BAND_TYPE_ALL	3
 
 /* Mediatek private command */
+#define CMD_GET_DONGLE_TYPE	"GET_DONGLE_TYPE"
 #define CMD_SET_MCR		"SET_MCR"
 #define CMD_GET_MCR		"GET_MCR"
 #if (CFG_WLAN_ASSISTANT_NVRAM == 1)
@@ -3599,9 +4031,11 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 #if CFG_SUPPORT_ADVANCE_CONTROL
 #define CMD_SW_DBGCTL_ADVCTL_SET_ID 0xa1260000
 #define CMD_SW_DBGCTL_ADVCTL_GET_ID 0xb1260000
-#define CMD_SET_NOISE		"SET_NOISE"
+#define CMD_SET_NOISE           "SET_NOISE"
 #define CMD_GET_NOISE           "GET_NOISE"
-#define CMD_SET_POP		"SET_POP"
+#define CMD_GET_SNR             "GET_SNR"
+#define CMD_SET_POP             "SET_POP"
+#define CMD_ANTENNA_STAT        "ANTENNA_REPORT"
 #if (CFG_SUPPORT_DYNAMIC_EDCCA == 1)
 #define CMD_SET_ED		"SET_ED"
 #define CMD_GET_ED		"GET_ED"
@@ -3729,6 +4163,10 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 
 #if CFG_SUPPORT_WAC
 #define	CMD_SET_WAC_IE_ENABLE	"SET_WAC_IE_ENABLE"
+#endif
+
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+#define CMD_WIFI_ON_TIME_STATISTICS "wifi_on_time_statistics"
 #endif
 
 static uint8_t g_ucMiracastMode = MIRACAST_MODE_OFF;
@@ -4031,9 +4469,7 @@ static int priv_driver_get_rx_statistics(IN struct net_device *prNetDev,
 	int32_t i4Argc = 0;
 	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = {0};
 	int32_t u4Ret = 0;
-	struct PARAM_CUSTOM_ACCESS_RX_STAT rRxStatisticsTest;
-
-	memset(&rRxStatisticsTest, 0, sizeof(rRxStatisticsTest));
+	struct PARAM_CUSTOM_ACCESS_RX_STAT rRxStatisticsTest = {0};
 
 	ASSERT(prNetDev);
 	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
@@ -5616,6 +6052,57 @@ static int priv_driver_get_mcr(IN struct net_device *prNetDev,
 	return i4BytesWritten;
 
 }				/* priv_driver_get_mcr */
+
+static int priv_driver_get_dongle_type(IN struct net_device *prNetDev,
+			       IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	struct mt66xx_chip_info *prChipInfo = NULL;
+	int32_t i4BytesWritten = 0;
+
+	if (prNetDev == NULL) {
+		DBGLOG(REQ, ERROR, " prNetDev is NULL\n");
+		return -1;
+	}
+
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE) {
+		DBGLOG(REQ, ERROR, " prNetDev is NULL\n");
+		return -1;
+	}
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	prGlueInfo = *((struct GLUE_INFO **)
+					netdev_priv(prNetDev));
+	if (prGlueInfo == NULL) {
+		DBGLOG(REQ, ERROR, " prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	prAdapter = prGlueInfo->prAdapter;
+	if (prAdapter == NULL) {
+		DBGLOG(REQ, ERROR, " prAdapter is NULL\n");
+		return -1;
+	}
+
+	prChipInfo = prAdapter->chip_info;
+	if (prChipInfo == NULL) {
+		DBGLOG(REQ, ERROR, " prChipInfo is NULL\n");
+		return -1;
+	}
+
+	if (prChipInfo->getDongleType) {
+		i4BytesWritten = kalSnprintf(pcCommand, i4TotalLen, "0x%08x",
+			(unsigned int)prChipInfo->getDongleType(prAdapter));
+	} else {
+		DBGLOG(REQ, ERROR, " This chip not support get chip type\n");
+		return -1;
+	}
+	DBGLOG(REQ, INFO, "command result is %s\n", pcCommand);
+
+	return i4BytesWritten;
+}				/* priv_driver_get_mcr */
+
 
 int priv_driver_set_mcr(IN struct net_device *prNetDev, IN char *pcCommand,
 			IN int i4TotalLen)
@@ -8050,7 +8537,7 @@ int priv_driver_set_drv_mcr(IN struct net_device *prNetDev, IN char *pcCommand,
 
 	int32_t i4ArgNum = 3;
 
-	struct CMD_ACCESS_REG rCmdAccessReg;
+	struct CMD_ACCESS_REG rCmdAccessReg = {0};
 
 	ASSERT(prNetDev);
 	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
@@ -8062,7 +8549,6 @@ int priv_driver_set_drv_mcr(IN struct net_device *prNetDev, IN char *pcCommand,
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
 	if (i4Argc >= i4ArgNum) {
-		rCmdAccessReg.u4Address = 0;
 		u4Ret = kalkStrtou32(apcArgv[1], 0, &(rCmdAccessReg.u4Address));
 		if (u4Ret)
 			DBGLOG(REQ, LOUD,
@@ -8169,7 +8655,7 @@ int priv_driver_set_uhw_mcr(IN struct net_device *prNetDev, IN char *pcCommand,
 
 	int32_t i4ArgNum = 3;
 
-	struct CMD_ACCESS_REG rCmdAccessReg;
+	struct CMD_ACCESS_REG rCmdAccessReg = {0};
 
 	ASSERT(prNetDev);
 	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
@@ -8181,7 +8667,6 @@ int priv_driver_set_uhw_mcr(IN struct net_device *prNetDev, IN char *pcCommand,
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
 	if (i4Argc >= i4ArgNum) {
-		rCmdAccessReg.u4Address = 0;
 		u4Ret = kalkStrtou32(apcArgv[1], 0, &(rCmdAccessReg.u4Address));
 		if (u4Ret)
 			DBGLOG(REQ, LOUD,
@@ -9633,6 +10118,17 @@ int priv_driver_set_csa(IN struct net_device *prNetDev,
 
 	if (i4Argc >= 2) {
 		u4Ret = kalkStrtou32(apcArgv[1], 0, &ch_num);
+
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+		/* iwpriv p2p0 driver 'CSA 0' */
+		if (ch_num == 0) {
+			u4Ret = cnmCheckStateForCsa(prGlueInfo->prAdapter);
+			if (u4Ret > 0)
+				return -1;
+			return 0;
+		}
+#endif
+
 		u4Ret = cnmIdcCsaReq(prGlueInfo->prAdapter, ch_num, ucRoleIdx);
 		DBGLOG(REQ, INFO, "u4Ret is %d\n", u4Ret);
 	} else {
@@ -10870,8 +11366,11 @@ static int priv_driver_set_wow(IN struct net_device *prNetDev,
 		       pWOW_CTRL->astWakeHif[0].ucTriggerLvl);
 		DBGLOG(INIT, INFO, "gpio_timer %d\n",
 		       pWOW_CTRL->astWakeHif[0].u4GpioInterval);
+#if CFG_DC_USB_WOW_CALLBACK
+		kalDcSetWow();
+#else
 		kalWowProcess(prGlueInfo, Enable);
-
+#endif
 		return 0;
 	} else
 		return -1;
@@ -10918,7 +11417,7 @@ static int priv_driver_set_wow_par(IN struct net_device *prNetDev,
 	int32_t i4Argc = 0;
 	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
 	int32_t u4Ret = 0;
-	uint8_t	ucWakeupHif = 0, GpioPin = 0, ucGpioLevel = 0, ucBlockCount,
+	uint8_t	ucWakeupHif = 0, GpioPin = 0, ucGpioLevel = 0, ucBlockCount = 0,
 		ucScenario = 0;
 	uint32_t u4GpioTimer = 0;
 
@@ -11175,7 +11674,8 @@ static int priv_driver_get_wow_port(IN struct net_device *prNetDev,
 	int32_t i4Argc = 0;
 	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
 	int32_t u4Ret = 0, ii;
-	uint8_t	ucVer, ucProto;
+	uint8_t ucVer = 0;
+	uint8_t ucProto = 0;
 	uint16_t ucCount;
 	uint16_t *pausPortArry;
 	int8_t *aucIp[2] = {"IPv4", "IPv6"};
@@ -11731,6 +12231,10 @@ int priv_driver_set_suspend_mode(IN struct net_device *prNetDev,
 		DBGLOG(REQ, INFO, "%s: Set suspend mode [%u]\n", __func__,
 		       fgEnable);
 
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+		/*need to update wifi on time statistics*/
+		updateWifiOnTimeStatistics();
+#endif
 		prGlueInfo->fgIsInSuspendMode = fgEnable;
 
 		wlanSetSuspendMode(prGlueInfo, fgEnable);
@@ -12679,6 +13183,8 @@ int priv_driver_set_sr_enable(
 	prCmdSrCap = (struct _SR_CMD_SR_CAP_T *)
 		kalMemAlloc(sizeof(struct _SR_CMD_SR_CAP_T),
 			    VIR_MEM_TYPE);
+	if (!prCmdSrCap)
+		return -1;
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
@@ -12743,6 +13249,8 @@ int priv_driver_get_sr_cap(
 	prCmdSrCap = (struct _SR_CMD_SR_CAP_T *)
 		kalMemAlloc(sizeof(struct _SR_CMD_SR_CAP_T),
 			    VIR_MEM_TYPE);
+	if (!prCmdSrCap)
+		return -1;
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
@@ -12796,6 +13304,8 @@ int priv_driver_get_sr_ind(
 	prCmdSrInd = (struct _SR_CMD_SR_IND_T *)
 		kalMemAlloc(sizeof(struct _SR_CMD_SR_IND_T),
 			    VIR_MEM_TYPE);
+	if (!prCmdSrInd)
+		return -1;
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
@@ -13980,6 +14490,10 @@ static int priv_driver_efuse_ops(IN struct net_device *prNetDev,
 		DBGLOG(REQ, ERROR, "prGlueInfo is null\n");
 		goto efuse_op_invalid;
 	}
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(REQ, ERROR, "prGlueInfo->prAdapter is null\n");
+		goto efuse_op_invalid;
+	}
 
 	if (prGlueInfo &&
 	    prGlueInfo->prAdapter &&
@@ -14649,6 +15163,266 @@ static int priv_driver_get_noise(IN struct net_device *prNetDev,
 
 }				/* priv_driver_get_sw_ctrl */
 
+static int priv_driver_get_snr(IN struct net_device *prNetDev,
+				 IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+	uint32_t u4BufLen = 0;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	uint32_t u4Offset = 0;
+	struct PARAM_CUSTOM_SW_CTRL_STRUCT rSwCtrlInfo;
+	uint16_t u2Snr0, u2Snr1;
+
+	if (!prNetDev) {
+		DBGLOG(REQ, ERROR, "prNetDev error!\n");
+		return -1;
+	}
+
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+
+	rSwCtrlInfo.u4Data = 0;
+	rSwCtrlInfo.u4Id = CMD_SW_DBGCTL_ADVCTL_GET_ID + CMD_ADVCTL_SNR_ID;
+	rStatus = kalIoctl(prGlueInfo, wlanoidQuerySwCtrlRead, &rSwCtrlInfo,
+			   sizeof(rSwCtrlInfo), TRUE, TRUE, TRUE, &u4BufLen);
+
+	DBGLOG(REQ, LOUD, "rStatus %u\n", rStatus);
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		return -1;
+
+	u2Snr0 = rSwCtrlInfo.u4Data & 0xFFFF;
+	u2Snr1 = (rSwCtrlInfo.u4Data >> 16) & 0xFFFF;
+	u4Offset += kalSnprintf(pcCommand + u4Offset, i4TotalLen - u4Offset,
+			     "Snr0:%ddB    Snr1:%ddB\n",
+			     u2Snr0, u2Snr1);
+
+	i4BytesWritten = (int32_t)u4Offset;
+
+	return i4BytesWritten;
+
+}
+
+#if (CONFIG_WIFI_ANTENNA_REPORT == 1)
+static int priv_driver_get_antenna_report(IN struct net_device *prNetDev,
+				 IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+	uint32_t u4BufLen = 0;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	struct CMD_ANTENNA_REPORT *cmd = NULL;
+	uint8_t ucBssIndex = AIS_DEFAULT_INDEX;
+
+	if (!prNetDev) {
+		DBGLOG(REQ, ERROR, "prNetDev error!\n");
+		goto get_report_invalid;
+	}
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	if (kalGetMediaStateIndicated(prGlueInfo, ucBssIndex)
+		== MEDIA_STATE_DISCONNECTED) {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"\nWifi isn't connected.");
+		return i4BytesWritten;
+	}
+
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		goto get_report_invalid;
+
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+
+	cmd = (struct CMD_ANTENNA_REPORT *)kalMemAlloc(sizeof(*cmd), VIR_MEM_TYPE);
+	if (cmd == NULL)
+		goto get_report_invalid;
+
+	if (i4Argc != 2) {
+		DBGLOG(REQ, ERROR, "%s %d\n", __func__, __LINE__);
+		goto get_report_invalid;
+	}
+
+	kalMemSet(cmd, 0, sizeof(*cmd));
+
+	cmd->u2Type = CMD_GET_ANTENNA_REPORT_TYPE;
+	cmd->u2Len = sizeof(*cmd);
+
+	if (strnicmp(apcArgv[1], "GET", strlen("GET")) == 0) {
+		cmd->ucAction = CMD_ANTENNA_REPORT_GET;
+	} else if (strnicmp(apcArgv[1], "RESET", strlen("RESET")) == 0) {
+		cmd->ucAction = CMD_ANTENNA_REPORT_RESET;
+		cmd->u2Type |= CMD_ADV_CONTROL_SET;
+	} else {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"\nformat:antenna_report [get|reset]");
+		return i4BytesWritten;
+	}
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidAdvCtrl, cmd,
+			   sizeof(*cmd), TRUE, TRUE, TRUE, &u4BufLen);
+
+	DBGLOG(REQ, LOUD, "rStatus %u\n", rStatus);
+	DBGLOG(REQ, LOUD, "ucAction %u\n", cmd->ucAction);
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		return -1;
+	else if (cmd->ucAction == CMD_ANTENNA_REPORT_GET) {
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%s\n", "\n");
+
+		/* get manu time */
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%d%s\n", "Period Time", " = ",
+			cmd->ucPeriodTime, " ms");
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%s\n", "\n[WF0]");
+
+		/* current antenna deponds on HW signal instead of RFB Ant index*/
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%s\n", "Ant0/Ant1", " = ",
+			(cmd->u4WF0Ant == 1) ? "Ant1" : "Ant0");
+
+		/* get WF0 antenna diversity enable status */
+		if (!cmd->u4WF0AntDivEn) {
+			i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+				i4TotalLen - i4BytesWritten,
+				"%-20s%s%s\n", "Control Mode", " = ",
+				"Antenna Diversity Disable");
+		} else {
+				/* 0: Auto Mode , 1: Force Mode */
+				if (!cmd->u4WF0AntCtrMode) {
+					i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+						i4TotalLen - i4BytesWritten,
+						"%-20s%s%s\n", "Control Mode", " = ",
+						"Auto Mode");
+				} else {
+						/* 0: Per- Packet Switch(HW), 1: Period Switch(SW) */
+						i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+							i4TotalLen - i4BytesWritten,
+							"%-20s%s%s\n", "Control Mode", " = ",
+							(cmd->u4WF0AntForceMode == 1) ? "Force Mode -> Period Switch" : "Force Mode -> Per-Packet Switch");
+				}
+		}
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%s\n", "----- Per-Packet Count -----");
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%d\n", "Ant0 Count", " = ",
+			cmd->u4WF0Ant0PerPacketCount);
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%d\n", "Ant1 Count", " = ",
+			cmd->u4WF0Ant1PerPacketCount);
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%s\n", "----- Period Switch Count -----");
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%d\n", "Ant0 Count", " = ",
+			cmd->u4WF0Ant0PeriodSwitchCount);
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%d\n", "Ant1 Count", " = ",
+			cmd->u4WF0Ant1PeriodSwitchCount);
+
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%s\n", "\n[WF1]");
+
+		/* current antenna deponds on HW signal instead of RFB Ant index*/
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+			i4TotalLen - i4BytesWritten,
+			"%-20s%s%s\n", "Ant0/Ant1", " = ",
+			(cmd->u4WF1Ant == 1) ? "Ant1" : "Ant0");
+
+		/* get WF1 antenna diversity enable status */
+		if (!cmd->u4WF1AntDivEn) {
+			i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+				i4TotalLen - i4BytesWritten,
+				"%-20s%s%s\n", "Control Mode", " = ",
+				"Antenna Diversity Disable");
+		} else {
+				/* 0: Auto Mode , 1: Force Mode */
+				if (!cmd->u4WF1AntCtrMode) {
+					i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+						i4TotalLen - i4BytesWritten,
+						"%-20s%s%s\n", "Control Mode", " = ",
+						"Auto Mode");
+				} else {
+						/* 0: Per- Packet Switch(HW), 1: Period Switch(SW) */
+						i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+							i4TotalLen - i4BytesWritten,
+							"%-20s%s%s\n", "Control Mode", " = ",
+							(cmd->u4WF1AntForceMode == 1) ? "Force Mode -> Period Switch" : "Force Mode -> Per-Packet Switch");
+				}
+	}
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%s\n", "----- Per-Packet Count -----");
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%-20s%s%d\n", "Ant0 Count", " = ",
+		cmd->u4WF1Ant0PerPacketCount);
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%-20s%s%d\n", "Ant1 Count", " = ",
+		cmd->u4WF1Ant1PerPacketCount);
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%s\n", "----- Period Switch Count -----");
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%-20s%s%d\n", "Ant0 Count", " = ",
+		cmd->u4WF1Ant0PeriodSwitchCount);
+
+	i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"%-20s%s%d\n", "Ant1 Count", " = ",
+		cmd->u4WF1Ant1PeriodSwitchCount);
+	}
+	return i4BytesWritten;
+
+get_report_invalid:
+	if (cmd)
+		kalMemFree(cmd, VIR_MEM_TYPE, sizeof(*cmd));
+	i4BytesWritten += snprintf(pcCommand + i4BytesWritten,
+		i4TotalLen - i4BytesWritten,
+		"\nformat:antenna_report [get|reset]");
+	return i4BytesWritten;
+}
+#endif
+
 static int priv_driver_set_pop(IN struct net_device *prNetDev,
 				IN char *pcCommand, IN int i4TotalLen)
 {
@@ -14997,7 +15771,7 @@ static int priv_driver_set_twtparams(
 	struct _TWT_PARAMS_T *prTWTParams;
 	uint16_t i;
 	int32_t u4Ret = 0;
-	uint16_t au2Setting[CMD_TWT_MAX_PARAMS] = { 0 };
+	uint16_t au2Setting[CMD_TWT_MAX_PARAMS] = {0};
 	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate = NULL;
 	struct _MSG_TWT_PARAMS_SET_T *prTWTParamSetMsg;
 #if (CFG_KEEPFULLPOWER_BEFORE_TWT_NEGO == 1)
@@ -15077,7 +15851,7 @@ static int priv_driver_set_twtparams(
 		 *  au2Setting[8]: TWT Wake Interval Mantissa
 		 */
 		if (au2Setting[1] >= TWT_MAX_FLOW_NUM ||
-			au2Setting[2] > TWT_SETUP_CMD_DEMAND ||
+			au2Setting[2] > TWT_SETUP_CMD_TWT_DEMAND ||
 			au2Setting[5] > TWT_MAX_WAKE_INTVAL_EXP) {
 			/* Simple sanity check failure */
 			DBGLOG(REQ, INFO, "Invalid TWT Params\n");
@@ -16993,6 +17767,47 @@ static int priv_driver_set_wac_ie_enable(IN struct net_device *prNetDev,
 }
 #endif
 
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+static int priv_driver_wifi_on_time_statistics(
+	IN struct net_device *prNetDev, IN char *pcCommand,
+	IN int i4TotalLen)
+{
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	int32_t i4ArgNum = 2;
+	int32_t i4BytesWritten = 0;
+	struct GLUE_INFO *prGlueInfo = NULL;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+	if (prGlueInfo == NULL || i4Argc < i4ArgNum) {
+		DBGLOG(REQ, ERROR, "invalid parameter\n");
+		return -1;
+	}
+
+	if (strnicmp(apcArgv[1], "get", strlen("get")) == 0) {
+		/*need to update wifi on time statistics*/
+		updateWifiOnTimeStatistics();
+
+		/*construct statistics to upper layer*/
+		i4BytesWritten = snprintf(pcCommand, i4TotalLen,
+			"TimeDuringScreenOn[%u] TimeDuringScreenOff[%u] ",
+			wifiOnTimeStatistics.u4WifiOnTimeDuringScreenOn,
+			wifiOnTimeStatistics.u4WifiOnTimeDuringScreenOff);
+		return i4BytesWritten;
+	}
+
+	DBGLOG(REQ, ERROR, "invalid parameter\n");
+	return -1;
+}
+#endif
 
 typedef int(*PRIV_CMD_FUNCTION) (
 		IN struct net_device *prNetDev,
@@ -17046,6 +17861,7 @@ struct PRIV_CMD_HANDLER priv_cmd_handlers[] = {
 	{CMD_SET_MONITOR, priv_driver_set_monitor},
 #endif
 	{CMD_GET_SW_CTRL, priv_driver_get_sw_ctrl},
+	{CMD_GET_DONGLE_TYPE, priv_driver_get_dongle_type},
 	{CMD_SET_MCR, priv_driver_set_mcr},
 	{CMD_GET_MCR, priv_driver_get_mcr},
 	{CMD_SET_DRV_MCR, priv_driver_set_drv_mcr},
@@ -17152,7 +17968,11 @@ struct PRIV_CMD_HANDLER priv_cmd_handlers[] = {
 #if CFG_SUPPORT_ADVANCE_CONTROL
 	{CMD_SET_NOISE, priv_driver_set_noise},
 	{CMD_GET_NOISE, priv_driver_get_noise},
+	{CMD_GET_SNR, priv_driver_get_snr},
 	{CMD_SET_POP, priv_driver_set_pop},
+#if (CONFIG_WIFI_ANTENNA_REPORT == 1)
+	{CMD_ANTENNA_STAT, priv_driver_get_antenna_report},
+#endif
 #if (CFG_SUPPORT_DYNAMIC_EDCCA == 1)
 	{CMD_SET_ED, priv_driver_set_ed},
 	{CMD_GET_ED, priv_driver_get_ed},
@@ -17215,6 +18035,9 @@ struct PRIV_CMD_HANDLER priv_cmd_handlers[] = {
 #endif
 #if CFG_SUPPORT_WAC
 	{CMD_SET_WAC_IE_ENABLE, priv_driver_set_wac_ie_enable},
+#endif
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+	{CMD_WIFI_ON_TIME_STATISTICS, priv_driver_wifi_on_time_statistics},
 #endif
 };
 
@@ -18720,6 +19543,17 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 			i4BytesWritten = priv_driver_get_noise(prNetDev,
 							pcCommand, i4TotalLen);
 		}
+#endif
+		else if (strnicmp(pcCommand, CMD_GET_SNR,
+			strlen(CMD_GET_SNR)) == 0) {
+			i4BytesWritten = priv_driver_get_snr(prNetDev,
+							pcCommand, i4TotalLen);
+		}
+#if CONFIG_WIFI_ANTENNA_REPORT
+		else if (strnicmp(pcCommand, CMD_ANTENNA_STAT,
+			strlen(CMD_ANTENNA_STAT)) == 0)
+			i4BytesWritten = priv_driver_get_antenna_report(prNetDev,
+							pcCommand, i4TotalLen);
 #endif
 #if CFG_WIFI_SUPPORT_NOISE_HISTOGRAM
 		else if (strnicmp(pcCommand, CMD_NOISE_HISTOGRAM,

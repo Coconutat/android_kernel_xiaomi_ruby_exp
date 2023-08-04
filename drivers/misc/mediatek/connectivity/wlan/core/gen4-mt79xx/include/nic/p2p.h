@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -180,6 +180,9 @@ enum ENUM_SCAN_REASON {
 	SCAN_REASON_CONNECT,
 	SCAN_REASON_STARTAP,
 	SCAN_REASON_ACS,
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+	SCAN_REASON_CSA,
+#endif
 	SCAN_REASON_NUM,
 };
 

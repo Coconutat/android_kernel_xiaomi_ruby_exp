@@ -1068,8 +1068,14 @@ nicTxComposeDesc(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo,
 	HAL_MAC_TX_DESC_SET_PORT_INDEX(prTxDesc, ucTarPort);
 
 	ucTarQueue = arTcResourceControl[prMsduInfo->ucTC].ucDestQueueIndex;
-	if (ucTarPort == PORT_INDEX_LMAC)
+	if (ucTarPort == PORT_INDEX_LMAC) {
 		ucTarQueue += (prBssInfo->ucWmmQueSet * WMM_AC_INDEX_NUM);
+	} else if (ucTarPort == PORT_INDEX_MCU &&
+		prMsduInfo->ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX) {
+		/* To MCU packet with always tx flag */
+		DBGLOG(QM, INFO, "ALTX SEND!\n");
+		ucTarQueue = MAC_TXQ_ALTX_0_INDEX;
+	}
 
 	HAL_MAC_TX_DESC_SET_QUEUE_INDEX(prTxDesc, ucTarQueue);
 
@@ -1593,59 +1599,54 @@ WLAN_STATUS nicTxGenerateDescTemplate(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_
 * @retval VOID
 */
 /*----------------------------------------------------------------------------*/
-VOID nicTxFreeDescTemplate(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec)
+VOID nicTxFreeDescTemplate(IN P_ADAPTER_T prAdapter,
+			    IN P_STA_RECORD_T prStaRec)
 {
-	UINT_8 ucTid;
-	UINT_8 ucTxDescSize;
+	uint8_t ucTid;
+	uint8_t ucTxDescSize;
 	P_HW_MAC_TX_DESC_T prTxDesc;
+	P_HW_MAC_TX_DESC_T prFirstTxDesc = NULL;
 
-	/* This is to lock the process to preventing */
-	/* nicTxFreeDescTemplate while Filling it */
 	KAL_SPIN_LOCK_DECLARATION();
-	DBGLOG(QM, INFO, "Free TXD template for STA[%u] QoS[%u]\n", prStaRec->ucIndex, prStaRec->fgIsQoS);
 
-	if (prStaRec->fgIsQoS) {
-		for (ucTid = 0; ucTid < TX_DESC_TID_NUM; ucTid++) {
-			/* This is to lock the process to preventing */
-			/* nicTxFreeDescTemplate while Filling it */
-			KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
-			prTxDesc = (P_HW_MAC_TX_DESC_T) prStaRec->aprTxDescTemplate[ucTid];
+	DBGLOG(QM, TRACE, "Free TXD template for STA[%u] QoS[%u]\n",
+	       prStaRec->ucIndex, prStaRec->fgIsQoS);
 
-			if (prTxDesc) {
-				if (HAL_MAC_TX_DESC_IS_LONG_FORMAT(prTxDesc))
-					ucTxDescSize = NIC_TX_DESC_LONG_FORMAT_LENGTH;
-				else
-					ucTxDescSize = NIC_TX_DESC_SHORT_FORMAT_LENGTH;
-
-				prStaRec->aprTxDescTemplate[ucTid] =
-					NULL;
-				KAL_RELEASE_SPIN_LOCK(prAdapter,
-					SPIN_LOCK_TX_DESC);
-				kalMemFree(prTxDesc, VIR_MEM_TYPE, ucTxDescSize);
-				prTxDesc = NULL;
-			} else
-				KAL_RELEASE_SPIN_LOCK(prAdapter,
-					SPIN_LOCK_TX_DESC);
-		}
-	} else {
+	for (ucTid = 0; ucTid < TX_DESC_TID_NUM; ucTid++) {
 		/* This is to lock the process to preventing */
 		/* nicTxFreeDescTemplate while Filling it */
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
-		prTxDesc = (P_HW_MAC_TX_DESC_T) prStaRec->aprTxDescTemplate[0];
-		for (ucTid = 0; ucTid < TX_DESC_TID_NUM; ucTid++)
+		if (ucTid == 0)
+			prFirstTxDesc = (P_HW_MAC_TX_DESC_T)
+				prStaRec->aprTxDescTemplate[0];
+
+		prTxDesc = (P_HW_MAC_TX_DESC_T)
+			prStaRec->aprTxDescTemplate[ucTid];
+
+		if (!prTxDesc) {
+			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
+			continue;
+		}
+
+		if (ucTid > 0 && prTxDesc == prFirstTxDesc) {
+			/* This partial is for prStaRec->fgIsQoS = 0 case
+			 * In this case, prStaRec->aprTxDescTemplate[0:7]'s
+			 * value will be same,
+			 * so should avoid repeated free.
+			 */
 			prStaRec->aprTxDescTemplate[ucTid] = NULL;
-
-		if (prTxDesc) {
-			if (HAL_MAC_TX_DESC_IS_LONG_FORMAT(prTxDesc))
-				ucTxDescSize = NIC_TX_DESC_LONG_FORMAT_LENGTH;
-			else
-				ucTxDescSize = NIC_TX_DESC_SHORT_FORMAT_LENGTH;
 			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
+			continue;
+		}
+		if (HAL_MAC_TX_DESC_IS_LONG_FORMAT(prTxDesc))
+			ucTxDescSize = NIC_TX_DESC_LONG_FORMAT_LENGTH;
+		else
+			ucTxDescSize = NIC_TX_DESC_SHORT_FORMAT_LENGTH;
 
-			kalMemFree(prTxDesc, VIR_MEM_TYPE, ucTxDescSize);
-			prTxDesc = NULL;
-		} else
-			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
+		prStaRec->aprTxDescTemplate[ucTid] = NULL;
+		KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_DESC);
+
+		kalMemFree(prTxDesc, VIR_MEM_TYPE, ucTxDescSize);
 	}
 }
 
@@ -1833,20 +1834,27 @@ WLAN_STATUS nicTxCmd(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN UIN
 		prCmdInfo->pucTxp = prMsduInfo->prPacket;
 		prCmdInfo->u4TxpLen = prMsduInfo->u2FrameLength;
 
-		HAL_WRITE_TX_CMD(prAdapter, prCmdInfo, ucTC);
-		/* <4> Management Frame Post-Processing */
-		GLUE_DEC_REF_CNT(prTxCtrl->i4TxMgmtPendingNum);
-
-		DBGLOG(INIT, INFO, "TX MGMT Frame: BSS[%u] WIDX:PID[%u:%u] SEQ[%u] STA[%u] RSP[%u]\n",
-			prMsduInfo->ucBssIndex, prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
-			prMsduInfo->ucTxSeqNum, prMsduInfo->ucStaRecIndex, prMsduInfo->pfTxDoneHandler ? TRUE : FALSE);
-
 		if (prMsduInfo->pfTxDoneHandler) {
 			/* DBGLOG(INIT, TRACE,("Wait Cmd TxSeqNum:%d\n", prMsduInfo->ucTxSeqNum)); */
 			KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TXING_MGMT_LIST);
 			QUEUE_INSERT_TAIL(&(prTxCtrl->rTxMgmtTxingQueue), (P_QUE_ENTRY_T) prMsduInfo);
 			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TXING_MGMT_LIST);
-		} else {
+			DBGLOG(TX, INFO, "Insert msdu WIDX:PID[%u:%u]\n",
+				prMsduInfo->ucWlanIndex, prMsduInfo->ucPID);
+		}
+
+		DBGLOG(INIT, INFO,
+		"TX MGMT Frame: BSS[%u] WIDX:PID[%u:%u] SEQ[%u] STA[%u] RSP[%u]\n",
+		prMsduInfo->ucBssIndex, prMsduInfo->ucWlanIndex,
+		prMsduInfo->ucPID, prMsduInfo->ucTxSeqNum,
+		prMsduInfo->ucStaRecIndex,
+		prMsduInfo->pfTxDoneHandler ? TRUE : FALSE);
+
+		HAL_WRITE_TX_CMD(prAdapter, prCmdInfo, ucTC);
+		/* <4> Management Frame Post-Processing */
+		GLUE_DEC_REF_CNT(prTxCtrl->i4TxMgmtPendingNum);
+
+		if (prMsduInfo->pfTxDoneHandler == NULL) {
 			cnmMgtPktFree(prAdapter, prMsduInfo);
 		}
 

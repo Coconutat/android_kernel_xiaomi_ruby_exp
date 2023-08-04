@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -75,7 +75,9 @@ void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable)
 	if (!prGlueInfo)
 		return;
 
-	if (!prGlueInfo->prAdapter->fgIsP2PRegistered) {
+	if (!prGlueInfo->prAdapter->fgIsP2PRegistered ||
+		(prGlueInfo->prAdapter->rP2PNetRegState !=
+			ENUM_NET_REG_STATE_REGISTERED)) {
 		DBGLOG(INIT, INFO, "%s: P2P is not enabled, SKIP!\n", __func__);
 		return;
 	}

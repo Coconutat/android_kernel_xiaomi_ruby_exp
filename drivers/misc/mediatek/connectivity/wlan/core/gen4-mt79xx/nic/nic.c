@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -669,6 +669,14 @@ void nicRestoreSpiDefMode(IN struct ADAPTER *prAdapter)
 void nicProcessAbnormalInterrupt(IN struct ADAPTER
 				 *prAdapter)
 {
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_REASON_DEBUG
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	if (kalIsWakeupByWlan(prAdapter))
+		nicUpdateWakeupStatistics(prAdapter, ABNORMAL_INT);
+#endif
+#endif /* fos_change end */
+
 	if (halIsHifStateSuspend(prAdapter))
 		DBGLOG(RX, WARN, "suspend Abnormal\n");
 
@@ -705,6 +713,14 @@ void nicProcessSoftwareInterrupt(IN struct ADAPTER
 				 *prAdapter)
 {
 	prAdapter->prGlueInfo->IsrSoftWareCnt++;
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_REASON_DEBUG
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	if (kalIsWakeupByWlan(prAdapter))
+		nicUpdateWakeupStatistics(prAdapter, SOFTWARE_INT);
+#endif
+#endif /* fos_change end */
+
 	if (halIsHifStateSuspend(prAdapter))
 		DBGLOG(RX, WARN, "suspend SW INT\n");
 	halProcessSoftwareInterrupt(prAdapter);
@@ -2708,15 +2724,15 @@ void nicSetAvailablePhyTypeSet(IN struct ADAPTER *prAdapter)
 {
 	ASSERT(prAdapter);
 
-	if (prAdapter->rWifiVar.eDesiredPhyConfig >= PHY_CONFIG_NUM
-		|| prAdapter->rWifiVar.eDesiredPhyConfig < 0) {
+	if ((unsigned int)(prAdapter->rWifiVar.eDesiredPhyConfig) >=
+	    PHY_CONFIG_NUM) {
 		ASSERT(0);
 		return;
 	}
 
 	prAdapter->rWifiVar.ucAvailablePhyTypeSet =
 		aucPhyCfg2PhyTypeSet[
-		prAdapter->rWifiVar.eDesiredPhyConfig];
+		(unsigned int)(prAdapter->rWifiVar.eDesiredPhyConfig)];
 
 	if (prAdapter->rWifiVar.ucAvailablePhyTypeSet &
 	    PHY_TYPE_BIT_ERP)
@@ -4945,4 +4961,26 @@ void nicRxdChNumTranslate(
 
 }
 #endif
+
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+void nicUpdateWakeupStatistics(IN struct ADAPTER *prAdapter,
+	IN enum WAKEUP_TYPE intType)
+{
+	struct WAKEUP_STATISTIC *prWakeupSta = &g_arWakeupStatistic[intType];
+	OS_SYSTIME rCurrent = 0;
+
+	prWakeupSta->u4Count++;
+	if (prWakeupSta->u4Count % 100 == 0) {
+		if (prWakeupSta->u4Count > 0) {
+			GET_CURRENT_SYSTIME(&rCurrent);
+			prWakeupSta->u4TimePerHundred =
+				rCurrent-prWakeupSta->rStartTime;
+		}
+		GET_CURRENT_SYSTIME(&prWakeupSta->rStartTime);
+		DBGLOG(RX, INFO, "wakeup frequency: %u",
+			prWakeupSta->u4TimePerHundred);
+	}
+}
+#endif /* fos_change end */
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -959,8 +959,9 @@ struct QUE *qmDetermineStaTxQueue(IN struct ADAPTER *prAdapter,
 		if (prStaRec->fgIsQoS) {
 			if (prMsduInfo->ucUserPriority < TX_DESC_TID_NUM) {
 				eAci = aucTid2ACI[prMsduInfo->ucUserPriority];
-				if (eAci >= 0 && eAci < WMM_AC_INDEX_NUM) {
-					ucQueIdx = aucACI2TxQIdx[eAci];
+				if ((uint32_t)eAci < WMM_AC_INDEX_NUM) {
+					ucQueIdx =
+						aucACI2TxQIdx[(uint32_t)eAci];
 					ucTC = nicTxWmmTc2ResTc(prAdapter,
 						prMsduInfo->ucBssIndex, eAci);
 				}
@@ -972,15 +973,16 @@ struct QUE *qmDetermineStaTxQueue(IN struct ADAPTER *prAdapter,
 					"Packet TID is not in [0~7]\n");
 				ASSERT(0);
 			}
-			if (eAci >= 0 && eAci < WMM_AC_INDEX_NUM &&
-				(prBssInfo->arACQueParms[eAci].ucIsACMSet) &&
-			    !(ucActiveTs & BIT(eAci)) &&
-			    (eAci != WMM_AC_BK_INDEX)) {
+			if ((uint32_t)eAci < WMM_AC_INDEX_NUM &&
+			(prBssInfo->arACQueParms[(uint32_t)eAci].ucIsACMSet) &&
+			!(ucActiveTs & BIT((uint32_t)eAci)) &&
+			(eAci != WMM_AC_BK_INDEX)) {
 				DBGLOG(WMM, TRACE,
 					"ucUserPriority: %d, aucNextUP[eAci]: %d",
 					prMsduInfo->ucUserPriority,
-					aucNextUP[eAci]);
-				prMsduInfo->ucUserPriority = aucNextUP[eAci];
+					aucNextUP[(uint32_t)eAci]);
+				prMsduInfo->ucUserPriority =
+						aucNextUP[(uint32_t)eAci];
 				fgCheckACMAgain = TRUE;
 			}
 		} else {
@@ -3862,56 +3864,72 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 		}
 #endif /* CFG_SUPPORT_FAKE_EAPOL_DETECTION */
 
-		if (prCurrSwRfb->fgReorderBuffer && !fgIsBMC && fgIsHTran) {
-			/* If this packet should dropped or indicated to the
-			 * host immediately, it should be enqueued into the
-			 * rReturnedQue with specific flags. If this packet
-			 * should be buffered for reordering, it should be
-			 * enqueued into the reordering queue in the STA_REC
-			 * rather than into the rReturnedQue.
-			 */
-			if (prCurrSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
-				log_dbg(QM, ERROR,
-					"TID from RXD = %d, out of range !!!\n",
-					prCurrSwRfb->ucTid);
-				DBGLOG_MEM8(QM, ERROR,
-					prCurrSwRfb->pucRecvBuff,
-					prCurrSwRfb->u2RxByteCount);
-				QUEUE_INSERT_TAIL(prReturnedQue,
-					(struct QUE_ENTRY *) prCurrSwRfb);
-			} else
-				qmProcessPktWithReordering(prAdapter,
-					prCurrSwRfb, prReturnedQue);
-
-		} else if (prCurrSwRfb->fgDataFrame) {
+		if (prCurrSwRfb->fgDataFrame) {
 			/* Check Class Error */
 			if (prCurrSwRfb->prStaRec &&
 				(secCheckClassError(prAdapter, prCurrSwRfb,
 				prCurrSwRfb->prStaRec) == TRUE)) {
-				struct RX_BA_ENTRY *prReorderQueParm = NULL;
+				if (fgIsHTran) {
+					uint8_t fgIsNormalData = FALSE;
+					uint8_t fgIsBaEntryValid = FALSE;
+					struct RX_BA_ENTRY *prReorderQueParm
+						= NULL;
 
-				if ((prCurrSwRfb->ucTid < CFG_RX_MAX_BA_TID_NUM)
-					&& !fgIsBMC && fgIsHTran &&
-					(HAL_RX_STATUS_GET_FRAME_CTL_FIELD(
-					prCurrSwRfb->prRxStatusGroup4) &
-					MASK_FRAME_TYPE) != MAC_FRAME_DATA) {
-					prReorderQueParm =
-						((prCurrSwRfb->prStaRec->
-						aprRxReorderParamRefTbl)[
-						prCurrSwRfb->ucTid]);
-				}
+					fgIsNormalData =
+					    (HAL_RX_STATUS_GET_FRAME_CTL_FIELD(
+					    prCurrSwRfb->prRxStatusGroup4) &
+					    MASK_FRAME_TYPE) == MAC_FRAME_DATA;
 
-				if (prReorderQueParm &&
-					prReorderQueParm->fgIsValid) {
-					/* Only QoS Data frame with BA aggrement
-					 * shall enter reordering buffer
-					 */
-					qmProcessPktWithReordering(prAdapter,
-						prCurrSwRfb,
-						prReturnedQue);
-				} else
-					qmHandleRxPackets_AOSP_1;
+					if (prCurrSwRfb->ucTid <
+						CFG_RX_MAX_BA_TID_NUM) {
+						prReorderQueParm =
+							prCurrSwRfb->prStaRec->
+							aprRxReorderParamRefTbl[
+							prCurrSwRfb->ucTid];
+						fgIsBaEntryValid =
+							prReorderQueParm &&
+							prReorderQueParm
+							->fgIsValid;
+					}
+
+					if (!fgIsBMC && fgIsBaEntryValid
+							&& !fgIsNormalData)
+						/* Only QoS Data frame with BA
+						 * aggrement shall enter
+						 * reordering buffer
+						 */
+						qmProcessPktWithReordering(
+							prAdapter,
+							prCurrSwRfb,
+							prReturnedQue);
+					else {
+						uint16_t u2SN =
+						  HAL_RX_STATUS_GET_SEQFrag_NUM(
+						  prCurrSwRfb->prRxStatusGroup4)
+						  >> RX_STATUS_SEQ_NUM_OFFSET;
+						DBGLOG(QM, LOUD,
+							"QM:(bmc:%u ba:%u qos:%u)[%u](%u)\n",
+							fgIsBMC,
+							fgIsBaEntryValid,
+							!fgIsNormalData,
+							prCurrSwRfb->ucTid,
+							u2SN);
+						qmHandleRxPackets_AOSP_1;
+					}
+				} else {
+					/* drop for header trans error */
+					DBGLOG(QM, TRACE,
+					"Mark NULL the Packet for type error\n");
+					RX_INC_CNT(&prAdapter->rRxCtrl,
+						RX_TYPE_ERR_DROP_COUNT);
+					prCurrSwRfb->eDst =
+						RX_PKT_DESTINATION_NULL;
+					QUEUE_INSERT_TAIL(prReturnedQue,
+						(struct QUE_ENTRY *)
+						prCurrSwRfb);
+					}
 			} else {
+				/* drop for class error */
 				DBGLOG(QM, TRACE,
 					"Mark NULL the Packet for class error\n");
 				RX_INC_CNT(&prAdapter->rRxCtrl,
@@ -4549,6 +4567,7 @@ void qmInsertReorderPkt(IN struct ADAPTER *prAdapter,
 	uint32_t u4SeqNo;
 	uint32_t u4WinStart;
 	uint32_t u4WinEnd;
+	struct STA_RECORD *prStaRec = prSwRfb->prStaRec;
 
 	/* Start to reorder packets */
 	u4SeqNo = (uint32_t) (prSwRfb->u2SSN);
@@ -4590,23 +4609,53 @@ void qmInsertReorderPkt(IN struct ADAPTER *prAdapter,
 
 #if QM_RX_WIN_SSN_AUTO_ADVANCING
 		if (prReorderQueParm->fgIsWaitingForPktWithSsn) {
-			/* Let the first received packet
-			 * pass the reorder check
-			 */
-			DBGLOG(QM, LOUD, "QM:(A)[%d](%u){%u,%u}\n",
-				prSwRfb->ucTid, u4SeqNo, u4WinStart, u4WinEnd);
+			uint8_t fgNoWating = FALSE;
 
-			prReorderQueParm->u2WinStart = (uint16_t) u4SeqNo;
-			prReorderQueParm->u2WinEnd =
-				((prReorderQueParm->u2WinStart) +
-				 (prReorderQueParm->u2WinSize) - 1) %
-				 MAX_SEQ_NO_COUNT;
-			prReorderQueParm->fgIsWaitingForPktWithSsn = FALSE;
+			if (u4WinStart != u4SeqNo) {
+				/* Handle the case: SSN < the last rx pkt SN
+				*  e.g. SN0 SN1 SN2  SN3 AddBaSSN1 SN4
+				*/
+				uint8_t fgLastRx = (prStaRec->
+					au2CachedSeqCtrl[prSwRfb->ucTid]
+					== 0xFFFF) ? FALSE : TRUE;
+				uint16_t u2LastRxSN = prStaRec->
+					au2CachedSeqCtrl[prSwRfb->ucTid]
+					>> RX_STATUS_SEQ_NUM_OFFSET;
+
+				/* advance SSN to last Rx SN + 1  */
+				if (fgLastRx &&
+				    ((u2LastRxSN + 1) % MAX_SEQ_NO_COUNT
+				    == u4SeqNo)) {
+					DBGLOG(QM, LOUD,
+						"QM:(A)[%d](%u){%u,%u}\n",
+						prSwRfb->ucTid, u4SeqNo,
+						u4WinStart, u4WinEnd);
+
+					prReorderQueParm->u2WinStart =
+						(uint16_t) u4SeqNo;
+					prReorderQueParm->u2WinEnd =
+						((prReorderQueParm->u2WinStart)
+						+ (prReorderQueParm->u2WinSize)
+						- 1) % MAX_SEQ_NO_COUNT;
+					fgNoWating = TRUE;
+				} else {
+					DBGLOG(QM, LOUD,
+						"QM:(A) [%d](%u) LastRx(%u,%u)\n",
+						prSwRfb->ucTid, u4SeqNo,
+						fgLastRx, u2LastRxSN);
+				}
+			} else
+				fgNoWating = TRUE;
+
+			if (fgNoWating) {
+				prReorderQueParm->fgIsWaitingForPktWithSsn
+					= FALSE;
 #if CFG_SUPPORT_RX_AMSDU
-			/* RX reorder for one MSDU in AMSDU issue */
-			prReorderQueParm->u8LastAmsduSubIdx =
-				RX_PAYLOAD_FORMAT_MSDU;
+				/* RX reorder for one MSDU in AMSDU issue */
+				prReorderQueParm->u8LastAmsduSubIdx =
+					RX_PAYLOAD_FORMAT_MSDU;
 #endif
+			}
 		}
 #endif
 
@@ -5255,6 +5304,11 @@ void qmHandleEventCheckReorderBubble(IN struct ADAPTER *prAdapter,
 	prReorderQue = &(prReorderQueParm->rReOrderQue);
 
 	RX_DIRECT_REORDER_LOCK(prAdapter, 0);
+
+#if QM_RX_WIN_SSN_AUTO_ADVANCING
+	if (prReorderQueParm->fgIsWaitingForPktWithSsn == TRUE)
+		prReorderQueParm->fgIsWaitingForPktWithSsn = FALSE;
+#endif
 
 	if (QUEUE_IS_EMPTY(prReorderQue)) {
 		prReorderQueParm->fgHasBubble = FALSE;
@@ -9200,7 +9254,7 @@ void qmHandleDelTspec(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	uint8_t ucTc = 0;
 	struct BSS_INFO *prAisBssInfo = NULL;
 
-	if (eAci < 0 || eAci >= ACI_NUM)
+	if ((uint32_t)eAci >= ACI_NUM)
 		return;
 
 	if (!prStaRec || eAci == ACI_NUM || eAci == ACI_BK || !prAdapter) {
@@ -9220,20 +9274,22 @@ void qmHandleDelTspec(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	ucActivedTspec = wmmHasActiveTspec(
 		aisGetWMMInfo(prAdapter, prAisBssInfo->ucBssIndex));
 
-	while (prAcQueParam[eAci].ucIsACMSet &&
-			!(ucActivedTspec & BIT(eAci)) && eAci != ACI_BK
-			&& eAci >= 0 && eAci < ACI_NUM) {
-		eAci = aeNextAci[eAci];
-		if (eAci >= 0 && eAci < ACI_NUM)
-			ucNewUp = aucNextUP[eAci];
+	while (prAcQueParam[(uint32_t)eAci].ucIsACMSet &&
+			!(ucActivedTspec & BIT((uint32_t)eAci)) &&
+			eAci != ACI_BK &&
+			(uint32_t)eAci < ACI_NUM) {
+		eAci = aeNextAci[(uint32_t)eAci];
+		if ((uint32_t)eAci < ACI_NUM)
+			ucNewUp = aucNextUP[(uint32_t)eAci];
 	}
 
-	if (eAci < 0 || eAci >= ACI_NUM)
+	if ((uint32_t)eAci >= ACI_NUM)
 		return;
 
 	DBGLOG(QM, INFO, "new ACI %d, ACM %d, HasTs %d\n", eAci,
-	       prAcQueParam[eAci].ucIsACMSet, !!(ucActivedTspec & BIT(eAci)));
-	ucTc = aucWmmAC2TcResourceSet1[eAci];
+	       prAcQueParam[(uint32_t)eAci].ucIsACMSet,
+	       !!(ucActivedTspec & BIT((uint32_t)eAci)));
+	ucTc = aucWmmAC2TcResourceSet1[(uint32_t)eAci];
 	prDstQue = &prStaRec->arTxQueue[ucTc];
 	prMsduInfo = (struct MSDU_INFO *)QUEUE_GET_HEAD(prSrcQue);
 	while (prMsduInfo) {

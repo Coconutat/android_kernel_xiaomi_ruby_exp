@@ -278,8 +278,8 @@ mt6620_ampc_write(IN struct file *filp, OUT const char __user *buf, IN size_t si
 	UINT_8 i;
 #endif
 
-	UINT_8 aucBuffer[MAX_BUFFER_SIZE];
-	P_AMPC_COMMAND prCmd;
+	UINT_8 aucBuffer[MAX_BUFFER_SIZE] = { 0 };
+	P_AMPC_COMMAND prCmd = NULL;
 	P_GLUE_INFO_T prGlueInfo;
 
 	prGlueInfo = (P_GLUE_INFO_T) (filp->private_data);

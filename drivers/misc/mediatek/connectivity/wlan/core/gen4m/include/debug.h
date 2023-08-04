@@ -133,7 +133,6 @@ extern struct MIB_INFO_STAT g_arMibInfo[ENUM_BAND_NUM];
 #define DEG_HIF_PSE             BIT(4)
 #define DEG_HIF_PLE             BIT(5)
 #define DEG_HIF_MAC             BIT(6)
-#define DEG_HIF_PHY             BIT(7)
 
 #define DEG_HIF_DEFAULT_DUMP					\
 	(DEG_HIF_HOST_CSR | DEG_HIF_PDMA | DEG_HIF_DMASCH |	\
@@ -141,6 +140,8 @@ extern struct MIB_INFO_STAT g_arMibInfo[ENUM_BAND_NUM];
 
 #define HIF_CHK_TX_HANG         BIT(1)
 #define HIF_DRV_SER             BIT(2)
+#define HIF_TRIGGER_FW_DUMP     BIT(3)
+#define HIF_CHK_MD_TX_HANG      BIT(4)
 
 #define DUMP_MEM_SIZE 64
 
@@ -518,6 +519,7 @@ struct CHIP_DBG_OPS {
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 	int (*get_rx_rate_info)(
 		struct ADAPTER *prAdapter,
+		uint8_t ucBssIdx,
 		uint32_t *pu4Rate,
 		uint32_t *pu4Nss,
 		uint32_t *pu4RxMode,
@@ -657,13 +659,9 @@ enum WAKE_DATA_TYPE {
 	} while (0)
 #define DBGLOG_LIMITED(_Mod, _Clz, _Fmt, ...) \
 	do { \
-		if (aucDebugModule[DBG_##_Mod##_IDX] & \
-			 DBG_CLASS_TRACE) \
-		LOG_FUNC("[%u]%s:(" #_Mod " " #_Clz ") " _Fmt, \
-			 KAL_GET_CURRENT_THREAD_ID(), \
-			 __func__, ##__VA_ARGS__); \
-		else if ((aucDebugModule[DBG_##_Mod##_IDX] & \
-			 DBG_CLASS_##_Clz) != 0) \
+		if ((aucDebugModule[DBG_##_Mod##_IDX] & \
+			 DBG_CLASS_##_Clz) == 0) \
+			break; \
 		LOG_FUNC_LIMITED("[%u]%s:(" #_Mod " " #_Clz ") " _Fmt, \
 			KAL_GET_CURRENT_THREAD_ID(), \
 			__func__, ##__VA_ARGS__); \
@@ -871,6 +869,7 @@ int32_t halShowStatInfo(struct ADAPTER *prAdapter,
 			u_int8_t fgResetCnt, uint32_t u4StatGroup);
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac_get_rx_rate_info(struct ADAPTER *prAdapter,
+	uint8_t ucBssIdx,
 	uint32_t *pu4Rate,
 	uint32_t *pu4Nss,
 	uint32_t *pu4RxMode,
@@ -962,6 +961,7 @@ void connac2x_DumpCrRange(
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac2x_get_rx_rate_info(
 	struct ADAPTER *prAdapter,
+	uint8_t ucBssIdx,
 	uint32_t *pu4Rate,
 	uint32_t *pu4Nss,
 	uint32_t *pu4RxMode,

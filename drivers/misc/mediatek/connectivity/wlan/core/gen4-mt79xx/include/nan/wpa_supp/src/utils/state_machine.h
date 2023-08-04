@@ -1,6 +1,24 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ */
+/*
+ * wpa_supplicant/hostapd - State machine definitions
+ * Copyright (c) 2002-2005, Jouni Malinen <j@w1.fi>
+ *
+ * This software may be distributed under the terms of the BSD license.
+ * See README for more details.
+ *
+ * This file includes a set of pre-processor macros that can be used to
+ * implement a state machine. In addition to including this header file, each
+ * file implementing a state machine must define STATE_MACHINE_DATA to be the
+ * data structure including state variables (enum machine_state,
+ * Boolean changed), and STATE_MACHINE_DEBUG_PREFIX to be a string that is used
+ * as a prefix for all debug messages. If SM_ENTRY_MA macro is used to define
+ * a group of state machines with shared data structure, STATE_MACHINE_ADDR
+ * needs to be defined to point to the MAC address used in debug output.
+ * SM_ENTRY_M macro can be used to define similar group of state machines
+ * without this additional debug info.
  */
 
 #ifndef STATE_MACHINE_H

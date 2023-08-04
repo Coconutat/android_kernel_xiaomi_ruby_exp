@@ -237,6 +237,8 @@ extern char *HW_TX_RATE_BW[];
 #define PRIV_CMD_TEST_MAGIC_KEY                         2011
 #define PRIV_CMD_TEST_MAGIC_KEY_ICAP                         2013
 
+#define IW_PRIV_BUF_SIZE			2000
+
 /* CFG_SUPPORT_ADVANCE_CONTROL */
 #define TX_RATE_MODE_CCK	0
 #define TX_RATE_MODE_OFDM	1

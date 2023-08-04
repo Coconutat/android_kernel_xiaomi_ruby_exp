@@ -158,13 +158,6 @@ static VOID wmt_lib_assert_work_cb(struct work_struct *work);
 *                              F U N C T I O N S
 ********************************************************************************
 */
-INT32 __weak mtk_wcn_consys_stp_btif_dpidle_ctrl(UINT32 en_flag)
-{
-	WMT_ERR_FUNC("mtk_wcn_consys_stp_btif_dpidle_ctrl is not define!!!\n");
-
-	return 0;
-}
-
 INT32 wmt_lib_wlan_lock_aquire(VOID)
 {
 	return osal_lock_sleepable_lock(&gDevWmt.wlan_lock);
@@ -1571,6 +1564,7 @@ static P_OSAL_OP wmt_lib_get_op(P_OSAL_OP_Q pOpQ)
 		if (pCurOp != NULL)
 			WMT_WARN_FUNC("Current opId (%d)\n", pCurOp->op.opId);
 
+		wmt_lib_dump_wmtd_backtrace();
 		wmt_lib_print_wmtd_op_history();
 		wmt_lib_print_worker_op_history();
 		osal_opq_dump("FreeOpQ", &gDevWmt.rFreeOpQ);

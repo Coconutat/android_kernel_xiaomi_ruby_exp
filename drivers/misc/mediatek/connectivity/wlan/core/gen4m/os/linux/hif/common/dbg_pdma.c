@@ -155,12 +155,32 @@ static bool halIsFwReadyDump(struct ADAPTER *prAdapter)
 	return (u4Val == DBG_PLE_INT_FW_READY) || (u4Val == 0);
 }
 
+static void halTriggerTxHangFwDebugSop(
+	struct ADAPTER *prAdapter, uint32_t u4BssIndex)
+{
+	struct CHIP_DBG_OPS *prDbgOps = prAdapter->chip_info->prDebugOps;
+
+	if (prDbgOps && prDbgOps->setFwDebug) {
+		/* trigger tx debug sop */
+		prDbgOps->setFwDebug(
+			prAdapter,
+			true,
+			0xffff,
+			DBG_PLE_INT_TX_MASK |
+			(1 << DBG_PLE_INT_VER_SHIFT) |
+			(u4BssIndex << DBG_PLE_INT_BAND_BSS_SHIFT)
+			);
+		DBGLOG(HAL, INFO, "Trigger Fw Debug SOP[%d]\n", u4BssIndex);
+	}
+}
+
 static void halDumpTxHangLog(struct ADAPTER *prAdapter, uint32_t u4TokenId)
 {
 	struct CHIP_DBG_OPS *prDbgOps;
 	struct MSDU_TOKEN_INFO *prTokenInfo;
 	struct MSDU_TOKEN_ENTRY *prToken;
 	uint32_t u4DebugLevel = 0, u4Val = 0;
+	uint8_t ucBssIndex;
 
 	prDbgOps = prAdapter->chip_info->prDebugOps;
 	prTokenInfo = &prAdapter->prGlueInfo->rHifInfo.rTokenInfo;
@@ -186,9 +206,6 @@ static void halDumpTxHangLog(struct ADAPTER *prAdapter, uint32_t u4TokenId)
 		if (prDbgOps && prDbgOps->dumpMacInfo)
 			prDbgOps->dumpMacInfo(prAdapter);
 
-		if (u4DebugLevel & DBG_CLASS_TRACE)
-			haldumpPhyInfo(prAdapter);
-
 		if (prDbgOps && prDbgOps->setFwDebug) {
 			/* clr drv print log sync flag */
 			prDbgOps->setFwDebug(
@@ -198,17 +215,14 @@ static void halDumpTxHangLog(struct ADAPTER *prAdapter, uint32_t u4TokenId)
 		DBGLOG(HAL, ERROR, "Fw not ready to dump log\n");
 	}
 
-	if (prDbgOps && prDbgOps->setFwDebug) {
-		/* trigger tx debug sop */
-		prDbgOps->setFwDebug(
-			prAdapter,
-			true,
-			0xffff,
-			DBG_PLE_INT_TX_MASK |
-			(1 << DBG_PLE_INT_VER_SHIFT) |
-			(prToken->ucBssIndex << DBG_PLE_INT_BAND_BSS_SHIFT)
-			);
-	}
+	if (prAdapter->u4HifChkFlag & HIF_CHK_MD_TX_HANG)
+		ucBssIndex = prAdapter->ucMddpBssIndex;
+	else
+		ucBssIndex = prToken->ucBssIndex;
+
+	DBGLOG(HAL, INFO, "BssIndex: %d\n", ucBssIndex);
+
+	halTriggerTxHangFwDebugSop(prAdapter, ucBssIndex);
 }
 
 bool halCheckFullDump(struct ADAPTER *prAdapter)
@@ -249,13 +263,15 @@ static void halCheckHifState(struct ADAPTER *prAdapter)
 	prDbgOps = prAdapter->chip_info->prDebugOps;
 
 	if (prAdapter->u4HifChkFlag & HIF_CHK_TX_HANG) {
-		if (halIsTxHang(prAdapter, &u4TokenId)) {
+		if (halIsTxHang(prAdapter, &u4TokenId) ||
+			prAdapter->u4HifChkFlag & HIF_CHK_MD_TX_HANG) {
 			DBGLOG(HAL, ERROR,
 			       "Tx timeout, set hif debug info flag\n");
 
 			fgHifTxHangFullDump = halCheckFullDump(prAdapter);
 
-			if (fgHifTxHangFullDump) {
+			if (fgHifTxHangFullDump ||
+				prAdapter->u4HifChkFlag & HIF_CHK_MD_TX_HANG) {
 				if ((prAdapter->u4HifTxHangDumpNum <
 					LOG_DUMP_COUNT_PERIOD) &&
 					!(BIT(prAdapter->u4HifTxHangDumpIdx) &
@@ -285,7 +301,11 @@ static void halCheckHifState(struct ADAPTER *prAdapter)
 	if (prAdapter->u4HifChkFlag & HIF_DRV_SER)
 		halSetDrvSer(prAdapter);
 
+	if (prAdapter->u4HifChkFlag & HIF_TRIGGER_FW_DUMP)
+		halTriggerTxHangFwDebugSop(prAdapter, prAdapter->u4HifDbgParam);
+
 	prAdapter->u4HifChkFlag = 0;
+	prAdapter->u4HifDbgParam = 0;
 
 	if (!fgHifTxHangFullDump) {
 		if (BIT(prAdapter->u4HifTxHangDumpIdx) &
@@ -382,9 +402,6 @@ static void halDumpHifDebugLog(struct ADAPTER *prAdapter)
 		if (prDbgOps && prDbgOps->dumpMacInfo)
 			prDbgOps->dumpMacInfo(prAdapter);
 	}
-
-	if (prAdapter->u4HifDbgFlag & (DEG_HIF_ALL | DEG_HIF_PHY))
-		haldumpPhyInfo(prAdapter);
 
 	prHifInfo->fgIsDumpLog = false;
 	prAdapter->u4HifDbgFlag = 0;
@@ -535,6 +552,43 @@ static void halNotifyTxHangEvent(struct ADAPTER *prAdapter,
 	kalSendUevent("abnormaltrx=DIR:TX,Event:Hang");
 }
 
+void halGetLongestPacketInfo(struct ADAPTER *prAdapter,
+	uint32_t *pucTokenId, struct timespec64 *prLongestPacketTime)
+{
+	struct MSDU_TOKEN_INFO *prTokenInfo;
+	struct MSDU_TOKEN_ENTRY *prToken;
+	struct timespec64 rNowTs, rTime;
+	uint32_t u4Idx = 0;
+
+	prTokenInfo = &prAdapter->prGlueInfo->rHifInfo.rTokenInfo;
+
+	ktime_get_ts64(&rNowTs);
+
+	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
+		prToken = &prTokenInfo->arToken[u4Idx];
+		if (!prToken->fgInUsed)
+			continue;
+
+		/* Ignore now time < token time */
+		if (halTimeCompare(&rNowTs, &prToken->rTs) < 0)
+			continue;
+
+		rTime.tv_sec = rNowTs.tv_sec - prToken->rTs.tv_sec;
+		rTime.tv_nsec = rNowTs.tv_nsec;
+		if (prToken->rTs.tv_nsec > rNowTs.tv_nsec) {
+			rTime.tv_sec -= 1;
+			rTime.tv_nsec += SEC_TO_NSEC(1);
+		}
+		rTime.tv_nsec -= prToken->rTs.tv_nsec;
+		/* rTime > rLongest */
+		if (halTimeCompare(&rTime, prLongestPacketTime) > 0) {
+			prLongestPacketTime->tv_sec = rTime.tv_sec;
+			prLongestPacketTime->tv_nsec = rTime.tv_nsec;
+			*pucTokenId = u4Idx;
+		}
+	}
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief Checking tx hang
@@ -653,13 +707,13 @@ void kalDumpTxRing(struct GLUE_INFO *prGlueInfo,
 
 void kalDumpRxRing(struct GLUE_INFO *prGlueInfo,
 		   struct RTMP_RX_RING *prRxRing,
-		   uint32_t u4Num, bool fgDumpContent)
+		   uint32_t u4Num, bool fgDumpContent,
+		   uint32_t u4DumpLen)
 {
 	struct GL_HIF_INFO *prHifInfo = NULL;
 	struct HIF_MEM_OPS *prMemOps;
 	struct RTMP_DMACB *pRxCell;
 	struct RXD_STRUCT *pRxD;
-	uint32_t u4DumpLen = 64;
 
 	ASSERT(prGlueInfo);
 	prHifInfo = &prGlueInfo->rHifInfo;
@@ -702,6 +756,9 @@ void halShowPdmaInfo(IN struct ADAPTER *prAdapter)
 		{"AP DATA0", prBus_info->tx_ring0_data_idx, true},
 		{"AP DATA1", prBus_info->tx_ring1_data_idx, true},
 		{"AP DATA2", prBus_info->tx_ring2_data_idx, true},
+#if CFG_TRI_TX_RING
+		{"AP DATA3", prBus_info->tx_ring3_data_idx, true},
+#endif
 		{"AP CMD", prBus_info->tx_ring_cmd_idx, true},
 		{"FWDL", prBus_info->tx_ring_fwdl_idx, true},
 		{"MD DATA0", 8, false},
@@ -867,12 +924,12 @@ void halShowPdmaInfo(IN struct ADAPTER *prAdapter)
 		prRxRing = &prHifInfo->RxRing[i];
 		SwIdx = wfmda_rx_group[i].didx;
 		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
-			      SwIdx, true);
+			      SwIdx, true, 64);
 		SwIdx = wfmda_rx_group[i].didx == 0 ?
 				wfmda_rx_group[i].cnt - 1 :
 				wfmda_rx_group[i].didx - 1;
 		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
-			      SwIdx, true);
+			      SwIdx, true, 64);
 	}
 
 	/* PDMA Busy Status */
@@ -1035,18 +1092,5 @@ bool halShowHostCsrInfo(IN struct ADAPTER *prAdapter)
 	fgEnClock = ((u4Value & BIT(17)) != 0) && ((u4Value & BIT(16)) != 0);
 
 	return fgIsDriverOwn && fgEnClock;
-}
-
-void haldumpPhyInfo(struct ADAPTER *prAdapter)
-{
-	uint32_t i = 0, value = 0;
-
-	for (i = 0; i < 20; i++) {
-		HAL_MCR_RD(prAdapter, 0x82072644, &value);
-		DBGLOG(HAL, INFO, "0x82072644: 0x%08x\n", value);
-		HAL_MCR_RD(prAdapter, 0x82072654, &value);
-		DBGLOG(HAL, INFO, "0x82072654: 0x%08x\n", value);
-		kalMdelay(1);
-	}
 }
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -641,7 +641,10 @@ void halSetFWOwn(IN struct ADAPTER *prAdapter, IN u_int8_t fgEnableGlobalInt)
 #endif
 
 	ASSERT(prAdapter);
-	ASSERT(prAdapter->u4PwrCtrlBlockCnt != 0);
+	if (prAdapter->u4PwrCtrlBlockCnt == 0) {
+		DBGLOG(INIT, ERROR, "PwrCtrlBlockCnt is 0!\n");
+		return;
+	}
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 #if CFG_SUPPORT_PCIE_ASPM
@@ -876,7 +879,7 @@ void halInitMsduTokenInfo(IN struct ADAPTER *prAdapter)
 		prToken->fgInUsed = FALSE;
 		prToken->prMsduInfo = NULL;
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 		prToken->u4DmaLength = NIC_TX_MAX_SIZE_PER_FRAME +
 			u4TxHeadRoomSize;
 		if (prMemOps->allocTxDataBuf)
@@ -942,13 +945,13 @@ void halUninitMsduTokenInfo(IN struct ADAPTER *prAdapter)
 				prToken->u4Token, prToken->prMsduInfo,
 				halGetMsduTokenFreeCnt(prAdapter));
 
-#if !HIF_TX_PREALLOC_DATA_BUFFER
+#if !CFG_HIF_TX_PREALLOC_DATA_BUFFER
 			nicTxFreePacket(prAdapter, prToken->prMsduInfo, FALSE);
 			nicTxReturnMsduInfo(prAdapter, prToken->prMsduInfo);
 #endif
 		}
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 		if (prMemOps->freeBuf)
 			prMemOps->freeBuf(prToken->prPacket,
 					  prToken->u4DmaLength);
@@ -1064,7 +1067,7 @@ static void halResetMsduToken(IN struct ADAPTER *prAdapter)
 				prToken->rDmaAddr = 0;
 			}
 
-#if !HIF_TX_PREALLOC_DATA_BUFFER
+#if !CFG_HIF_TX_PREALLOC_DATA_BUFFER
 			nicTxFreePacket(prAdapter, prToken->prMsduInfo, FALSE);
 			nicTxReturnMsduInfo(prAdapter, prToken->prMsduInfo);
 #endif
@@ -1240,7 +1243,7 @@ u_int8_t halProcessToken(IN struct ADAPTER *prAdapter,
 {
 	struct GL_HIF_INFO *prHifInfo;
 	struct MSDU_TOKEN_ENTRY *prTokenEntry;
-#if !HIF_TX_PREALLOC_DATA_BUFFER
+#if !CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	struct MSDU_INFO *prMsduInfo;
 #endif
 	struct HIF_MEM_OPS *prMemOps;
@@ -1259,7 +1262,7 @@ u_int8_t halProcessToken(IN struct ADAPTER *prAdapter,
 	}
 #endif
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	DBGLOG_LIMITED(HAL, TRACE, "MsduRpt: Tok[%u] Free[%u]\n",
 		u4Token,
 		halGetMsduTokenFreeCnt(prAdapter));
@@ -1279,12 +1282,24 @@ u_int8_t halProcessToken(IN struct ADAPTER *prAdapter,
 	}
 #endif
 	if (prMemOps->unmapTxBuf) {
+#if (CFG_SUPPORT_TX_SG == 1)
+		int i;
+#endif
+
 		prMemOps->unmapTxBuf(prHifInfo,
 				     prTokenEntry->rPktDmaAddr,
 				     prTokenEntry->u4PktDmaLength);
 		prMemOps->unmapTxBuf(prHifInfo,
 				     prTokenEntry->rDmaAddr,
 				     prTokenEntry->u4DmaLength);
+
+#if (CFG_SUPPORT_TX_SG == 1)
+		for (i = 0; i < prTokenEntry->nr_frags; i++) {
+			prMemOps->unmapTxBuf(prHifInfo,
+					prTokenEntry->rPktDmaAddr_nr[i],
+					prTokenEntry->u4PktDmaLength_nr[i]);
+		}
+#endif
 	}
 	if (prTokenEntry->u4CpuIdx < TX_RING_SIZE) {
 		prTxRing = &prHifInfo->TxRing[prTokenEntry->u2Port];
@@ -1382,7 +1397,7 @@ void halRxProcessMsduReport(IN struct ADAPTER *prAdapter,
 			prAdapter, prSwRfb, &rFreeQueue);
 	}
 
-#if !HIF_TX_PREALLOC_DATA_BUFFER
+#if !CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	nicTxMsduDoneCb(prAdapter->prGlueInfo, &rFreeQueue);
 #endif
 
@@ -1409,6 +1424,10 @@ void halTxUpdateCutThroughDesc(struct GLUE_INFO *prGlueInfo,
 	uint8_t *pucBufferTxD;
 	uint32_t u4TxHeadRoomSize;
 	phys_addr_t rPhyAddr = 0;
+#if (CFG_SUPPORT_TX_SG == 1)
+	int i;
+#endif
+	uint32_t u4MapLen;
 
 	prHifInfo = &prGlueInfo->rHifInfo;
 	prMemOps = &prHifInfo->rMemOps;
@@ -1419,9 +1438,18 @@ void halTxUpdateCutThroughDesc(struct GLUE_INFO *prGlueInfo,
 		prChipInfo->txd_append_size;
 
 	if (prMemOps->mapTxBuf) {
+		u4MapLen = prMsduInfo->u2FrameLength;
+#if (CFG_SUPPORT_TX_SG == 1)
+		u4MapLen -= prDataToken->len_frags;
+		for (i = 0; i < prDataToken->nr_frags; i++) {
+			prDataToken->rPktDmaAddr_nr[i] = prMemOps->mapTxBuf(
+				prHifInfo, prDataToken->rPktDmaVAddr_nr[i], 0,
+				prDataToken->u4PktDmaLength_nr[i]);
+		}
+#endif
 		rPhyAddr = prMemOps->mapTxBuf(
 			prHifInfo, pucBufferTxD, u4TxHeadRoomSize,
-			prMsduInfo->u2FrameLength);
+			u4MapLen);
 	} else {
 		if (prDataToken->rDmaAddr)
 			rPhyAddr = prDataToken->rDmaAddr + u4TxHeadRoomSize;
@@ -2687,7 +2715,7 @@ void halWpdmaFreeMsdu(struct GLUE_INFO *prGlueInfo,
 		halTxGetCmdPageCount(prGlueInfo->prAdapter,
 		prMsduInfo->u2FrameLength, TRUE), TRUE);
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	if (!prMsduInfo->pfTxDoneHandler) {
 		nicTxFreePacket(prGlueInfo->prAdapter, prMsduInfo, FALSE);
 		nicTxReturnMsduInfo(prGlueInfo->prAdapter, prMsduInfo);
@@ -2711,6 +2739,9 @@ bool halWpdmaWriteMsdu(struct GLUE_INFO *prGlueInfo,
 	uint32_t u4TotalLen;
 	u_int8_t fgIsTxDoneHdl;
 	uint8_t ucTC;
+#if (CFG_SUPPORT_TX_SG == 1)
+	int i;
+#endif
 #if CFG_SUPPORT_PCIE_ASPM_IMPROVE
 	struct BUS_INFO *prBusInfo = NULL;
 #endif
@@ -2727,7 +2758,7 @@ bool halWpdmaWriteMsdu(struct GLUE_INFO *prGlueInfo,
 	}
 
 	pucSrc = prSkb->data;
-	u4TotalLen = prSkb->len;
+	u4TotalLen = prSkb->len - prSkb->data_len;
 
 	/* Acquire MSDU token */
 	prToken = halAcquireMsduToken(prGlueInfo->prAdapter);
@@ -2745,13 +2776,34 @@ bool halWpdmaWriteMsdu(struct GLUE_INFO *prGlueInfo,
 	/* Use MsduInfo to select TxRing */
 	prToken->prMsduInfo = prMsduInfo;
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	if (prMemOps->copyTxData)
-		prMemOps->copyTxData(prToken, pucSrc, u4TotalLen);
+		prMemOps->copyTxData(prToken, pucSrc, u4TotalLen, 0);
+#if (CFG_SUPPORT_TX_SG == 1)
+	for (i = 0; i < skb_shinfo(prSkb)->nr_frags; i++) {
+		const skb_frag_t *frag = &skb_shinfo(prSkb)->frags[i];
+
+		if (prMemOps->copyTxData)
+			prMemOps->copyTxData(prToken,
+					skb_frag_address(frag),
+					skb_frag_size(frag), u4TotalLen);
+		u4TotalLen += skb_frag_size(frag);
+	}
+#endif
 #else
 	prToken->prPacket = pucSrc;
 	prToken->u4DmaLength = u4TotalLen;
 	prMsduInfo->prToken = prToken;
+#if (CFG_SUPPORT_TX_SG == 1)
+	prToken->nr_frags = skb_shinfo(prSkb)->nr_frags;
+	prToken->len_frags = prSkb->data_len;
+	for (i = 0; i < prToken->nr_frags; i++) {
+		const skb_frag_t *frag = &skb_shinfo(prSkb)->frags[i];
+
+		prToken->rPktDmaVAddr_nr[i] = skb_frag_address(frag);
+		prToken->u4PktDmaLength_nr[i] = skb_frag_size(frag);
+	}
+#endif
 #endif
 
 	/*
@@ -2878,9 +2930,9 @@ bool halWpdmaWriteAmsdu(struct GLUE_INFO *prGlueInfo,
 
 		/* Use MsduInfo to select TxRing */
 		prToken->prMsduInfo = prMsduInfo;
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 		if (prMemOps->copyTxData)
-			prMemOps->copyTxData(prToken, pucSrc, u4TotalLen);
+			prMemOps->copyTxData(prToken, pucSrc, u4TotalLen, 0);
 #else
 		prToken->prPacket = pucSrc;
 		prToken->u4DmaLength = u4TotalLen;
@@ -3511,6 +3563,14 @@ uint32_t halToggleWfsysRst(IN struct ADAPTER *prAdapter)
 {
 	struct mt66xx_chip_info *prChipInfo;
 	struct BUS_INFO *prBusInfo;
+	u_int8_t result = 0;
+
+	HAL_LP_OWN_RD(prAdapter, &result);
+	if (result == FALSE) {
+		DBGLOG(INIT, INFO,
+			"[SER][L0.5] WHLPCR_IS_DRIVER_OWN = %d\n", result);
+		halSetDriverOwn(prAdapter);
+	}
 
 	prChipInfo = prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;

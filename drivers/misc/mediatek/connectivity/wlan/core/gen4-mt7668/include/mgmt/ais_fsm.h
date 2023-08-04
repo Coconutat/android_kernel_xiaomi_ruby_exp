@@ -531,6 +531,7 @@ struct AIS_BLACKLIST_ITEM *aisQueryBlackList(P_ADAPTER_T prAdapter,
 P_BSS_DESC_T prBssDesc);
 struct AIS_BLACKLIST_ITEM *aisQueryBlackListByBssid(P_ADAPTER_T prAdapter,
 UINT_8 aucBSSID[]);
+void aisPreSuspendFlow(P_GLUE_INFO_T prGlueInfo);
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

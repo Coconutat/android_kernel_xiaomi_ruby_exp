@@ -60,6 +60,8 @@
 
 #define MDDP_LPCR_MD_SET_FW_OWN BIT(0)
 
+#define MD_MAX_EMI_SIZE 256
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -81,6 +83,12 @@ struct MDDP_SETTINGS {
 	uint32_t u4MdOnBit;
 	uint32_t u4MdOffBit;
 	uint32_t u4WifiOnBit;
+};
+
+struct mddpw_get_drv_emi {
+	uint32_t emi_start_addr;
+	uint32_t emi_size;
+	uint8_t emi_payload[MD_MAX_EMI_SIZE];
 };
 
 /*******************************************************************************
@@ -124,6 +132,7 @@ int32_t mddpNotifyWifiOnEnd(void);
 void mddpNotifyWifiOffStart(void);
 void mddpNotifyWifiOffEnd(void);
 void mddpNotifyWifiReset(void);
+void mddpNotifyDumpDebugInfo(void);
 void setMddpSupportRegister(IN struct ADAPTER *prAdapter);
 void mddpMdStateChangedCb(enum MD_STATE old_state,
 		enum MD_STATE new_state);

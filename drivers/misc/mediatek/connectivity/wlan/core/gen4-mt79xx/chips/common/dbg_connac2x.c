@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1559,6 +1559,10 @@ int32_t connac2x_show_umac_wtbl_info(
 
 	wtbl_raw_dw = (unsigned char *)kalMemAlloc(
 		sizeof(struct fwtbl_umac_struct), VIR_MEM_TYPE);
+	if (!wtbl_raw_dw) {
+		DBGLOG(REQ, ERROR, "WTBL PRN : Memory alloc failed\n");
+		return 0;
+	}
 	/* Read UWTBL Entries */
 	for (wtbl_offset = 0; wtbl_offset <
 		sizeof(struct fwtbl_umac_struct);

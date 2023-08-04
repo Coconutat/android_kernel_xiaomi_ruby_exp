@@ -599,19 +599,8 @@ VOID aisFsmStateInit_JOIN(IN P_ADAPTER_T prAdapter, P_BSS_DESC_T prBssDesc)
 	prJoinReqMsg->ucSeqNum = ++prAisFsmInfo->ucSeqNumOfReqMsg;
 	prJoinReqMsg->prStaRec = prStaRec;
 
-	if (1) {
-		int j;
-		P_FRAG_INFO_T prFragInfo;
+	nicRxClearFrag(prAdapter, prStaRec);
 
-		for (j = 0; j < MAX_NUM_CONCURRENT_FRAGMENTED_MSDUS; j++) {
-			prFragInfo = &prStaRec->rFragInfo[j];
-
-			if (prFragInfo->pr1stFrag) {
-				/* nicRxReturnRFB(prAdapter, prFragInfo->pr1stFrag); */
-				prFragInfo->pr1stFrag = (P_SW_RFB_T) NULL;
-			}
-		}
-	}
 #if CFG_SUPPORT_802_11K
 	rlmSetMaxTxPwrLimit(prAdapter, (prBssDesc->cPowerLimit != RLM_INVALID_POWER_LIMIT) ?
 	prBssDesc->cPowerLimit:RLM_MAX_TX_PWR, 1);
@@ -2880,6 +2869,7 @@ enum _ENUM_AIS_STATE_T aisFsmJoinCompleteAction(IN struct _ADAPTER_T *prAdapter,
 
 				if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {
 					PARAM_SSID_T rSsid;
+					kalMemZero(&rSsid, sizeof(rSsid));
 #if CFG_SUPPORT_ROAMING
 					eNextState = AIS_STATE_WAIT_FOR_NEXT_SCAN;
 #endif /* CFG_SUPPORT_ROAMING */
@@ -4741,6 +4731,7 @@ VOID aisFsmRoamingDisconnectPrevAP(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T p
 	if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {
 		PARAM_SSID_T rSsid;
 		P_BSS_DESC_T prBssDesc = NULL;
+		kalMemZero(&rSsid, sizeof(rSsid));
 
 		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen, prAisBssInfo->aucSSID, prAisBssInfo->ucSSIDLen);
 		prBssDesc = scanSearchBssDescByBssidAndSsid(prAdapter, prAisBssInfo->aucBSSID, TRUE, &rSsid);

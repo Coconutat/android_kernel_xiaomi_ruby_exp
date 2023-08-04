@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -2583,7 +2583,7 @@ int SetTxTargetPower(struct net_device *prNetDev,
 {
 	int32_t i4Status;
 	int32_t rv;
-	int addr;
+	int addr = 0;
 	uint8_t addr2;
 
 	DBGLOG(REQ, INFO,
@@ -2629,7 +2629,7 @@ int SetRddReport(struct net_device *prNetDev,
 {
 	int32_t i4Status;
 	int32_t rv;
-	int dbdcIdx;
+	int dbdcIdx = 0;
 	uint8_t ucDbdcIdx;
 
 	if (prInBuf == NULL)
@@ -2687,7 +2687,7 @@ int SetByPassCac(struct net_device *prNetDev,
 {
 	int32_t i4Status;
 	int32_t rv;
-	int32_t i4ByPassCacTime;
+	int32_t i4ByPassCacTime = 0;
 	uint32_t u4ByPassCacTime;
 
 	if (prInBuf == NULL)
@@ -2738,7 +2738,7 @@ int SetRadarDetectMode(struct net_device *prNetDev,
 {
 	int32_t i4Status;
 	int32_t rv;
-	int radarDetectMode;
+	int radarDetectMode = 0;
 	uint8_t ucRadarDetectMode;
 
 	if (prInBuf == NULL)

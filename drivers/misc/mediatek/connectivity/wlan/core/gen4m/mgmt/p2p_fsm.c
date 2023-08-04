@@ -206,7 +206,8 @@ void p2pFsmRunEventChGrant(IN struct ADAPTER *prAdapter,
 		prP2pBssInfo =
 			GET_BSS_INFO_BY_INDEX(prAdapter,
 				prMsgChGrant->ucBssIndex);
-
+		if (!prP2pBssInfo)
+			break;
 		prAdapter->prP2pInfo->eConnState = P2P_CNN_NORMAL;
 		prAdapter->prP2pInfo->ucExtendChanFlag = 0;
 

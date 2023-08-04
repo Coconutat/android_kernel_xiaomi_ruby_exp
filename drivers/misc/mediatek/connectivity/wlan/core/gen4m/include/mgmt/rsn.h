@@ -179,6 +179,9 @@
 #define WLAN_RSNX_CAPAB_SECURE_RTT 9
 #define WLAN_RSNX_CAPAB_PROT_RANGE_NEG 10
 
+#define SA_QUERY_RETRY_TIMEOUT	3000
+#define SA_QUERY_TIMEOUT	501
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************

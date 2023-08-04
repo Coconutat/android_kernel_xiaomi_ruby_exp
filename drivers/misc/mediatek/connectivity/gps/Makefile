@@ -26,7 +26,9 @@ endif
 ifndef TOP
     TOP := $(srctree)/..
 endif
-ldflags-y += -s
+ifeq ($(TARGET_BUILD_VARIANT),$(filter $(TARGET_BUILD_VARIANT),userdebug user))
+    ldflags-y += -s
+endif
 
 # Force build fail on modpost warning
 KBUILD_MODPOST_FAIL_ON_WARNINGS := y
@@ -64,11 +66,7 @@ ccflags-y += -I$(srctree)/drivers/devfreq
 ###############################################################################
 
 MODULE_NAME := gps_drv
-ifeq ($(CONFIG_MTK_EXTRA_CONN_DRV_BUILD_IN),y)
 obj-y += $(MODULE_NAME).o
-else
-obj-m += $(MODULE_NAME).o
-endif
 
 GPS_DRV_CONTROL_LNA := n
 GPS_DL_SUPPORT := n

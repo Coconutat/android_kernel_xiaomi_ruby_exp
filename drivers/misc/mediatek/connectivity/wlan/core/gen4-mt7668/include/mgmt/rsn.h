@@ -181,6 +181,8 @@
 #define GTK_REKEY_CMD_MODE_RPY_OFFLOAD_ON	4
 #define GTK_REKEY_CMD_MODE_RPY_OFFLOAD_OFF	5
 
+#define SA_QUERY_RETRY_TIMEOUT	3000
+#define SA_QUERY_TIMEOUT	501
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -298,6 +300,12 @@ void rsnGenerateOWEIE(IN P_ADAPTER_T prAdapter,
 UINT_32 rsnCalOweIELen(IN P_ADAPTER_T prAdapter,
 	IN UINT_8 ucBssIndex, P_STA_RECORD_T prStaRec);
 #endif
+
+void rsnGenerateRSNXE(IN P_ADAPTER_T prAdapter,
+	IN OUT P_MSDU_INFO_T prMsduInfo);
+
+uint32_t rsnCalRSNXELen(IN P_ADAPTER_T prAdapter,
+	IN uint8_t ucBssIndex, P_STA_RECORD_T prStaRec);
 
 /*******************************************************************************
 *                              F U N C T I O N S

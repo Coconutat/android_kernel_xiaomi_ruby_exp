@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -569,10 +569,8 @@ int mtk_p2p_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	/* Wait for wlanSchedCfg80211WorkQueue() complete */
-#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
 #if CFG_SUPPORT_CFG80211_QUEUE
 	flush_delayed_work(&cfg80211_workq);
-#endif
 #endif
 
 	/* prepare for removal */
@@ -1854,13 +1852,19 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 			p2pFuncSetDfsState(DFS_STATE_INACTIVE);
 
 		/* Set CSA IE parameters */
-		prGlueInfo->prAdapter->rWifiVar.fgCsaInProgress = TRUE;
 		prGlueInfo->prAdapter->rWifiVar.ucChannelSwitchMode = 1;
 		prGlueInfo->prAdapter->rWifiVar.ucNewChannelNumber =
 			nicFreq2ChannelNum(
 				params->chandef.chan->center_freq * 1000);
 		prGlueInfo->prAdapter->rWifiVar.ucChannelSwitchCount =
 			params->count;
+
+		/* To prevent race condition, we have to set CSA flags
+		* after all CSA parameters are updated. In this way,
+		* we can guarantee that CSA IE will be and only be
+		* reported once in the beacon
+		*/
+		prGlueInfo->prAdapter->rWifiVar.fgCsaInProgress = TRUE;
 
 		/* Set new channel parameters */
 		prP2pSetNewChannelMsg = (struct MSG_P2P_SET_NEW_CHANNEL *)
@@ -4345,10 +4349,12 @@ int mtk_p2p_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 
 	DBGLOG(P2P, TRACE, "--> %s()\n", __func__);
 
-	if (data && len)
+	if (len < sizeof(struct NL80211_DRIVER_SW_CMD_PARAMS))
+		rstatus = WLAN_STATUS_INVALID_LENGTH;
+	else if (!data)
+		rstatus = WLAN_STATUS_INVALID_DATA;
+	else {
 		prParams = (struct NL80211_DRIVER_SW_CMD_PARAMS *) data;
-
-	if (prParams) {
 		if (prParams->set == 1) {
 			rstatus = kalIoctl(prGlueInfo,
 				(PFN_OID_HANDLER_FUNC) wlanoidSetSwCtrlWrite,

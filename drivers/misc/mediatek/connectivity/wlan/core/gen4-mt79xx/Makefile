@@ -36,8 +36,10 @@ $(info os option: $(os))
 kver_ge = $(shell \
 echo check_ver | awk '{if($(VERSION) < $(1)) {print 0} else { \
 if($(VERSION) > $(1)) {print 1} else { \
-if($(PATCHLEVEL) < $(2)) {print 0} else {print 1} \
-}}}' \
+if($(PATCHLEVEL) < $(2)) {print 0} else { \
+if($(PATCHLEVEL) > $(2)) {print 1} else { \
+if($(SUBLEVEL) < $(3)) {print 0} else {print 1} \
+}}}}}' \
 )
 
 # ---------------------------------------------------
@@ -80,6 +82,7 @@ ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=0
 ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1
 ccflags-y += -DARP_MONITER_ENABLE=1
 ccflags-y += -Werror
+ccflags-y += -Wall
 #ccflags-y:=$(filter-out -U$(WLAN_CHIP_ID),$(ccflags-y))
 #ccflags-y += -DLINUX -D$(WLAN_CHIP_ID)
 #workaround: also needed for none LINUX system
@@ -146,7 +149,7 @@ CONFIG_MTK_WIFI_CONNAC2X=y
 CONFIG_MTK_WIFI_11AX_SUPPORT=y
 # unless patch wifi 6G setting in kernel before kernel version 5.4,
 # it will build fail when enable wifi 6G flag
-ifeq ($(call kver_ge,5,4),1)
+ifeq ($(call kver_ge,5,4,0),1)
 CONFIG_MTK_WIFI_6G_SUPPORT=y
 else
 CONFIG_MTK_WIFI_6G_SUPPORT=n
@@ -163,6 +166,7 @@ CONFIG_SUPPORT_CMD_OVER_WFDMA=y
 CFG_SUPPORT_HOST_RX_WM_EVENT_FROM_PSE=y
 CONFIG_MTK_WIFI_NAN=n
 CONFIG_MTK_DBDC_SW_FOR_P2P_LISTEN=n
+
 # AP KVR
 ifeq ($(CFG_MTK_AP_80211KVR_INTERFACE), y)
 	CONFIG_WIFI_SUPPORT_GET_NOISE=y
@@ -172,6 +176,11 @@ ifeq ($(CFG_MTK_AP_80211KVR_INTERFACE), y)
 	ccflags-y += -DCFG_AP_80211V_SUPPORT=1
 endif
 
+ifeq ($(CONFIG_WIFI_ANTENNA_REPORT), y)
+	ccflags-y += -DCONFIG_WIFI_ANTENNA_REPORT=1
+else
+	ccflags-y += -DCONFIG_WIFI_ANTENNA_REPORT=0
+endif
 ifeq ($(CONFIG_WIFI_SUPPORT_GET_NOISE), y)
 	ccflags-y += -DCONFIG_WIFI_SUPPORT_GET_NOISE=1
 else
@@ -253,6 +262,11 @@ ccflags-y += -DCFG_SDIO_INTR_ENHANCE_FORMAT=2
 ccflags-y += -DQM_CMD_RESERVED_THRESHOLD=1
 CONFIG_MTK_WIFI_CONNAC2X=y
 CONFIG_MTK_WIFI_11AX_SUPPORT=y
+ifeq ($(call kver_ge,5,4,0),1)
+CONFIG_MTK_WIFI_6G_SUPPORT=y
+else
+CONFIG_MTK_WIFI_6G_SUPPORT=n
+endif
 CONFIG_MTK_WIFI_TWT_SUPPORT=y
 CONFIG_MTK_WIFI_TWT_HOTSPOT_SUPPORT=n
 CONFIG_MTK_WIFI_TWT_HOTSPOT_AC_SUPPORT=n
@@ -284,7 +298,7 @@ ccflags-y += -DCFG_SUPPORT_SCHED_SCAN=1
 # ccflags-y += -DQM_CMD_RESERVED_THRESHOLD=1
 CONFIG_MTK_WIFI_CONNAC2X=y
 CONFIG_MTK_WIFI_11AX_SUPPORT=y
-ifeq ($(call kver_ge,5,4),1)
+ifeq ($(call kver_ge,5,4,0),1)
 CONFIG_MTK_WIFI_6G_SUPPORT=y
 else
 CONFIG_MTK_WIFI_6G_SUPPORT=n
@@ -327,7 +341,7 @@ ccflags-y += -DCFG_SUPPORT_HE_ER=1
 ccflags-y += -DCFG_SUPPORT_DBDC=0
 ccflags-y += -DCFG_SUPPORT_BW160=1
 ccflags-y += -DCFG_WIFI_TX_ETH_CHK_EMPTY_PAYLOAD=1
-ccflags-y += -DCFG_SUPPORT_SINGLE_SKU_LOCAL_DB=0
+ccflags-y += -DCFG_SUPPORT_SINGLE_SKU_LOCAL_DB=1
 ccflags-y += -DCFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP=1
 endif
 
@@ -690,6 +704,12 @@ else
     ccflags-y += -DCFG_COALESCING_INTERRUPT=0
 endif
 
+ifeq ($(CONFIG_SUPPORT_TX_SG), y)
+    ccflags-y += -DCFG_SUPPORT_TX_SG=1
+else
+    ccflags-y += -DCFG_SUPPORT_TX_SG=0
+endif
+
 ifeq ($(CONFIG_SUPPORT_DEBUG_SOP), y)
     ccflags-y += -DCFG_SUPPORT_DEBUG_SOP=1
 else
@@ -724,6 +744,26 @@ ifeq ($(CONFIG_SUPPORT_RX_NAPI), y)
     ccflags-y += -DCFG_SUPPORT_RX_NAPI=1
 else
     ccflags-y += -DCFG_SUPPORT_RX_NAPI=0
+endif
+
+ifeq ($(CONFIG_HIF_TX_PREALLOC_DATA_BUFFER), n)
+    ccflags-y += -DCFG_HIF_TX_PREALLOC_DATA_BUFFER=0
+else
+    ccflags-y += -DCFG_HIF_TX_PREALLOC_DATA_BUFFER=1
+endif
+
+ifneq ($(CFG_TX_MAX_PKT_NUM),)
+    ccflags-y += -DCFG_TX_MAX_PKT_NUM=$(CFG_TX_MAX_PKT_NUM)
+endif
+
+ifneq ($(HIF_NUM_OF_QM_RX_PKT_NUM),)
+    ccflags-y += -DHIF_NUM_OF_QM_RX_PKT_NUM=$(HIF_NUM_OF_QM_RX_PKT_NUM)
+endif
+
+ifeq ($(CONFIG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV), y)
+    ccflags-y += -DCFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV=1
+else
+    ccflags-y += -DCFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV=0
 endif
 
 ifeq ($(CFG_SUPPORT_HIDDEN_SW_AP), y)
@@ -795,12 +835,15 @@ ccflags-y += -DCFG_SUPPORT_DTIM_SKIP=1
 ccflags-y += -DMAX_SLEEP_TIME=600
 endif
 
-ifeq ($(CONFIG_SUPPORT_DYNAMIC_PWR_LIMIT), y)
-ccflags-y += -DCFG_SUPPORT_DYNAMIC_PWR_LIMIT=1
-endif
-
-ifeq ($(CONFIG_SUPPORT_DYNAMIC_PWR_LIMIT_ANT_TAG), y)
-ccflags-y += -DCFG_SUPPORT_DYNAMIC_PWR_LIMIT_ANT_TAG=1
+# kernel 5.15 cfg80211 para is changed for mlo
+ifeq ($(call kver_ge,5,15,41),1)
+	ifeq ($(CONFIG_ANDROID), y)
+		ccflags-y += -DCFG_ADVANCED_80211_MLO=1
+	else
+		ccflags-y += -DCFG_ADVANCED_80211_MLO=0
+	endif
+else
+	ccflags-y += -DCFG_ADVANCED_80211_MLO=0
 endif
 
 ifeq ($(MODULE_NAME),)
@@ -1275,11 +1318,13 @@ endif
 #
 # mtreset
 #
-# ifeq ($(CONFIG_GKI_SUPPORT), y)
-# ccflags-y += -DCFG_CHIP_RESET_KO_SUPPORT
-# ccflags-y += -I$(src)/reset/include
-# MODULE_NAME_RESET = $(MODULE_NAME)_reset
-# RESET_OBJS := reset/reset.o
-# $(MODULE_NAME_RESET)-objs += $(RESET_OBJS)
-# obj-m += $(MODULE_NAME_RESET).o
-# endif
+ifeq ($(CONFIG_GKI_SUPPORT), y)
+ccflags-y += -DCFG_CHIP_RESET_KO_SUPPORT
+ccflags-y += -I$(src)/reset/include
+ifeq ($(CONFIG_MTK_COMBO_WIFI_HIF), sdio)
+MODULE_NAME_RESET = wlan_sdio_reset
+endif
+RESET_OBJS := reset/reset.o
+$(MODULE_NAME_RESET)-objs += $(RESET_OBJS)
+obj-m += $(MODULE_NAME_RESET).o
+endif

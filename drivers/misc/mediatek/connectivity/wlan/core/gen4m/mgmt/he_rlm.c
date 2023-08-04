@@ -1120,6 +1120,8 @@ void heRlmRecHeOperation(
 	uint8_t *pucIE)
 {
 	struct _IE_HE_OP_T *prHeOp = (struct _IE_HE_OP_T *) pucIE;
+	uint8_t ucBssHeOpParams[2];
+	uint32_t u4IeTxopDurationRtsThreshold = 0;
 #if (CFG_SUPPORT_HE_ER == 1)
 	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 	/* if payload not contain any aucVarInfo,
@@ -1138,7 +1140,24 @@ void heRlmRecHeOperation(
 	}
 #endif
 
+	ucBssHeOpParams[0] = prBssInfo->ucHeOpParams[0];
+	ucBssHeOpParams[1] = prBssInfo->ucHeOpParams[1];
+	u4IeTxopDurationRtsThreshold =
+		((prHeOp->ucHeOpParams[0] &
+			HE_OP_PARAM0_TXOP_DUR_RTS_THRESHOLD_MASK) >>
+			HE_OP_PARAM0_TXOP_DUR_RTS_THRESHOLD_SHFT) |
+		(((prHeOp->ucHeOpParams[1] &
+			HE_OP_PARAM1_TXOP_DUR_RTS_THRESHOLD_MASK) >>
+			HE_OP_PARAM1_TXOP_DUR_RTS_THRESHOLD_SHFT) << 4);
+
 	memcpy(prBssInfo->ucHeOpParams, prHeOp->ucHeOpParams, HE_OP_BYTE_NUM);
+
+	if (u4IeTxopDurationRtsThreshold == 0) {
+		prBssInfo->ucHeOpParams[0] |= ucBssHeOpParams[0] &
+			HE_OP_PARAM0_TXOP_DUR_RTS_THRESHOLD_MASK;
+		prBssInfo->ucHeOpParams[1] |= ucBssHeOpParams[1] &
+			HE_OP_PARAM1_TXOP_DUR_RTS_THRESHOLD_MASK;
+	}
 
 	prBssInfo->ucBssColorInfo = prHeOp->ucBssColorInfo;
 	prBssInfo->u2HeBasicMcsSet = prHeOp->u2HeBasicMcsSet;

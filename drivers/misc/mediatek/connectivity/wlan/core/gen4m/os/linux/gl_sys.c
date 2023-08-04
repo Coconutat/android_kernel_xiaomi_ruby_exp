@@ -307,8 +307,7 @@ void sysCreateWifiVer(void)
 
 	char aucDriverVersionStr[] = STR(NIC_DRIVER_MAJOR_VERSION) "_"
 		STR(NIC_DRIVER_MINOR_VERSION) "_"
-		STR(NIC_DRIVER_SERIAL_VERSION) "-"
-		DRIVER_BUILD_DATE;
+		STR(NIC_DRIVER_SERIAL_VERSION);
 	uint16_t u2NvramVer = 0;
 	uint8_t ucOffset = 0;
 

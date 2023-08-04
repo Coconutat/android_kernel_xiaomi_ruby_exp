@@ -551,6 +551,9 @@ struct _SW_RFB_T {
 	/* rx sta record */
 	UINT_8 ucWlanIdx;
 	UINT_8 ucStaRecIdx;
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	UINT_8 fgIsFirstSubAMSDULLCMS;
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 
 	BOOLEAN fgReorderBuffer;
 	BOOLEAN fgDataFrame;
@@ -897,4 +900,7 @@ WLAN_STATUS nicRxFlush(IN P_ADAPTER_T prAdapter);
 WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb);
 
 VOID nicRxMgmtNoWTBLHandling(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
+
+VOID nicRxClearFrag(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec);
+
 #endif /* _NIC_RX_H */

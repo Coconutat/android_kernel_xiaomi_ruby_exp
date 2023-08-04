@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -128,6 +128,10 @@ void heRlmRspGenerateHeOpIE(
 	struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo);
 #if (CFG_SUPPORT_WIFI_6G == 1)
+void heRlmRecHe6GCapInfo(
+	struct ADAPTER *prAdapter,
+	struct STA_RECORD *prStaRec,
+	uint8_t *pucIE);
 void heRlmReqGenerateHe6gBandCapIE(
 	struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo);

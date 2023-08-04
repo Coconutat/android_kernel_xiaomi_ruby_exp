@@ -263,8 +263,6 @@
 
 #define CFG_SUPPORT_ANT_SWAP		1
 
-#define CFG_SUPPORT_ANT_HALF            1
-
 /* If skb_buff mark field marked with pre-defined value, change priority to VO*/
 #define CFG_CHANGE_PRIORITY_BY_SKB_MARK_FIELD	1
 
@@ -458,7 +456,7 @@
  */
 #define CFG_DRV_OWN_VERSION	((uint16_t)((NIC_DRIVER_MAJOR_VERSION << 8) | \
 				(NIC_DRIVER_MINOR_VERSION)))
-#define CFG_DRV_PEER_VERSION	((uint16_t)0x0000)
+#define CFG_DRV_PEER_VERSION	0x0000U
 
 /*------------------------------------------------------------------------------
  * Flags and Parameters for TX path
@@ -746,12 +744,12 @@
  *------------------------------------------------------------------------------
  */
 #ifndef CFG_P2P_SCAN_REPORT_ALL_BSS
-#define CFG_P2P_SCAN_REPORT_ALL_BSS            1
+#define CFG_P2P_SCAN_REPORT_ALL_BSS            0
 #endif
 
 /* Allow connection with no P2P IE device */
 #ifndef CFG_P2P_CONNECT_ALL_BSS
-#define CFG_P2P_CONNECT_ALL_BSS            1
+#define CFG_P2P_CONNECT_ALL_BSS            0
 #endif
 
 /* Allow setting max P2P GO client count */
@@ -1002,8 +1000,8 @@
 #define CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT  0
 #endif
 
-#if (CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT == 1) && (CFG_TC10_FEATURE == 1)
-#define CFG_SUPPORT_802_11V_BTM_OFFLOAD 1
+#if (CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT == 1)
+#define CFG_SUPPORT_802_11V_BTM_OFFLOAD 0
 #else
 #define CFG_SUPPORT_802_11V_BTM_OFFLOAD 0
 #endif
@@ -1078,7 +1076,7 @@
  * Flags of SDIO test pattern support
  *------------------------------------------------------------------------------
  */
-#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 1
+#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 0
 
 /*------------------------------------------------------------------------------
  * Flags of Workaround
@@ -1104,6 +1102,7 @@
 
 #define CFG_SUPPORT_LLS 1
 
+#define CFG_REPORT_TX_RATE_FROM_LLS 0
 /*------------------------------------------------------------------------------
  * Flags for prepare the FW compile flag
  *------------------------------------------------------------------------------
@@ -1421,7 +1420,7 @@
  * in mtk_cfg80211_get_station
  *------------------------------------------------------------------------------
  */
-#define CFG_REPORT_MAX_TX_RATE	1
+#define CFG_REPORT_MAX_TX_RATE	0
 
 /*------------------------------------------------------------------------------
  * Link Quality Monitor
@@ -1502,6 +1501,10 @@
 #define CFG_ROM_PATCH_NO_SEM_CTRL 0
 #endif
 
+#ifndef CFG_SUPPORT_MDDP_AOR
+#define CFG_SUPPORT_MDDP_AOR 0
+#endif
+
 /*------------------------------------------------------------------------------
  * Flags of Disconnect with disable channel based on REGD update
  *------------------------------------------------------------------------------
@@ -1515,7 +1518,7 @@
  * issues, eg. cross band switch.
  *------------------------------------------------------------------------------
  */
-#define CFG_SEND_DEAUTH_DURING_CHNL_SWITCH    0
+#define CFG_SEND_DEAUTH_DURING_CHNL_SWITCH    1
 
 /*------------------------------------------------------------------------------
  *Smart Gear Feature Configure
@@ -1642,6 +1645,14 @@
 #endif
 
 /*------------------------------------------------------------------------------
+ * Support TxRing3 or not.
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_TRI_TX_RING
+#define CFG_TRI_TX_RING  0
+#endif
+
+/*------------------------------------------------------------------------------
  * Flags of Tp Enhance Mechanism
  *------------------------------------------------------------------------------
  */
@@ -1664,9 +1675,6 @@
 
 #define CFG_SUPPORT_LITTLE_CPU_BOOST 0
 
-#define ARP_BRUST_OPTIMIZE 1
-//Xiaomi add
-#define CFG_SUPPORT_SCAN_EXT_FLAG 1
 #define CFG_SUPPORT_ANDROID_DUAL_STA 0
 
 #define CFG_SUPPORT_LIMITED_PKT_PID  1

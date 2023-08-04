@@ -2561,14 +2561,14 @@ p2pProcessPreSuspendFlow(IN P_ADAPTER_T prAdapter)
 			continue;
 
 		/* Skip AIS BSS */
-		if (idx == prAdapter->prAisBssInfo->ucBssIndex)
+		if (IS_BSS_AIS(prBssInfo))
 			continue;
 
 		if (!IS_BSS_ACTIVE(prBssInfo))
 			continue;
 
 		/* Non-P2P network type */
-		if (prBssInfo->eNetworkType != NETWORK_TYPE_P2P) {
+		if (IS_BSS_P2P(prBssInfo)) {
 			DBGLOG(HAL, STATE, "[Suspend] eNetworkType %d.\n",
 				prBssInfo->eNetworkType);
 			nicPmIndicateBssAbort(prAdapter, idx);

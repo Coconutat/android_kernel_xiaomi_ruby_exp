@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1148,6 +1148,11 @@ void saaFsmRunEventTxReqTimeOut(IN struct ADAPTER *prAdapter,
 	DBGLOG(SAA, LOUD, "EVENT-TIMER: TX REQ TIMEOUT, Current Time = %d\n",
 	       kalGetTimeTick());
 
+/* fos_change begin */
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+	prAdapter->total_mgmtTX_timeout_count++;
+#endif /* fos_change end */
+
 	/* Trigger statistics log if Auth/Assoc Tx timeout */
 	wlanTriggerStatsLog(prAdapter, prAdapter->rWifiVar.u4StatsLogDuration);
 #if (CFG_SUPPORT_SUPPLICANT_SME == 1)
@@ -1190,6 +1195,12 @@ void saaFsmRunEventRxRespTimeOut(IN struct ADAPTER *prAdapter,
 	ASSERT(prStaRec);
 	if (!prStaRec)
 		return;
+
+/* fos_change begin */
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+	prAdapter->total_mgmtRX_timeout_count++;
+#endif /* fos_change end */
+
 #if (CFG_SUPPORT_SUPPLICANT_SME == 1)
 	/* Retry the last sent frame if possible */
 	saaSendAuthAssoc(prAdapter, prStaRec);
@@ -1363,7 +1374,7 @@ void saaFsmRunEventRxAuth(IN struct ADAPTER *prAdapter,
 		prStaRec->ucTxAuthAssocRetryCount = 0;
 #if CFG_SUPPORT_WPA3_H2E
 		if ((u2StatusCode != STATUS_CODE_SUCCESSFUL) &&
-			(u2StatusCode != WLAN_STATUS_SAE_HASH_TO_ELEMENT)) {
+			(u2StatusCode != STATUS_CODE_SAE_HASH_TO_ELEMENT)) {
 #else
 		if (u2StatusCode != STATUS_CODE_SUCCESSFUL) {
 #endif
@@ -2185,6 +2196,15 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 						return WLAN_STATUS_SUCCESS;
 					}
 #endif
+/* fos_change begin */
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+				prAdapter->total_deauth_rx_count++;
+				if (prStaRec->u2ReasonCode <=
+					REASON_CODE_BEACON_TIMEOUT)
+					prAdapter->deauth_rx_count
+					[prStaRec->u2ReasonCode]++;
+#endif /* fos_change end */
+
 #if (CFG_SUPPORT_SUPPLICANT_SME == 1)
 				/* Report disassoc frame to upper */
 				DBGLOG(SAA, INFO,
@@ -2195,7 +2215,11 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 				 * avoid kernel WARN_ON
 				 * in cfg80211_process_disassoc().
 				 */
+#if (CFG_ADVANCED_80211_MLO == 1)
+				if (wdev->connected)
+#else
 				if (wdev->current_bss)
+#endif
 					kalIndicateRxDisassocToUpperLayer(
 						prAdapter->
 						prGlueInfo->prDevHandler,
@@ -2228,7 +2252,11 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 			ucRoleIdx = (uint8_t)prBssInfo->u4PrivateData;
 			wdev = prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
 						->aprRoleHandler->ieee80211_ptr;
+#if (CFG_ADVANCED_80211_MLO == 1)
+			if (wdev->connected)
+#else
 			if (wdev->current_bss)
+#endif
 				kalIndicateRxDisassocToUpperLayer(
 					prAdapter->
 					prGlueInfo->prP2PInfo[ucRoleIdx]

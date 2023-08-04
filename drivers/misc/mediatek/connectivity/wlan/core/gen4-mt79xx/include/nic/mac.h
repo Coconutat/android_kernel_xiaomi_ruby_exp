@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -820,7 +820,7 @@
 /* Association denied because the ListenInterval is too large */
 #define STATUS_CODE_ASSOC_DENIED_LARGE_LIS_INTERVAL 51
 #if CFG_SUPPORT_WPA3_H2E
-#define WLAN_STATUS_SAE_HASH_TO_ELEMENT 126
+#define STATUS_CODE_SAE_HASH_TO_ELEMENT 126
 #endif
 /* proprietary definition of reserved field of Status Code */
 /* Join failure */
@@ -1383,6 +1383,11 @@ enum BEACON_REPORT_DETAIL {
 #define VHT_CAP_INFO_RX_ANTENNA_PATTERN_CONSISTENCY			BIT(28)
 #define VHT_CAP_INFO_TX_ANTENNA_PATTERN_CONSISTENCY			BIT(29)
 
+/* refer to Table 9-272 Extended NSS BW Support subfield */
+#define VHT_CAP_INFO_EXT_NSS_BW_SUPPORT			0
+#define VHT_CAP_INFO_EXT_NSS_BW_SUPPORT_OFFSET		30
+#define VHT_CAP_INFO_EXT_NSS_BW_SUPPORT_MASK		BITS(30, 31)
+
 #define VHT_CAP_INFO_MCS_MAP_MCS7           0
 #define VHT_CAP_INFO_MCS_MAP_MCS8           BIT(0)
 #define VHT_CAP_INFO_MCS_MAP_MCS9           BIT(1)
@@ -1547,6 +1552,8 @@ enum BEACON_REPORT_DETAIL {
 #define HT_OP_INFO2_HT_PROTECTION                   BITS(0, 1)
 #define HT_OP_INFO2_NON_GF_HT_STA_PRESENT           BIT(2)
 #define HT_OP_INFO2_OBSS_NON_HT_STA_PRESENT         BIT(4)
+#define HT_OP_INFO2_CH_CENTER_FREQ_SEG2_OFFSET      5
+#define HT_OP_INFO2_CH_CENTER_FREQ_SEG2             BITS(5, 12)
 
 #define HT_OP_INFO3_DUAL_BEACON                     BIT(6)
 #define HT_OP_INFO3_DUAL_CTS_PROTECTION             BIT(7)
@@ -1554,6 +1561,10 @@ enum BEACON_REPORT_DETAIL {
 #define HT_OP_INFO3_LSIG_TXOP_FULL_SUPPORT          BIT(9)
 #define HT_OP_INFO3_PCO_ACTIVE                      BIT(10)
 #define HT_OP_INFO3_PCO_PHASE                       BIT(11)
+
+#define HT_GET_OP_INFO2_CH_CENTER_FREQ_SEG2(_aucHtOp) \
+	((_aucHtOp & HT_OP_INFO2_CH_CENTER_FREQ_SEG2) \
+	>> HT_OP_INFO2_CH_CENTER_FREQ_SEG2_OFFSET)
 
 /* 7.3.2.59 OBSS Scan Parameter element */
 #define ELEM_MAX_LEN_OBSS_SCAN                      (16 - ELEM_HDR_LEN)
@@ -1607,7 +1618,7 @@ enum BEACON_REPORT_DETAIL {
 #endif
 
 /* 802.11h CSA element */
-#define ELEM_MIN_LEN_CSA                            3
+#define ELEM_MIN_LEN_CSA                            11
 
 /* 3 Management frame body components (III): 7.4 Action frame format details. */
 /* 7.4.1 Spectrum Measurement Action frame details */
@@ -1830,14 +1841,14 @@ enum BEACON_REPORT_DETAIL {
 #define TWT_REQ_TYPE_TWT_WAKE_INTVAL_EXP_OFFSET        10
 #define TWT_REQ_TYPE_TWT_PROTECTION_OFFSET             15
 
-#define TWT_SETUP_CMD_REQUEST                       0
-#define TWT_SETUP_CMD_SUGGEST                       1
-#define TWT_SETUP_CMD_DEMAND                        2
-#define TWT_SETUP_CMD_GROUPING                      3
-#define TWT_SETUP_CMD_ACCEPT                        4
-#define TWT_SETUP_CMD_ALTERNATE                     5
-#define TWT_SETUP_CMD_DICTATE                       6
-#define TWT_SETUP_CMD_REJECT                        7
+#define TWT_SETUP_CMD_TWT_REQUEST                       0
+#define TWT_SETUP_CMD_TWT_SUGGEST                       1
+#define TWT_SETUP_CMD_TWT_DEMAND                        2
+#define TWT_SETUP_CMD_TWT_GROUPING                      3
+#define TWT_SETUP_CMD_TWT_ACCEPT                        4
+#define TWT_SETUP_CMD_TWT_ALTERNATE                     5
+#define TWT_SETUP_CMD_TWT_DICTATE                       6
+#define TWT_SETUP_CMD_TWT_REJECT                        7
 
 /* TWT Flow Field in teardown frame */
 #define TWT_TEARDOWN_FLOW_ID                        BITS(0, 2)
@@ -2602,7 +2613,7 @@ struct IE_EXT_CAP {
 struct IE_HS20_EXT_CAP_T {
 	uint8_t ucId;
 	uint8_t ucLength;
-	uint8_t aucCapabilities[6];
+	uint8_t aucCapabilities[ELEM_MAX_LEN_EXT_CAP];
 };
 
 /* 7.3.2.27 Extended Capabilities element */
@@ -2885,7 +2896,7 @@ struct ACTION_CHANNEL_SWITCH_FRAME {
 	/* ADDTS Request frame body */
 	uint8_t ucCategory;	/* Category */
 	uint8_t ucAction;	/* Action Value */
-	uint8_t aucInfoElem[5];	/* Information elements */
+	uint8_t aucInfoElem[13];	/* Information elements */
 } __KAL_ATTRIB_PACKED__;
 
 /* 7.4.2.1 ADDTS Request frame format */
@@ -3656,6 +3667,8 @@ struct IE_SHORT_SSID_LIST {
 #define MTK_OUI_IE(fp)          ((struct IE_MTK_OUI *) fp)
 
 #define CSA_IE(fp)              ((struct IE_CHANNEL_SWITCH *) fp)
+#define SEC_OFFSET_IE(fp)       ((struct IE_SECONDARY_OFFSET *) fp)
+#define WIDE_BW_IE(fp)          ((struct IE_WIDE_BAND_CHANNEL *) fp)
 
 #define SUPPORTED_CHANNELS_IE(fp) ((struct IE_SUPPORTED_CHANNELS *)fp)
 #define TIMEOUT_INTERVAL_IE(fp)	((struct IE_TIMEOUT_INTERVAL *)fp)

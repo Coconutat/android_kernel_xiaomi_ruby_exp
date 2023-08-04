@@ -287,7 +287,7 @@ static int btmtk_set_Woble_APCF(struct btmtk_woble *bt_woble)
 
 static int btmtk_set_Woble_Radio_Off(struct btmtk_woble *bt_woble)
 {
-	int ret = -1;
+	int ret = 0;
 	int length = 0;
 	char *radio_off = NULL;
 	struct btmtk_dev *bdev = bt_woble->bdev;
@@ -364,7 +364,7 @@ static int btmtk_del_Woble_APCF_index(struct btmtk_dev *bdev)
 {
 	u8 cmd[APCF_DELETE_CMD_LEN] = { 0x01, 0x57, 0xFD, 0x03, 0x01, 0x01, 0x0A };
 	u8 event[APCF_DELETE_EVT_HDR_LEN] = { 0x04, 0x0e, 0x07, 0x01, 0x57, 0xfd, 0x00, 0x01, /* 00, 63 */ };
-	int ret = -1;
+	int ret = 0;
 
 	BTMTK_INFO("%s, enter", __func__);
 	ret = btmtk_main_send_cmd(bdev,
@@ -539,8 +539,8 @@ static void btmtk_check_wobx_debug_log(struct btmtk_dev *bdev)
 
 static int btmtk_handle_leaving_WoBLE_state(struct btmtk_woble *bt_woble)
 {
-	int ret = -1;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	int ret = 0;
+	unsigned char fstate = 0;
 	struct btmtk_dev *bdev = bt_woble->bdev;
 	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
 
@@ -618,9 +618,9 @@ exit:
 
 static int btmtk_handle_entering_WoBLE_state(struct btmtk_woble *bt_woble)
 {
-	int ret = -1;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
-	int state = BTMTK_STATE_INIT;
+	int ret = 0;
+	unsigned char fstate = 0;
+	int state = 0;
 	struct btmtk_dev *bdev = bt_woble->bdev;
 	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
 
@@ -729,7 +729,7 @@ Finish:
 int btmtk_woble_suspend(struct btmtk_woble *bt_woble)
 {
 	int ret = 0;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	unsigned char fstate = 0;
 	struct btmtk_dev *bdev = bt_woble->bdev;
 
 	BTMTK_INFO("%s: enter", __func__);

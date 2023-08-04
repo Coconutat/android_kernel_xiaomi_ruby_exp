@@ -134,9 +134,6 @@ static struct nla_policy nla_parse_wifi_policy[WIFI_ATTRIBUTE_ROAMING_WHITELIST_
 	[WIFI_ATTRIBUTE_NODFS_VALUE] = {.type = NLA_U32},
 	[WIFI_ATTRIBUTE_COUNTRY_CODE] = {.type = NLA_STRING},
 
-	[WIFI_ATTRIBUTE_MAX_RSSI] = {.type = NLA_U32},
-	[WIFI_ATTRIBUTE_MIN_RSSI] = {.type = NLA_U32},
-	[WIFI_ATTRIBUTE_RSSI_MONITOR_START] = {.type = NLA_U32},
 
 	[WIFI_ATTRIBUTE_ROAMING_CAPABILITIES] = {.type = NLA_UNSPEC},
 	[WIFI_ATTRIBUTE_ROAMING_BLACKLIST_NUM] = {.type = NLA_U32},
@@ -144,6 +141,14 @@ static struct nla_policy nla_parse_wifi_policy[WIFI_ATTRIBUTE_ROAMING_WHITELIST_
 	[WIFI_ATTRIBUTE_ROAMING_WHITELIST_NUM] = {.type = NLA_U32},
 	[WIFI_ATTRIBUTE_ROAMING_WHITELIST_SSID] = {.type = NLA_UNSPEC},
 };
+
+const struct nla_policy nla_parse_wifi_rssi_monitor[
+		WIFI_ATTRIBUTE_RSSI_MONITOR_ATTRIBUTE_MAX + 1] = {
+	[WIFI_ATTRIBUTE_RSSI_MONITOR_MAX_RSSI] = {.type = NLA_U32},
+	[WIFI_ATTRIBUTE_RSSI_MONITOR_MIN_RSSI] = {.type = NLA_U32},
+	[WIFI_ATTRIBUTE_RSSI_MONITOR_START]    = {.type = NLA_U32},
+};
+
 
 static struct nla_policy nla_parse_gscan_policy[GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_FLUSH + 1] = {
 	[GSCAN_ATTRIBUTE_NUM_BUCKETS] = {.type = NLA_U32},
@@ -1323,18 +1328,18 @@ int mtk_cfg80211_vendor_set_rssi_monitoring(struct wiphy *wiphy, struct wireless
 	kalMemZero(attr, sizeof(struct nlattr *) * (WIFI_ATTRIBUTE_RSSI_MONITOR_START + 1));
 
 	if (NLA_PARSE_NESTED(attr, WIFI_ATTRIBUTE_RSSI_MONITOR_START,
-		(struct nlattr *)(data - NLA_HDRLEN), nla_parse_wifi_policy) < 0) {
+		(struct nlattr *)(data - NLA_HDRLEN), nla_parse_wifi_rssi_monitor) < 0) {
 		DBGLOG(REQ, ERROR, "%s nla_parse_nested failed\n", __func__);
 		goto nla_put_failure;
 	}
 
-	for (i = WIFI_ATTRIBUTE_MAX_RSSI; i <= WIFI_ATTRIBUTE_RSSI_MONITOR_START; i++) {
+	for (i = WIFI_ATTRIBUTE_RSSI_MONITOR_MAX_RSSI; i <= WIFI_ATTRIBUTE_RSSI_MONITOR_START; i++) {
 		if (attr[i]) {
 			switch (i) {
-			case WIFI_ATTRIBUTE_MAX_RSSI:
+			case WIFI_ATTRIBUTE_RSSI_MONITOR_MAX_RSSI:
 				rRSSIMonitor.max_rssi_value = nla_get_u32(attr[i]);
 				break;
-			case WIFI_ATTRIBUTE_MIN_RSSI:
+			case WIFI_ATTRIBUTE_RSSI_MONITOR_MIN_RSSI:
 				rRSSIMonitor.min_rssi_value = nla_get_u32(attr[i]);
 				break;
 			case WIFI_ATTRIBUTE_RSSI_MONITOR_START:
@@ -1373,7 +1378,7 @@ int mtk_cfg80211_vendor_packet_keep_alive_start(struct wiphy *wiphy, struct wire
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
 	UINT_32 u4BufLen = 0;
 	P_GLUE_INFO_T prGlueInfo = NULL;
-
+	unsigned short u2IpPktLen = 0;
 	INT_32 i4Status = -EINVAL;
 	P_PARAM_PACKET_KEEPALIVE_T prPkt = NULL;
 	struct nlattr *attr[MKEEP_ALIVE_ATTRIBUTE_PERIOD_MSEC + 1];
@@ -1411,7 +1416,10 @@ int mtk_cfg80211_vendor_packet_keep_alive_start(struct wiphy *wiphy, struct wire
 				? sizeof(prPkt->pIpPkt):nla_get_u16(attr[i]);
 				break;
 			case MKEEP_ALIVE_ATTRIBUTE_IP_PKT:
-				kalMemCopy(prPkt->pIpPkt, nla_data(attr[i]), prPkt->u2IpPktLen);
+				u2IpPktLen = prPkt->u2IpPktLen <= 256
+					? prPkt->u2IpPktLen : 256;
+				kalMemCopy(prPkt->pIpPkt, nla_data(attr[i]),
+					u2IpPktLen);
 				break;
 			case MKEEP_ALIVE_ATTRIBUTE_SRC_MAC_ADDR:
 				kalMemCopy(prPkt->ucSrcMacAddr, nla_data(attr[i]), sizeof(mac_addr));

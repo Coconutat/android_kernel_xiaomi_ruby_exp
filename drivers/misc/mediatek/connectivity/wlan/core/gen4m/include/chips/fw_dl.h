@@ -125,6 +125,9 @@ extern unsigned long long gConEmiSize;
 #define PATCH_SEC_TYPE_MASK	0x0000ffff
 #define PATCH_SEC_TYPE_BIN_INFO	0x2
 
+/* Used for sanity check */
+#define FW_MAX_SECTION_NUM	1024
+
 enum ENUM_IMG_DL_IDX_T {
 	IMG_DL_IDX_N9_FW,
 	IMG_DL_IDX_CR4_FW,
@@ -287,6 +290,8 @@ struct patch_dl_target {
 
 #endif
 
+struct WIFI_VER_INFO;
+
 enum ENUM_WLAN_POWER_ON_DOWNLOAD {
 	ENUM_WLAN_POWER_ON_DOWNLOAD_EMI = 0,
 	ENUM_WLAN_POWER_ON_DOWNLOAD_ROM_PATCH = 1,
@@ -368,7 +373,7 @@ uint32_t wlanGetHarvardTailerInfo(IN struct ADAPTER *prAdapter,
 	IN void *prFwBuffer, IN uint32_t u4FwSize,
 	IN uint32_t ucTotSecNum, IN enum ENUM_IMG_DL_IDX_T eDlIdx);
 
-uint32_t wlanGetConnacTailerInfo(IN struct ADAPTER *prAdapter,
+uint32_t wlanGetConnacTailerInfo(IN struct WIFI_VER_INFO *prVerInfo,
 	IN void *prFwBuffer,
 	IN uint32_t u4FwSize, IN enum ENUM_IMG_DL_IDX_T eDlIdx);
 
@@ -409,10 +414,14 @@ uint32_t wlanGetPatchInfo(IN struct ADAPTER *prAdapter);
 uint32_t fwDlGetFwdlInfo(struct ADAPTER *prAdapter,
 	char *pcBuf, int i4TotalLen);
 
-void fwDlGetReleaseInfoSection(struct ADAPTER *prAdapter, uint8_t *pucStartPtr);
-void fwDlGetReleaseManifest(struct ADAPTER *prAdapter,
+void fwDlGetReleaseInfoSection(struct WIFI_VER_INFO *prVerInfo,
+	uint8_t *pucStartPtr);
+void fwDlGetReleaseManifest(struct WIFI_VER_INFO *prVerInfo,
 			    struct HEADER_RELEASE_INFO *prRelInfo,
 			    uint8_t *pucStartPtr);
+
+void wlanReadRamCodeReleaseManifest(uint8_t *pucManifestBuffer,
+		uint32_t *pu4ManifestSize, uint32_t u4BufferMaxSize);
 
 #endif
 

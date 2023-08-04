@@ -756,7 +756,7 @@ static void wmmQueryTsmResult(struct ADAPTER *prAdapter,
 		((struct ACTIVE_RM_TSM_REQ *)ulParam)->prTsmReq;
 	struct WMM_INFO *prWmmInfo =
 		aisGetWMMInfo(prAdapter, ucBssIndex);
-	struct CMD_GET_TSM_STATISTICS rGetTsmStatistics;
+	struct CMD_GET_TSM_STATISTICS rGetTsmStatistics = {0};
 
 	DBGLOG(WMM, INFO, "[%d] Query TSM statistics, tid = %d\n",
 		ucBssIndex,
@@ -823,7 +823,7 @@ static void wmmRemoveTSM(struct ADAPTER *prAdapter,
 
 	LINK_REMOVE_KNOWN_ENTRY(prActiveTsmLink, prActiveTsm);
 	if (fgNeedStop) {
-		struct CMD_SET_TSM_STATISTICS_REQUEST rTsmStatistics;
+		struct CMD_SET_TSM_STATISTICS_REQUEST rTsmStatistics = {0};
 		struct STA_RECORD *prStaRec = NULL;
 		struct BSS_INFO *prAisBssInfo;
 
@@ -952,43 +952,49 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, unsigned long ulParam,
 		prActiveTsmReq = wmmGetActiveTsmReq(
 			prAdapter, ucTid, !!prTsmReq->u2Duration, TRUE,
 			ucBssIndex);
-		/* if exist normal tsm on the same ts, replace it */
-		if (prActiveTsmReq->prTsmReq)
-			cnmMemFree(prAdapter, prActiveTsmReq->prTsmReq);
-		DBGLOG(WMM, INFO, "%p tid %d, aci %d, duration %d\n", prTsmReq,
-		       prTsmReq->ucTID, prTsmReq->ucACI, prTsmReq->u2Duration);
-		prActiveTsmReq->ucBssIdx = ucBssIndex;
-		cnmTimerInitTimer(prAdapter, &prWMMInfo->rTsmTimer,
-			wmmQueryTsmResult,
-			(unsigned long)prActiveTsmReq);
-		cnmTimerStartTimer(prAdapter, &prWMMInfo->rTsmTimer,
-				   TU_TO_MSEC(prTsmReq->u2Duration));
+		if (prActiveTsmReq) {
+			/* if exist normal tsm on the same ts, replace it */
+			if (prActiveTsmReq->prTsmReq)
+				cnmMemFree(prAdapter, prActiveTsmReq->prTsmReq);
+			DBGLOG(WMM, INFO, "%p tid %d, aci %d, duration %d\n",
+				prTsmReq, prTsmReq->ucTID, prTsmReq->ucACI,
+				prTsmReq->u2Duration);
+			prActiveTsmReq->ucBssIdx = ucBssIndex;
+			cnmTimerInitTimer(prAdapter, &prWMMInfo->rTsmTimer,
+				wmmQueryTsmResult,
+				(unsigned long)prActiveTsmReq);
+			cnmTimerStartTimer(prAdapter, &prWMMInfo->rTsmTimer,
+					   TU_TO_MSEC(prTsmReq->u2Duration));
+		}
 	} else {
 		prActiveTsmReq = wmmGetActiveTsmReq(
 			prAdapter, ucTid, !prTsmReq->u2Duration, TRUE,
 			ucBssIndex);
-		/* if exist triggered tsm on the same ts, replace it */
-		if (prActiveTsmReq->prTsmReq) {
-			cnmTimerStopTimer(prAdapter,
-					  &prActiveTsmReq->rTsmTimer);
-			cnmMemFree(prAdapter, prActiveTsmReq->prTsmReq);
+		if (prActiveTsmReq) {
+			/* if exist triggered tsm on the same ts, replace it */
+			if (prActiveTsmReq->prTsmReq) {
+				cnmTimerStopTimer(prAdapter,
+						  &prActiveTsmReq->rTsmTimer);
+				cnmMemFree(prAdapter, prActiveTsmReq->prTsmReq);
+			}
+			rTsmStatistics.ucTriggerCondition =
+				prTsmReq->rTriggerCond.ucCondition;
+			rTsmStatistics.ucMeasureCount =
+				prTsmReq->rTriggerCond.ucMeasureCount;
+			rTsmStatistics.ucTriggerTimeout =
+				prTsmReq->rTriggerCond.ucTriggerTimeout;
+			rTsmStatistics.ucAvgErrThreshold =
+				prTsmReq->rTriggerCond.ucAvgErrThreshold;
+			rTsmStatistics.ucConsecutiveErrThreshold =
+				prTsmReq->rTriggerCond.ucConsecutiveErr;
+			rTsmStatistics.ucDelayThreshold =
+				prTsmReq->rTriggerCond.ucDelayThreshold;
+			rTsmStatistics.ucBin0Range = prTsmReq->ucB0Range;
 		}
-		rTsmStatistics.ucTriggerCondition =
-			prTsmReq->rTriggerCond.ucCondition;
-		rTsmStatistics.ucMeasureCount =
-			prTsmReq->rTriggerCond.ucMeasureCount;
-		rTsmStatistics.ucTriggerTimeout =
-			prTsmReq->rTriggerCond.ucTriggerTimeout;
-		rTsmStatistics.ucAvgErrThreshold =
-			prTsmReq->rTriggerCond.ucAvgErrThreshold;
-		rTsmStatistics.ucConsecutiveErrThreshold =
-			prTsmReq->rTriggerCond.ucConsecutiveErr;
-		rTsmStatistics.ucDelayThreshold =
-			prTsmReq->rTriggerCond.ucDelayThreshold;
-		rTsmStatistics.ucBin0Range = prTsmReq->ucB0Range;
 	}
 	nicTxChangeDataPortByAc(prAdapter, prStaRec, prTsmReq->ucACI, TRUE);
-	prActiveTsmReq->prTsmReq = prTsmReq;
+	if (prActiveTsmReq)
+		prActiveTsmReq->prTsmReq = prTsmReq;
 	rTsmStatistics.ucBssIdx = ucBssIndex;
 	rTsmStatistics.ucAcIndex = prTsmReq->ucACI;
 	rTsmStatistics.ucTid = prTsmReq->ucTID;

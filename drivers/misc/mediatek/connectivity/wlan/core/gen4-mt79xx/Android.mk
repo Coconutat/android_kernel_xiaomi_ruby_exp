@@ -9,6 +9,7 @@ ifeq ($(WLAN_BUILD_COMMON), true)
     WIFI_HIF := sdio
     WIFI_WMT := n
     WIFI_EMI := n
+    WIFI_GKI := y
     WIFI_NAME := wlan_mt7902_sdio_mt6789
     include $(LOCAL_PATH)/build_wlan_drv.mk
 else

@@ -80,14 +80,12 @@ MODULE_LICENSE("Dual BSD/GPL");
 	} while (0)
 #define ICS_ERR(fmt, arg...)	\
 	do { \
-		if (icsDbgLevel >= ICS_FW_LOG_ERR) \
-			pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
+		pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
 	} while (0)
 #define ICS_ERR_LIMITED(fmt, arg...)	\
 	do { \
-		if (icsDbgLevel >= ICS_FW_LOG_ERR) \
-			pr_info_ratelimited(PFX "%s[E]: " fmt, __func__, \
-				##arg); \
+		pr_info_ratelimited(PFX "%s[E]: " fmt, __func__, \
+			##arg); \
 	} while (0)
 
 typedef void (*ics_fwlog_event_func_cb)(int, int);
@@ -196,7 +194,7 @@ static ssize_t ics_ring_write(struct ics_ring *iRing, char *buf,
 
 	if (likely(iRing->ring_base)) {
 		RING_WRITE_FOR_EACH(left_to_write, ring_seg, ring) {
-			memcpy(ring_seg.ring_pt, buf, ring_seg.sz);
+			memcpy(ring_seg.ring_pt, buf + written, ring_seg.sz);
 			left_to_write -= ring_seg.sz;
 			written += ring_seg.sz;
 			ICS_DBG_LIMITED("written:%ld left:%ld\n", written,

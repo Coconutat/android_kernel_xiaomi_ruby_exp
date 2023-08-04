@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -449,6 +449,10 @@ void p2pRoleFsmNotifyEapolTxStatus(IN struct ADAPTER *prAdapter,
 		IN uint8_t ucBssIndex,
 		IN enum ENUM_EAPOL_KEY_TYPE_T rEapolKeyType,
 		IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+
+void p2pRoleFsmStateTransition(struct ADAPTER *prAdapter,
+		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
+		enum ENUM_P2P_ROLE_STATE eNextState);
 
 void p2pRoleFsmRunEventMgmtTx(IN struct ADAPTER *prAdapter,
 		IN struct MSG_HDR *prMsgHdr);

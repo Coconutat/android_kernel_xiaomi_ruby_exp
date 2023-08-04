@@ -612,28 +612,6 @@ typedef struct _AC_QUE_PARMS_T {
 	UINT_8 ucIsACMSet;
 } AC_QUE_PARMS_T, *P_AC_QUE_PARMS_T;
 
-/* WMM ACI (AC index) */
-typedef enum _ENUM_WMM_ACI_T {
-	WMM_AC_BE_INDEX = 0,
-	WMM_AC_BK_INDEX,
-	WMM_AC_VI_INDEX,
-	WMM_AC_VO_INDEX,
-	WMM_AC_INDEX_NUM
-} ENUM_WMM_ACI_T, *P_ENUM_WMM_ACI_T;
-
-/* WMM QOS user priority from 802.1D/802.11e */
-enum ENUM_WMM_UP_T {
-	WMM_UP_BE_INDEX = 0,
-	WMM_UP_BK_INDEX,
-	WMM_UP_RESV_INDEX,
-	WMM_UP_EE_INDEX,
-	WMM_UP_CL_INDEX,
-	WMM_UP_VI_INDEX,
-	WMM_UP_VO_INDEX,
-	WMM_UP_NC_INDEX,
-	WMM_UP_INDEX_NUM
-};
-
 /* Used for CMD Queue Operation */
 typedef enum _ENUM_FRAME_ACTION_T {
 	FRAME_ACTION_DROP_PKT = 0,
@@ -1039,9 +1017,21 @@ VOID qmResetArpDetect(VOID);
 VOID qmHandleRxArpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
 VOID qmHandleRxDhcpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
 #endif
+
+#if defined(CFG_SUPPORT_REPLAY_DETECTION) || defined(CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION)
+#define CCMPTSCPNNUM	6
+BOOLEAN qmRxPNtoU64(UINT_8 *pucPN, UINT_8 uPNNum,	UINT_64 *pu64Rets);
+#endif
+
 #ifdef CFG_SUPPORT_REPLAY_DETECTION
 BOOLEAN qmHandleRxReplay(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
 #endif
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+BOOLEAN qmDetectRxInvalidEAPOL(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb);
+BOOLEAN qmAmsduAttackDetection(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb);
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
+
 
 VOID qmMoveStaTxQueue(P_STA_RECORD_T prSrcStaRec, P_STA_RECORD_T prDstStaRec);
 VOID qmHandleDelTspec(P_ADAPTER_T prAdapter, P_STA_RECORD_T prStaRec, ENUM_ACI_T eAci);

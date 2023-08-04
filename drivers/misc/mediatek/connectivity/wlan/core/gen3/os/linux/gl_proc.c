@@ -1139,7 +1139,7 @@ INT_32 procInitFs(VOID)
 	init_waitqueue_head(&waitqDrvStatus);
 	mutex_init(&drvStatusLock);
 	fgDrvStatus = TRUE;
-	prEntry = proc_create(PROC_DRV_STATUS, 0664, gprProcRoot, &drv_status_ops);
+	prEntry = proc_create(PROC_DRV_STATUS, 0660, gprProcRoot, &drv_status_ops);
 	if (!prEntry) {
 		DBGLOG(INIT, ERROR, "Unable to create /proc entry %s/n", PROC_DRV_STATUS);
 		return -1;

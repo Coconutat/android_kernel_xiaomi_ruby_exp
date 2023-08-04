@@ -126,6 +126,10 @@
 #define PARAM_PACKET_FILTER_ASSOC_REQ			0x10000000
 #endif
 
+#if CFG_DROP_NOT_MY_BSSID
+#define PARAM_PACKET_FILTER_DROP_NOT_MY_BSSID           0x00020000
+#endif
+
 #if CFG_SLT_SUPPORT
 #define PARAM_PACKET_FILTER_SUPPORTED   (PARAM_PACKET_FILTER_DIRECTED | \
 					 PARAM_PACKET_FILTER_MULTICAST | \
@@ -427,11 +431,15 @@ typedef struct _PARAM_KEY_T {
 	/* Following add to change the original windows structure */
 } PARAM_KEY_T, *P_PARAM_KEY_T;
 
+/* for more remove key control (ucCtrlFlag) */
+#define FLAG_RM_KEY_CTRL_WO_OID     BIT(0)	/* not OID operation */
+
 typedef struct _PARAM_REMOVE_KEY_T {
 	UINT_32 u4Length;	/*!< Length of structure */
 	UINT_32 u4KeyIndex;	/*!< KeyID */
 	PARAM_MAC_ADDRESS arBSSID;	/*!< MAC address */
 	UINT_8 ucBssIdx;
+	UINT_8 ucCtrlFlag;
 } PARAM_REMOVE_KEY_T, *P_PARAM_REMOVE_KEY_T;
 
 /*! \brief Default key */

@@ -296,9 +296,13 @@ extern uint8_t g_aucNvram_OnlyPreCal[];
 
 #ifdef CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH
 typedef void (*wifi_fwlog_event_func_cb)(int, int);
+typedef void (*wifi_fwlog_get_fw_ver_func_cb)(uint8_t *, uint32_t *, uint32_t);
 /* adaptor ko */
 extern int  wifi_fwlog_onoff_status(void);
 extern void wifi_fwlog_event_func_register(wifi_fwlog_event_func_cb pfFwlog);
+
+extern void
+	wifi_fwlog_get_fw_ver_register(wifi_fwlog_get_fw_ver_func_cb pfFwVer);
 #if (CFG_SUPPORT_ICS == 1)
 typedef void (*ics_fwlog_event_func_cb)(int, int);
 extern ssize_t wifi_ics_fwlog_write(char *buf, size_t count);
@@ -454,6 +458,14 @@ enum ENUM_NET_REG_STATE {
 	ENUM_NET_REG_STATE_UNREGISTERING,
 	ENUM_NET_REG_STATE_NUM
 };
+
+enum ENUM_P2P_REG_STATE {
+	ENUM_P2P_REG_STATE_UNREGISTERED,
+	ENUM_P2P_REG_STATE_REGISTERING,
+	ENUM_P2P_REG_STATE_REGISTERED,
+	ENUM_P2P_REG_STATE_UNREGISTERING,
+	ENUM_P2P_REG_STATE_NUM
+};
 #endif
 
 enum ENUM_PKT_FLAG {
@@ -471,7 +483,7 @@ enum ENUM_PKT_FLAG {
 #if CFG_SUPPORT_TPENHANCE_MODE
 	ENUM_PKT_TCP_ACK,
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
-
+	ENUM_PKT_ICMPV6,		/* ICMPV6 */
 	ENUM_PKT_FLAG_NUM
 };
 
@@ -806,8 +818,8 @@ struct GLUE_INFO {
 	uint16_t u2MetUdpPort;
 #endif
 
-#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
 	uint8_t fgIsEnableMon;
+#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
 	uint8_t ucPriChannel;
 	uint8_t ucChannelS1;
 	uint8_t ucChannelS2;
@@ -889,10 +901,6 @@ struct GLUE_INFO {
 	uint32_t u4TpeTimeout;
 	struct timer_list rTpeTimer;
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
-
-#if CFG_SUPPORT_SCAN_EXT_FLAG
-	uint32_t u4ScanExtFlag;
-#endif
 };
 
 typedef irqreturn_t(*PFN_WLANISR) (int irq, void *dev_id,

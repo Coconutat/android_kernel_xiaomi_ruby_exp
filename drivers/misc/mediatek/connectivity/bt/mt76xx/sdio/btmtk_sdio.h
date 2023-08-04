@@ -16,7 +16,22 @@
 #include "btmtk_config.h"
 #include <linux/pm_wakeup.h>
 
-#define VERSION "v0.0.1.13_2021083101"
+#define VERSION "v0.0.1.13_2022101001"
+
+#if CFG_SUPPORT_CHIP_RESET_KO
+#include "reset.h"
+#include "reset_fsm.h"
+#include "reset_fsm_def.h"
+
+void btmtk_resetko_reset(void);
+void btmtk_resetko_notify(unsigned int event, void *data);
+extern enum ReturnStatus resetko_register_module(enum ModuleType module,
+				char *name,
+				enum TriggerResetApiType resetApiType,
+				void *resetFunc,
+				void *notifyFunc);
+extern enum ReturnStatus resetko_unregister_module(enum ModuleType module);
+#endif
 
 #define SDIO_HEADER_LEN				4
 #define STP_HEADER_LEN				4
@@ -30,50 +45,20 @@
 #define SET_POWER_NUM 3
 
 #define DUMP_HCI_LOG_FILE_NAME          "/sys/hcilog"
-/* SD block size can not bigger than 64 due to buf size limit in firmware */
-/* define SD block size for data Tx/Rx */
-#define SDIO_BLOCK_SIZE                 256
+
+/* SD block size */
+#define MTK_SDIO_SIZE                 256
 
 #define SDIO_PATCH_DOWNLOAD_FIRST    1/*first packet*/
 #define SDIO_PATCH_DOWNLOAD_CON        2/*continue*/
 #define SDIO_PATCH_DOWNLOAD_END        3/*end*/
 
-/* Number of blocks for firmware transfer */
-#define FIRMWARE_TRANSFER_NBLOCK        2
-
-/* This is for firmware specific length */
-#define FW_EXTRA_LEN                    36
-
-#define MRVDRV_SIZE_OF_CMD_BUFFER       (2 * 1024)
-
-#define MRVDRV_BT_RX_PACKET_BUFFER_SIZE \
-					(HCI_MAX_FRAME_SIZE + FW_EXTRA_LEN)
-
-#define ALLOC_BUF_SIZE  (((max_t (int, MRVDRV_BT_RX_PACKET_BUFFER_SIZE, \
-				MRVDRV_SIZE_OF_CMD_BUFFER) + SDIO_HEADER_LEN \
-				+ SDIO_BLOCK_SIZE - 1) / SDIO_BLOCK_SIZE) \
-				* SDIO_BLOCK_SIZE)
-
-/* The number of times to try when polling for status */
-#define MAX_POLL_TRIES                  100
-
-/* Max retry number of CMD53 write */
-#define MAX_WRITE_IOMEM_RETRY           2
+#define RETRY_TIMES           2
 
 /* register bitmasks */
-#define HOST_POWER_UP                           BIT(1)
-#define HOST_CMD53_FIN                          BIT(2)
 
-#define HIM_DISABLE                             0xff
-#define HIM_ENABLE                              (BIT(0) | BIT(1))
-
-#define UP_LD_HOST_INT_STATUS                   BIT(0)
-#define DN_LD_HOST_INT_STATUS                   BIT(1)
-
-#define DN_LD_CARD_RDY                          BIT(0)
-#define CARD_IO_READY                           BIT(3)
-
-#define FIRMWARE_READY                          0xfedc
+#define HOST_INT_DISABLE                             0xff
+#define HOST_INT_ENABLE                              (BIT(0) | BIT(1))
 
 enum {
 	BTMTK_FOPS_STATE_UNKNOWN,	/* deinit in stpbt destroy */
@@ -86,26 +71,7 @@ enum {
 };
 
 struct btmtk_sdio_card_reg {
-	u8 cfg;
-	u8 host_int_mask;
-	u8 host_intstatus;
-	u8 card_status;
-	u8 sq_read_base_addr_a0;
-	u8 sq_read_base_addr_a1;
-	u8 card_revision;
-	u8 card_fw_status0;
-	u8 card_fw_status1;
-	u8 card_rx_len;
-	u8 card_rx_unit;
-	u8 io_port_0;
-	u8 io_port_1;
-	u8 io_port_2;
-	bool int_read_to_clear;
-	u8 host_int_rsr;
-	u8 card_misc_cfg;
-	u8 fw_dump_ctrl;
-	u8 fw_dump_start;
-	u8 fw_dump_end;
+	u8 intr_mask;
 	u8 func_num;
 	u32 chip_id;
 };
@@ -120,7 +86,10 @@ struct btmtk_sdio_card_reg {
 /* Backward compatibility */
 #define WOBLE_SETTING_FILE_NAME "woble_setting.bin"
 #define BT_CFG_NAME "bt.cfg"
+#define BT_CFG_NAME_PREFIX "bt"
+#define BT_CFG_NAME_SUFFIX "cfg"
 #define BT_UNIFY_WOBLE "SUPPORT_UNIFY_WOBLE"
+#define BT_UNIFY_WOBLE_TYPE "UNIFY_WOBLE_TYPE"
 #define BT_LEGACY_WOBLE "SUPPORT_LEGACY_WOBLE"
 #define BT_WOBLE_BY_EINT "SUPPORT_WOBLE_BY_EINT"
 #define BT_DONGLE_RESET_PIN "BT_DONGLE_RESET_GPIO_PIN"
@@ -178,6 +147,7 @@ struct bt_cfg_struct {
 	bool	support_auto_picus;			/* support enable PICUS automatically */
 	struct	fw_cfg_struct picus_filter;	/* support on PICUS filter command customization */
 	int	dongle_reset_gpio_pin;		/* BT_DONGLE_RESET_GPIO_PIN number */
+	unsigned int unify_woble_type;		/* 0: legacy. 1: waveform. 2: IR */
 	char	*sys_log_file_name;
 	char	*fw_dump_file_name;
 	struct	fw_cfg_struct wmt_cmd[WMT_CMD_COUNT];
@@ -186,13 +156,11 @@ struct bt_cfg_struct {
 
 struct btmtk_sdio_card {
 	struct sdio_func *func;
-	u32 ioport;
 	const char *helper;
 	const struct btmtk_sdio_card_reg *reg;
 	bool support_pscan_win_report;
 	bool supports_fw_dump;
 	u16 sd_blksz_fw_dl;
-	u8 rx_unit;
 	bool is_KeepFullPwr;
 	struct btmtk_private *priv;
 
@@ -204,6 +172,7 @@ struct btmtk_sdio_card {
 	struct fw_cfg_struct		woble_setting_apcf_fill_mac_location[WOBLE_SETTING_COUNT];
 
 	struct fw_cfg_struct		woble_setting_radio_off[WOBLE_SETTING_COUNT];
+	struct fw_cfg_struct		woble_setting_wakeup_type[WOBLE_SETTING_COUNT];
 	struct fw_cfg_struct		woble_setting_radio_off_status_event[WOBLE_SETTING_COUNT];
 	/* complete event */
 	struct fw_cfg_struct		woble_setting_radio_off_comp_event[WOBLE_SETTING_COUNT];
@@ -237,6 +206,8 @@ struct btmtk_sdio_card {
 	u8 *bin_file_buffer;
 	size_t bin_file_size;
 	u8 efuse_mode;
+
+	u8 opcode_usr[2];
 
 	struct	sk_buff_head tx_queue;
 	struct	sk_buff_head fops_queue;

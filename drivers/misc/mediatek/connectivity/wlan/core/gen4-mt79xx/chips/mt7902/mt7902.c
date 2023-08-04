@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -105,6 +105,7 @@ struct PCIE_CHIP_CR_MAPPING mt7902_bus2chip_cr_mapping[] = {
 	{0x820ed000, 0x24800, 0x0800},  /* WF_LMAC_TOP BN0 (WF_MIB) */
 	{0x820ca000, 0x26000, 0x2000},  /* WF_LMAC_TOP BN0 (WF_MUCOP) */
 	{0x820d0000, 0x30000, 0x10000}, /* WF_LMAC_TOP (WF_WTBLON) */
+	{0x88000000, 0x40000, 0x10000}, /* CONN_MCU_CONFG_LS */
 	{0x40000000, 0x70000, 0x10000}, /* WF_UMAC_SYSRAM */
 	{0x00400000, 0x80000, 0x10000}, /* WF_MCU_SYSRAM */
 	{0x00410000, 0x90000, 0x10000}, /* WF_MCU_SYSRAM (configure register) */
@@ -1093,7 +1094,7 @@ int32_t mt7902CoDlPatchIsDownloaded(IN struct ADAPTER *prAdapter,
 
 		if (u4Count > 50) {
 			DBGLOG(INIT, WARN, "Patch status check timeout!!\n");
-			break;
+			goto out;
 		}
 	}
 
@@ -1366,6 +1367,11 @@ uint32_t mt7902ConstructBufferBinFileName(struct ADAPTER *prAdapter,
 u_int8_t mt7902GetRxDbgInfoSrc(struct ADAPTER *prAdapter)
 {
 	return TRUE;
+}
+
+uint32_t mt7902GetDongleType(struct ADAPTER *prAdapter)
+{
+	return MT7902_CHIP_ID;
 }
 
 struct BUS_INFO mt7902_bus_info = {
@@ -1660,6 +1666,8 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7902 = {
 #endif
 
 	.loadCfgSetting = NULL,
+	.getDongleType = mt7902GetDongleType,
+
 };
 
 struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902 = {

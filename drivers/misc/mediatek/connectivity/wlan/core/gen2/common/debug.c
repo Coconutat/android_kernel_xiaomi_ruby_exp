@@ -1021,7 +1021,7 @@ VOID wlanTraceReleaseTcRes(P_ADAPTER_T prAdapter, PUINT_8 aucTxRlsCnt, UINT_8 uc
 }
 VOID wlanDumpTxReleaseCount(P_ADAPTER_T prAdapter)
 {
-	UINT_32 au4WTSR[2];
+	UINT_32 au4WTSR[2] = { 0 };
 
 	HAL_READ_TX_RELEASED_COUNT(prAdapter, au4WTSR);
 	DBGLOG(TX, INFO, "WTSR[1]=%d, WTSR[0]=%d\n", au4WTSR[1], au4WTSR[0]);

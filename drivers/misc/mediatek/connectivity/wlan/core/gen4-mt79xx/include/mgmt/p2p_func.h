@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -397,7 +397,8 @@ uint8_t p2pFunGetAcsBestCh(IN struct ADAPTER *prAdapter,
 		IN uint32_t u4LteSafeChnMask_5G_1,
 		IN uint32_t u4LteSafeChnMask_5G_2);
 
-#if (CFG_SUPPORT_P2PGO_ACS == 1)
+#if (CFG_SUPPORT_P2PGO_ACS == 1 ||\
+	CFG_SUPPORT_P2P_CSA_ACS == 1)
 void p2pFunGetAcsBestChList(IN struct ADAPTER *prAdapter,
 		IN uint8_t eBand,
 		IN enum ENUM_MAX_BANDWIDTH_SETTING eChnlBw,
@@ -440,8 +441,21 @@ uint8_t p2pFuncIsBufferableMMPDU(IN struct ADAPTER *prAdapter,
 
 #endif
 
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+void p2pFuncSetCsaChnlScanReq(IN struct ADAPTER *prAdapter);
+#endif
+
 #if CFG_AP_80211KVR_INTERFACE
 void p2pFunMulAPAgentBssStatusNotification(
 		IN struct ADAPTER *prAdapter,
 		IN struct BSS_INFO *prBssInfo);
+#endif
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+void p2pFuncSwitchGcChannel(struct ADAPTER *prAdapter,
+		struct BSS_INFO *prP2pBssInfo);
+#endif
+
+#if CFG_POWER_OFF_CTRL_SUPPORT
+void p2pFuncPreReboot(void);
 #endif

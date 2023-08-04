@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -137,6 +137,22 @@
 
 /* wifi type: 11g, 11n, ... */
 #define  PRIV_CMD_GET_WIFI_TYPE		41
+
+/* fos_change begin */
+#define PRIV_CMD_CONNSTATUS			42
+#if CFG_SUPPORT_STAT_STATISTICS
+#define PRIV_CMD_STAT				43
+#endif
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+#define PRIV_CMD_INT_STAT			44
+#endif
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+#define PRIV_CMD_EXCEPTION_STAT		45
+#endif
+#define PRIV_CMD_SHOW_CHANNEL		46
+
+#define PRIV_CMD_GET_BAND_WIDTH		51
+/* fos_change end */
 
 /* 802.3 Objects (Ethernet) */
 #define OID_802_3_CURRENT_ADDRESS           0x01010102
@@ -377,6 +393,10 @@ enum AGG_RANGE_TYPE_T {
 	ENUM_AGG_RANGE_TYPE_RX = 2
 };
 
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+extern struct WIFI_ON_TIME_STATISTICS wifiOnTimeStatistics;
+extern void updateWifiOnTimeStatistics(void);
+#endif
 /*******************************************************************************
  *			P U B L I C   D A T A
  *******************************************************************************
@@ -431,6 +451,13 @@ priv_get_struct(IN struct net_device *prNetDev,
 uint8_t CmdString2HexParse(IN uint8_t *InStr,
 			   OUT uint8_t **OutStr, OUT uint8_t *OutLen);
 #endif
+
+/* fos_change begin */
+int
+priv_get_string(IN struct net_device *prNetDev,
+		IN struct iw_request_info *prIwReqInfo,
+		IN union iwreq_data *prIwReqData, IN OUT char *pcExtra);
+/* fos_change end */
 
 int
 priv_set_driver(IN struct net_device *prNetDev,

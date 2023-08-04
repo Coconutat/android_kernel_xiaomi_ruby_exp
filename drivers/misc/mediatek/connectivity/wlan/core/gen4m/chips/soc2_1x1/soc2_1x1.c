@@ -82,6 +82,17 @@ void soc2_1x1ShowHifInfo(IN struct ADAPTER *prAdapter)
 {
 	uint32_t u4Value = 0;
 
+	wf_ioremap_write(SOC2_1X1_CONN_HIF_ON_BASE,
+		SOC2_1X1_CONSYS_CLOCK_CHECK_VALUE);
+	udelay(200);
+	wf_ioremap_read(SOC2_1X1_CONN_HIF_ON_BASE, &u4Value);
+	if (!((u4Value & SOC2_1X1_CONSYS_HCLK_CHECK_BIT) &&
+		(u4Value & SOC2_1X1_CONSYS_OSCCLK_CHECK_BIT))) {
+		DBGLOG(HAL, INFO,
+			"consys_check_reg_readable: fail 0x%08x\n", u4Value);
+		return;
+	}
+
 	/* conn2ap axi master sleep info */
 	HAL_MCR_RD(prAdapter, 0xBC010, &u4Value);
 	DBGLOG(HAL, INFO,
@@ -121,7 +132,7 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[2] = {0};
 	int ret = 0;
 
-	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
+	kalGetFwFlavor(&aucFlavor[0]);
 	for (ucIdx = 0; apucSoc2_1x1FwName[ucIdx]; ucIdx++) {
 		if ((*pucNameIdx + 3) >= ucMaxNameIdx) {
 			/* the table is not large enough */
@@ -138,8 +149,7 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucSoc2_1x1FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				wlanGetEcoVersion(
-					prGlueInfo->prAdapter));
+				1);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -154,8 +164,7 @@ void soc2_1x1ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucSoc2_1x1FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				wlanGetEcoVersion(
-					prGlueInfo->prAdapter));
+				1);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -303,6 +312,7 @@ struct ATE_OPS_T soc2_1x1AteOps = {
 	.getICapStatus = connacGetICapStatus,
 	.getICapIQData = connacGetICapIQData,
 	.getRbistDataDumpEvent = nicExtEventICapIQData,
+	.u4Architech = 1,
 };
 #endif
 
@@ -316,8 +326,8 @@ struct CHIP_DBG_OPS soc2_1x1_debug_ops = {
 	.showDmaschInfo = halShowDmaschInfo,
 	.dumpMacInfo = haldumpMacInfo,
 	.dumpTxdInfo = halDumpTxdInfo,
-	.getFwDebug = halGetPleInt,
-	.setFwDebug = halSetPleInt,
+	.getFwDebug = NULL,
+	.setFwDebug = NULL,
 	.showHifInfo = soc2_1x1ShowHifInfo,
 #else
 	.showPdmaInfo = NULL,
@@ -389,6 +399,9 @@ struct mt66xx_chip_info mt66xx_chip_info_soc2_1x1 = {
 	.em_interface_version = MTK_EM_INTERFACE_VERSION,
 
 	.calDebugCmd = soc2_1x1wlanCalDebugCmd,
+#if CFG_SUPPORT_MDDP_AOR
+	.isSupportMddpAOR = true,
+#endif
 };
 
 struct mt66xx_hif_driver_data mt66xx_driver_data_soc2_1x1 = {

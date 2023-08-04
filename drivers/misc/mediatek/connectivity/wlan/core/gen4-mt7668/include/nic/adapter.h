@@ -253,6 +253,7 @@ typedef struct _CONNECTION_SETTINGS_T {
 	struct OWE_INFO_T rOweInfo;
 #endif
 	struct LINK_MGMT rBlackList;
+	struct RSNXE rRsnXE;
 } CONNECTION_SETTINGS_T, *P_CONNECTION_SETTINGS_T;
 
 struct _BSS_INFO_T {
@@ -710,6 +711,7 @@ typedef struct _WIFI_VAR_T {
 	UINT_8 ucP2pGoVht;
 	UINT_8 ucP2pGcHt;
 	UINT_8 ucP2pGcVht;
+	UINT_8 ucDisP2pPs;
 
 	UINT_8 ucAmpduTx;
 	UINT_8 ucAmpduRx;
@@ -916,7 +918,7 @@ typedef struct _WIFI_VAR_T {
 typedef struct {
 	LINK_T rLinkHead;
 	OS_SYSTIME rNextExpiredSysTime;
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T rWakeLock;
 #endif
 	BOOLEAN fgWakeLocked;
@@ -1393,6 +1395,7 @@ struct _ADAPTER_T {
 #if (CFG_HW_WMM_BY_BSS == 1)
 	UINT_8 ucHwWmmEnBit;
 #endif
+	unsigned long ulSuspendFlag;
 	WIFI_FEM_CFG_T rWifiFemCfg;
 
 	UINT_8 ucRModeOnlyFlag;
@@ -1416,6 +1419,8 @@ struct _ADAPTER_T {
 *                           P R I V A T E   D A T A
 ********************************************************************************
 */
+#define SUSPEND_FLAG_FOR_WAKEUP_REASON (0)
+#define SUSPEND_FLAG_CLEAR_WHEN_RESUME (1)
 
 /*******************************************************************************
 *                                 M A C R O S

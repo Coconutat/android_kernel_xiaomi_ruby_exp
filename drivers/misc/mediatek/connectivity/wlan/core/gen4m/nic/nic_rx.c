@@ -420,6 +420,30 @@ void nicRxFillRFB(IN struct ADAPTER *prAdapter,
 			__func__);
 }
 
+/**
+ * nicRxProcessRxv() - function to parse RXV for rate information
+ * @prAdapter: pointer to adapter
+ * @prSwRfb: RFB of received frame
+ *
+ * If parsed data will be saved in
+ * prAdapter->arStaRec[prSwRfb->ucStaRecIdx].u4RxVector[*], then can be used
+ * for calling wlanGetRxRate().
+ */
+static void nicRxProcessRxv(IN struct ADAPTER *prAdapter,
+		IN struct SW_RFB *prSwRfb)
+{
+#if (CFG_SUPPORT_MSP == 1)
+	struct mt66xx_chip_info *prChipInfo;
+
+	prChipInfo = prAdapter->chip_info;
+
+	if (!prChipInfo || !prChipInfo->asicRxProcessRxvforMSP)
+		return;
+
+	prChipInfo->asicRxProcessRxvforMSP(prAdapter, prSwRfb);
+#endif /* CFG_SUPPORT_MSP == 1 */
+}
+
 #if CFG_TCP_IP_CHKSUM_OFFLOAD || CFG_TCP_IP_CHKSUM_OFFLOAD_NDIS_60
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1161,7 +1185,7 @@ void nicRxProcessPktWithoutReorder(IN struct ADAPTER
 	if (kalProcessRxPacket(prAdapter->prGlueInfo,
 			       prSwRfb->pvPacket,
 			       prSwRfb->pvHeader,
-			       (uint32_t) prSwRfb->u2PacketLen, fgIsRetained,
+			       (uint32_t) prSwRfb->u2PacketLen,
 			       prSwRfb->aeCSUM) != WLAN_STATUS_SUCCESS) {
 		DBGLOG(RX, ERROR,
 		       "kalProcessRxPacket return value != WLAN_STATUS_SUCCESS\n");
@@ -1300,12 +1324,10 @@ void nicRxProcessForwardPkt(IN struct ADAPTER *prAdapter,
 
 	if (prMsduInfo &&
 	    kalProcessRxPacket(prAdapter->prGlueInfo,
-			       prSwRfb->pvPacket,
-			       prSwRfb->pvHeader,
-			       (uint32_t) prSwRfb->u2PacketLen,
-			       prRxCtrl->rFreeSwRfbList.u4NumElem <
-			       CFG_RX_RETAINED_PKT_THRESHOLD ? TRUE : FALSE,
-			       prSwRfb->aeCSUM) == WLAN_STATUS_SUCCESS) {
+			prSwRfb->pvPacket,
+			prSwRfb->pvHeader,
+			(uint32_t) prSwRfb->u2PacketLen,
+			prSwRfb->aeCSUM) == WLAN_STATUS_SUCCESS) {
 
 		/* parsing forward frame */
 		wlanProcessTxFrame(prAdapter, (void *) (prSwRfb->pvPacket));
@@ -1454,9 +1476,10 @@ void nicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	struct mt66xx_chip_info *prChipInfo;
 
 	prChipInfo = prAdapter->chip_info;
-	if (prChipInfo->asicRxPerfIndProcessRXV)
-		prChipInfo->asicRxPerfIndProcessRXV(
-			prAdapter, prSwRfb, ucBssIndex);
+	if (!prChipInfo || !prChipInfo->asicRxPerfIndProcessRXV)
+		return;
+
+	prChipInfo->asicRxPerfIndProcessRXV(prAdapter, prSwRfb, ucBssIndex);
 	/* else { */
 		/* print too much, remove for system perfomance */
 		/* DBGLOG(RX, ERROR, "%s: no asicRxPerfIndProcessRXV ??\n", */
@@ -1635,18 +1658,20 @@ void nicRxIndicatePackets(IN struct ADAPTER *prAdapter,
 	struct mt66xx_chip_info *prChipInfo;
 	struct SW_RFB *prRetSwRfb, *prNextSwRfb;
 	struct STA_RECORD *prStaRec;
+	uint8_t ucBssIndex;
 
 	prRxCtrl = &prAdapter->rRxCtrl;
 	prChipInfo = prAdapter->chip_info;
 	prRetSwRfb = prSwRfbListHead;
 
 	while (prRetSwRfb) {
-#if (CFG_SUPPORT_MSP == 1)
-		/* collect RXV information */
-		if (prChipInfo->asicRxProcessRxvforMSP)
-			prChipInfo->asicRxProcessRxvforMSP(
-				prAdapter, prRetSwRfb);
-#endif /* CFG_SUPPORT_MSP == 1 */
+		/**
+		 * Collect RXV information,
+		 * prAdapter->arStaRec[i].u4RxVector[*] updated.
+		 * wlanGetRxRate() can get new rate values
+		 */
+		nicRxProcessRxv(prAdapter, prRetSwRfb);
+
 /* fos_change begin */
 #if CFG_SUPPORT_STAT_STATISTICS
 		nicRxGetNoiseLevelAndLastRate(prAdapter, prRetSwRfb);
@@ -1667,6 +1692,8 @@ void nicRxIndicatePackets(IN struct ADAPTER *prAdapter,
 		case RX_PKT_DESTINATION_HOST:
 			prStaRec = cnmGetStaRecByIndex(prAdapter,
 					prRetSwRfb->ucStaRecIdx);
+			if (prStaRec)
+				ucBssIndex = prStaRec->ucBssIndex;
 #if ARP_MONITER_ENABLE
 			if (prStaRec &&
 				IS_STA_IN_AIS(prStaRec)) {
@@ -1693,58 +1720,11 @@ void nicRxIndicatePackets(IN struct ADAPTER *prAdapter,
 			}
 #endif
 #endif /* CFG_SUPPORT_WIFI_SYSDVT */
-			if (prStaRec &&
-			prStaRec->ucBssIndex < MAX_BSSID_NUM) {
+			if (prStaRec && ucBssIndex < MAX_BSSID_NUM) {
 				GET_BOOT_SYSTIME(
-					&prRxCtrl->u4LastRxTime
-					[prStaRec->ucBssIndex]);
-
-#if ARP_MONITER_ENABLE
-				{
-					uint16_t u2Ipid = 0;
-					struct sk_buff *skb = NULL;
-					uint8_t *pucEthDestAddr = NULL;
-					uint8_t ucIsBMC = FALSE;
-					uint8_t rSrcMacAddr[MAC_ADDR_LEN];
-
-					/* Get the src mac & ipid & bmc of the packet */
-					if (prRetSwRfb->pvHeader) {
-						skb = (struct sk_buff *)(prRetSwRfb->pvPacket);
-						if (skb) {
-							 u2Ipid = GLUE_GET_PKT_IP_ID(skb);
-						}
-						pucEthDestAddr = prRetSwRfb->pvHeader;
-						if (pucEthDestAddr) {
-							 ucIsBMC = IS_BMCAST_MAC_ADDR(pucEthDestAddr);
-						}
-						qmGetRxSrcMac(prAdapter, prRetSwRfb, &rSrcMacAddr[0]);
-					}
-
-					DBGLOG(INIT, LOUD, "RX GatewayMac:" MACSTR " SrcMac:" MACSTR "\n",
-						MAC2STR(aucGatewayMacAddr),
-						MAC2STR(&rSrcMacAddr[0]));
-
-					/* update last rx unicast time while ptk is unicast and send via gateway */
-					if (!(prRetSwRfb->fgIsBC || prRetSwRfb->fgIsMC || ucIsBMC)) {
-						uint32_t u4LastUnicastRxTime = prRxCtrl->u4LastUnicastRxTime[prStaRec->ucBssIndex];
-						if (EQUAL_MAC_ADDR(&rSrcMacAddr[0], aucGatewayMacAddr)) {
-							prRxCtrl->u4LastUnicastRxTime[prStaRec->ucBssIndex] =
-								prRxCtrl->u4LastRxTime[prStaRec->ucBssIndex];
-							DBGLOG(NIC, LOUD,
-								"RX UNICAST [IsBC=%d, IsMC=%d IsBMC=%d IPID=0x%04x] update %u/%u \n",
-								prRetSwRfb->fgIsBC,
-								prRetSwRfb->fgIsMC,
-								ucIsBMC,
-								u2Ipid,
-								u4LastUnicastRxTime,
-								prRxCtrl->u4LastUnicastRxTime[prStaRec->ucBssIndex]);
-						}
-					}
-				}
-#endif
+					&prRxCtrl->u4LastRxTime[ucBssIndex]);
 			}
-			nicRxProcessPktWithoutReorder(
-				prAdapter, prRetSwRfb);
+			nicRxProcessPktWithoutReorder(prAdapter, prRetSwRfb);
 			break;
 
 		case RX_PKT_DESTINATION_FORWARD:
@@ -4705,12 +4685,7 @@ uint32_t nicRxProcessActionFrame(IN struct ADAPTER *
 				aisFuncValidateRxActionFrame(prAdapter,
 					prSwRfb);
 #else
-#if CFG_SUPPORT_LOWLATENCY_MODE
-			if(prAdapter->fgEnLowLatencyMode)
-		    		DBGLOG(RLM, INFO, "Gaming mode. stop rrm scan. \n");
-			else
-#endif
-		 	rrmProcessRadioMeasurementRequest(prAdapter, prSwRfb);
+			rrmProcessRadioMeasurementRequest(prAdapter, prSwRfb);
 #endif
 			break;
 		case RM_ACTION_REIGHBOR_RESPONSE:

@@ -941,7 +941,11 @@ static void bgfsys_dump_conn_wt_slp_ctrl_reg(void)
 	if (base) {
 		for(i = 0x20; i <= 0x34; i+=4) {
 			ret = snprintf(pos, (end - pos + 1), "0x%08x = [0x%08x]", 0x18005100 + i, REG_READL(base + i));
-			pos += ret;
+			if (ret < 0 || ret >= (end - pos + 1)) {
+				BTMTK_ERR("snprintf 0x18005100 fail");
+			} else {
+				pos += ret;
+			}
 		}
 		iounmap(base);
 	} else
@@ -950,7 +954,11 @@ static void bgfsys_dump_conn_wt_slp_ctrl_reg(void)
 	base = ioremap(0x180050A8, 0x10);
 	if (base) {
 		ret = snprintf(pos, (end - pos + 1), " 0x180050A8 = [0x%08x]", REG_READL(base));
-		pos += ret;
+		if (ret < 0 || ret >= (end - pos + 1)) {
+			BTMTK_ERR("snprintf 0x180050A8 fail");
+		} else {
+			pos += ret;
+		}
 		iounmap(base);
 	} else
 		BTMTK_ERR("%s: remapping 0x180050A8 fail", __func__);

@@ -688,16 +688,42 @@ unsigned int _cfg80211_classify8021d(struct sk_buff *skb)
 }
 #endif
 
-UINT_16 wlanSelectQueue(struct net_device *dev, struct sk_buff *skb,
-			void *accel_priv, select_queue_fallback_t fallback)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    struct net_device *sb_dev)
 {
-	UINT_16 au16Wlan1dToQueueIdx[8] = { 1, 0, 0, 1, 2, 2, 3, 3 };
-
-	/* Use Linux wireless utility function */
-	skb->priority = cfg80211_classify8021d(skb, NULL);
-
-	return au16Wlan1dToQueueIdx[skb->priority];
+	return mtk_wlan_ndev_select_queue(skb);
 }
+#elif KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    struct net_device *sb_dev, select_queue_fallback_t fallback)
+{
+	return mtk_wlan_ndev_select_queue(skb);
+}
+#elif KERNEL_VERSION(3, 14, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    void *accel_priv, select_queue_fallback_t fallback)
+{
+	return mtk_wlan_ndev_select_queue(skb);
+}
+#elif KERNEL_VERSION(3, 13, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    void *accel_priv)
+{
+	return mtk_wlan_ndev_select_queue(skb);
+}
+#else
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb)
+{
+	return mtk_wlan_ndev_select_queue(skb);
+}
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief A method of struct net_device, to set the randomized mac address
@@ -1812,19 +1838,19 @@ static void destroyWirelessDevice(void)
 
 VOID wlanWakeLockInit(P_GLUE_INFO_T prGlueInfo)
 {
-	KAL_WAKE_LOCK_INIT(NULL, &prGlueInfo->rIntrWakeLock, "WLAN interrupt");
-	KAL_WAKE_LOCK_INIT(NULL, &prGlueInfo->rTimeoutWakeLock, "WLAN timeout");
+	KAL_WAKE_LOCK_INIT(NULL, prGlueInfo->rIntrWakeLock, "WLAN interrupt");
+	KAL_WAKE_LOCK_INIT(NULL, prGlueInfo->rTimeoutWakeLock, "WLAN timeout");
 }
 
 VOID wlanWakeLockUninit(P_GLUE_INFO_T prGlueInfo)
 {
-	if (KAL_WAKE_LOCK_ACTIVE(NULL, &prGlueInfo->rIntrWakeLock))
-		KAL_WAKE_UNLOCK(NULL, &prGlueInfo->rIntrWakeLock);
-	KAL_WAKE_LOCK_DESTROY(NULL, &prGlueInfo->rIntrWakeLock);
+	if (KAL_WAKE_LOCK_ACTIVE(NULL, prGlueInfo->rIntrWakeLock))
+		KAL_WAKE_UNLOCK(NULL, prGlueInfo->rIntrWakeLock);
+	KAL_WAKE_LOCK_DESTROY(NULL, prGlueInfo->rIntrWakeLock);
 
-	if (KAL_WAKE_LOCK_ACTIVE(NULL, &prGlueInfo->rTimeoutWakeLock))
-		KAL_WAKE_UNLOCK(NULL, &prGlueInfo->rTimeoutWakeLock);
-	KAL_WAKE_LOCK_DESTROY(NULL, &prGlueInfo->rTimeoutWakeLock);
+	if (KAL_WAKE_LOCK_ACTIVE(NULL, prGlueInfo->rTimeoutWakeLock))
+		KAL_WAKE_UNLOCK(NULL, prGlueInfo->rTimeoutWakeLock);
+	KAL_WAKE_LOCK_DESTROY(NULL, prGlueInfo->rTimeoutWakeLock);
 }
 
 /*----------------------------------------------------------------------------*/

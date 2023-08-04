@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -2132,9 +2132,55 @@ u_int32_t rlmDomainAlpha2ToU32(char *pcAlpha2, u_int8_t ucAlpha2Size)
 	return u4CountryCode;
 }
 
-
-
 #if (CFG_SUPPORT_SINGLE_SKU_LOCAL_DB == 1)
+#if CFG_SUPPORT_CFG80211_QUEUE
+static void wlanRegSetAddToCfg80211Queue(struct wiphy *pWiphy,
+				const struct ieee80211_regdomain *pRegdom)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct net_device *prDev = gPrDev;
+	struct PARAM_CFG80211_REQ *prCfg80211Req = NULL;
+
+	GLUE_SPIN_LOCK_DECLARATION();
+
+	prGlueInfo = (prDev != NULL) ? *((struct GLUE_INFO **)
+					 netdev_priv(prDev)) : NULL;
+	if (!prGlueInfo) {
+		DBGLOG(SCN, INFO, "prGlueInfo == NULL unexpected\n");
+		return;
+	}
+
+	prCfg80211Req = (struct PARAM_CFG80211_REQ *) kalMemAlloc(
+			sizeof(struct PARAM_CFG80211_REQ), PHY_MEM_TYPE);
+	DBGLOG(REQ, TRACE, "Alloc prCfg80211Req %p\n", prCfg80211Req);
+
+	if (prCfg80211Req == NULL) {
+		DBGLOG(REQ, ERROR, "prCfg80211Req Alloc Failed\n");
+		return;
+	}
+
+	/* just use cfg80211 queue to set reg */
+	prCfg80211Req->prFrame = NULL;
+	prCfg80211Req->ucFlagTx = REG_SET;
+	prCfg80211Req->prWiphy = pWiphy;
+	prCfg80211Req->prRegdom = pRegdom;
+
+	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_CFG80211_QUE);
+	QUEUE_INSERT_TAIL(&prGlueInfo->prAdapter->rCfg80211Queue,
+				&prCfg80211Req->rQueEntry);
+	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_CFG80211_QUE);
+
+	if (!schedule_delayed_work(&cfg80211_workq, 0))
+		DBGLOG(RLM, INFO, "work is already in cfg80211_workq\n");
+}
+#else
+static void wlanRegSetAddToCfg80211Queue(struct wiphy *pWiphy,
+				const struct ieee80211_regdomain *pRegdom)
+{
+	DBGLOG(RLM, WARN, "NOT SUPPORT CFG80211 QUEUE\n");
+}
+#endif /* CFG_SUPPORT_CFG80211_QUEUE */
+
 u_int32_t rlmDomainUpdateRegdomainFromaLocalDataBaseByCountryCode(
 	struct wiphy *pWiphy,
 	u_int32_t u4CountryCode
@@ -2155,7 +2201,8 @@ u_int32_t rlmDomainUpdateRegdomainFromaLocalDataBaseByCountryCode(
 		u4FinalCountryCode = COUNTRY_CODE_WW;
 	}
 
-	kalApplyCustomRegulatory(pWiphy, pRegdom);
+	wlanRegSetAddToCfg80211Queue(pWiphy, pRegdom);
+	DBGLOG(RLM, INFO, "add reg set to CFG80211 QUEUE\n");
 
 	return u4FinalCountryCode;
 }
@@ -2167,7 +2214,7 @@ u_int32_t rlmDomainUpdateRegdomainFromaLocalDataBaseByCountryCode(
 {
 	return 0;
 }
-#endif
+#endif /* CFG_SUPPORT_SINGLE_SKU_LOCAL_DB */
 
 uint8_t
 rlmDomainCountryCodeUpdateSanity(
@@ -6070,8 +6117,8 @@ int32_t txPwrParseTagXXXT(char *pStart, char *pEnd, uint8_t cTagParaNum,
 
 	if (i != cTagParaNum) {
 		DBGLOG(RLM, ERROR, "parameter number error: %s\n", pStart);
-		for (j = 0; j < POWER_ANT_NUM; j++) {
-			kalMemSet(&pRecord->aiPwrAnt[eTag], 0,
+		for (j = 0; j < POWER_ANT_TAG_NUM; j++) {
+			kalMemSet(&pRecord->aiPwrAnt[j], 0,
 				sizeof(struct TX_PWR_CTRL_ANT_SETTING));
 		}
 		return -1;
@@ -6289,7 +6336,7 @@ struct TX_PWR_CTRL_ELEMENT *txPwrCtrlStringToStruct(char *pcContent,
 		       pcContOld);
 		return NULL;
 	}
-	if ((op != 1) || (value < 0)) {
+	if (op != 1) {
 		DBGLOG(RLM, ERROR,
 		       "parse scenario sub index error: op=%u, val=%d\n",
 		       op, value);
@@ -6505,6 +6552,12 @@ skipLabel:
 		else {
 			pcContCur2 = pcContTmp;
 			pcContTmp = txPwrGetString(&pcContCur2, "-");
+			if (pcContTmp == NULL) {
+				DBGLOG(RLM, ERROR,
+					"parse channel pcContTmp NULL\n");
+				goto clearLabel;
+			}
+
 			if (pcContCur2 == NULL) { /* case: normal channel */
 				if (kalkStrtou8(pcContTmp, 0, &value) != 0) {
 					DBGLOG(RLM, ERROR,
@@ -6709,35 +6762,32 @@ void txPwrCtrlShowList(struct ADAPTER *prAdapter, uint8_t filterType,
 			       prCurElement->settingCount);
 			prChlSettingList = &(prCurElement->rChlSettingList[0]);
 			for (j = 0; j < prCurElement->settingCount; j++) {
-				/* Coverity check */
-				if (prChlSettingList->eChnlType >= 0) {
-					DBGLOG(RLM, TRACE,
-					       "Setting-%u:[%s:%u,%u],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d]\n",
-					       (j + 1),
-					       g_au1TxPwrChlTypeLabel[
-						prChlSettingList->eChnlType],
-						prChlSettingList->channelParam[0],
-						prChlSettingList->channelParam[1],
-						prChlSettingList->op[0],
-						prChlSettingList->i8PwrLimit[0],
-						prChlSettingList->op[1],
-						prChlSettingList->i8PwrLimit[1],
-						prChlSettingList->op[2],
-						prChlSettingList->i8PwrLimit[2],
-						prChlSettingList->op[3],
-						prChlSettingList->i8PwrLimit[3],
-						prChlSettingList->op[4],
-						prChlSettingList->i8PwrLimit[4],
-						prChlSettingList->op[5],
-						prChlSettingList->i8PwrLimit[5],
-						prChlSettingList->op[6],
-						prChlSettingList->i8PwrLimit[6],
-						prChlSettingList->op[7],
-						prChlSettingList->i8PwrLimit[7],
-						prChlSettingList->op[8],
-						prChlSettingList->i8PwrLimit[8]
-					);
-				}
+				DBGLOG(RLM, TRACE,
+					"Setting-%u:[%s:%u,%u],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d],[%u,%d]\n",
+					(j + 1),
+					g_au1TxPwrChlTypeLabel[
+					(uint32_t)prChlSettingList->eChnlType],
+					prChlSettingList->channelParam[0],
+					prChlSettingList->channelParam[1],
+					prChlSettingList->op[0],
+					prChlSettingList->i8PwrLimit[0],
+					prChlSettingList->op[1],
+					prChlSettingList->i8PwrLimit[1],
+					prChlSettingList->op[2],
+					prChlSettingList->i8PwrLimit[2],
+					prChlSettingList->op[3],
+					prChlSettingList->i8PwrLimit[3],
+					prChlSettingList->op[4],
+					prChlSettingList->i8PwrLimit[4],
+					prChlSettingList->op[5],
+					prChlSettingList->i8PwrLimit[5],
+					prChlSettingList->op[6],
+					prChlSettingList->i8PwrLimit[6],
+					prChlSettingList->op[7],
+					prChlSettingList->i8PwrLimit[7],
+					prChlSettingList->op[8],
+					prChlSettingList->i8PwrLimit[8]
+				);
 				prChlSettingList++;
 			}
 		}
@@ -7212,8 +7262,6 @@ void debug_write_txPwrCtrlStringToStruct(char *pcContent)
 		if (!prAdapter)
 			return;
 		temp = pcContent + kalStrLen("dumpElement,");
-		if (!temp)
-			return;
 		name = txPwrGetString(&temp, ",");
 		if ((!name) || (!temp))
 			return;
@@ -7730,25 +7778,37 @@ bool rlmDomainIsEfuseUsed(void)
 	return g_mtk_regd_control.isEfuseCountryCodeUsed;
 }
 
-uint8_t rlmDomainGetChannelBw(uint8_t channelNum)
+uint8_t rlmDomainGetChannelBw(enum ENUM_BAND eBand, uint8_t channelNum)
 {
 	uint32_t ch_idx = 0, start_idx = 0, end_idx = 0;
 	uint8_t channelBw = MAX_BW_80_80_MHZ;
 	struct CMD_DOMAIN_CHANNEL *pCh;
+	enum ENUM_BAND eChBand;
 
-#if (CFG_SUPPORT_WIFI_6G == 1)
 	end_idx = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ)
 			+ rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ)
-			+ rlmDomainGetActiveChannelCount(KAL_BAND_6GHZ);
-#else
-	end_idx = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ)
-			+ rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ);
+#if (CFG_SUPPORT_WIFI_6G == 1)
+			+ rlmDomainGetActiveChannelCount(KAL_BAND_6GHZ)
 #endif
+		;
 
 	for (ch_idx = start_idx; ch_idx < end_idx; ch_idx++) {
 		pCh = (rlmDomainGetActiveChannels() + ch_idx);
 
-		if (pCh->u2ChNum != channelNum)
+		if (ch_idx < rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ))
+			eChBand = BAND_2G4;
+#if (CFG_SUPPORT_WIFI_6G == 1)
+		else if (ch_idx < rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ)
+			+ rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ))
+			eChBand = BAND_5G;
+		else
+			eChBand = BAND_6G;
+#else
+		else
+			eChBand = BAND_5G;
+#endif
+
+		if ((eChBand != eBand) || (pCh->u2ChNum != channelNum))
 			continue;
 
 		/* Max BW */

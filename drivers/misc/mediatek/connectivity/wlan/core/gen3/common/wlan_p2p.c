@@ -302,6 +302,13 @@ wlanoidSetAddP2PKey(IN P_ADAPTER_T prAdapter,
 		prStaRec = cnmGetStaRecByAddress(prAdapter, rCmdKey.ucBssIdx, rCmdKey.aucPeerAddr);
 	}
 
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	if (rCmdKey.ucKeyType && prStaRec) {
+		/* clear fragment cache when p2p rekey. */
+		nicRxClearFrag(prAdapter, prStaRec);
+	}
+#endif
+
 #if CFG_SUPPORT_802_11W
 	/* AP PMF */
 	if (rCmdKey.ucAlgorithmId == CIPHER_SUITE_BIP) {
@@ -881,6 +888,7 @@ wlanoidSetP2PMulticastList(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+	kalMemZero(&rCmdMacMcastAddr, sizeof(rCmdMacMcastAddr));
 
 	/* The data must be a multiple of the Ethernet address size. */
 	if ((u4SetBufferLen % MAC_ADDR_LEN)) {

@@ -1332,6 +1332,9 @@ int mtk_cfg80211_vendor_enable_roaming(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
+	if ((data == NULL) || (data_len == 0))
+		return -EINVAL;
+
 	if (wdev == gprWdev) /*wlan0*/
 		prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	else

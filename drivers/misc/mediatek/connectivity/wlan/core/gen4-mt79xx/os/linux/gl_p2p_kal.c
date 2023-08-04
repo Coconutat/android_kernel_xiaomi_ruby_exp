@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1543,6 +1543,7 @@ kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
 		IN u_int8_t fgIsNew)
 {
 	struct GL_P2P_INFO *prP2pGlueInfo = (struct GL_P2P_INFO *) NULL;
+	struct BSS_INFO *prBssInfo = NULL;
 
 	do {
 		if ((prGlueInfo == NULL) || (prCliStaRec == NULL)
@@ -1586,7 +1587,16 @@ kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
 			 *    check GLUE_FLAG_HALT is the temporarily solution.
 			 */
 			if ((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 0) {
-				if (prCliStaRec->fgIsConnected == FALSE)
+				prBssInfo = GET_BSS_INFO_BY_INDEX(
+					prGlueInfo->prAdapter,
+					prCliStaRec->ucBssIndex);
+
+				/* sae hostapd new_sta, when auth fail,
+				 * driver need del_sta
+				 */
+				if (prCliStaRec->fgIsConnected == FALSE &&
+				    prBssInfo->u4RsnSelectedAKMSuite !=
+							RSN_AKM_SUITE_SAE)
 					break;
 				prCliStaRec->fgIsConnected = FALSE;
 				cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
@@ -2366,7 +2376,11 @@ void kalP2pIndicateChnlSwitch(IN struct ADAPTER *prAdapter,
 
 	cfg80211_ch_switch_notify(
 		prNetdevice,
-		prP2PInfo->chandef);
+		prP2PInfo->chandef
+#if (CFG_ADVANCED_80211_MLO == 1)
+		, 0
+#endif
+		);
 	netif_carrier_on(prNetdevice);
 	netif_tx_start_all_queues(prNetdevice);
 }

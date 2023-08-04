@@ -3233,7 +3233,7 @@ TdlsLinkHistoryRecordUpdate(GLUE_INFO_T *prGlueInfo,
 	UINT32 u4Tid;
 
 	/* sanity check */
-	if ((eFmeStatus < TDLS_HOST_EVENT_SF_BA) || (eFmeStatus > TDLS_HOST_EVENT_SF_BA_RSP_DECLINE)) {
+	if (eFmeStatus > TDLS_HOST_EVENT_SF_BA_RSP_DECLINE) {
 		/* do not care these frames */
 		return;
 	}

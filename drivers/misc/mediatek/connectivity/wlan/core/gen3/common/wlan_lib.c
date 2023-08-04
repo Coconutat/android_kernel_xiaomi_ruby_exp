@@ -1248,8 +1248,8 @@ VOID wlanIST(IN P_ADAPTER_T prAdapter)
 
 	nicProcessIST(prAdapter);
 
-	if (KAL_WAKE_LOCK_ACTIVE(prAdapter, &prAdapter->prGlueInfo->rIntrWakeLock))
-		KAL_WAKE_UNLOCK(prAdapter, &prAdapter->prGlueInfo->rIntrWakeLock);
+	if (KAL_WAKE_LOCK_ACTIVE(prAdapter, prAdapter->prGlueInfo->rIntrWakeLock))
+		KAL_WAKE_UNLOCK(prAdapter, prAdapter->prGlueInfo->rIntrWakeLock);
 
 #if !defined(MT6631)
 	nicEnableInterrupt(prAdapter);
@@ -3039,8 +3039,8 @@ WLAN_STATUS wlanImageSectionDownloadStatus(IN P_ADAPTER_T prAdapter, IN UINT_8 u
 					     aucBuffer,
 					     sizeof(INIT_HIF_RX_HEADER_T) +
 					     sizeof(INIT_EVENT_CMD_RESULT), &u4RxPktLength) != WLAN_STATUS_SUCCESS) {
-			UINT_32 u4MailBox0;
-			UINT_32 u4MailBox1;
+			UINT_32 u4MailBox0 = 0;
+			UINT_32 u4MailBox1 = 0;
 
 			nicGetMailbox(prAdapter, 0, &u4MailBox0);
 			nicGetMailbox(prAdapter, 1, &u4MailBox1);
@@ -4462,6 +4462,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 	/* 7. set band edge tx power if available */
 	if (prRegInfo->fg2G4BandEdgePwrUsed) {
 		CMD_EDGE_TXPWR_LIMIT_T rCmdEdgeTxPwrLimit;
+		kalMemZero(&rCmdEdgeTxPwrLimit, sizeof(rCmdEdgeTxPwrLimit));
 
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrCCK = prRegInfo->cBandEdgeMaxPwrCCK;
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrOFDM20 = prRegInfo->cBandEdgeMaxPwrOFDM20;
@@ -4967,11 +4968,14 @@ WLAN_STATUS wlanCheckSystemConfiguration(IN P_ADAPTER_T prAdapter)
 	PARAM_SSID_T rSsid;
 	PARAM_802_11_CONFIG_T rConfiguration;
 	PARAM_RATES_EX rSupportedRates;
+
+	kalMemZero(&rSsid, sizeof(rSsid));
 #endif
 
 	DEBUGFUNC("wlanCheckSystemConfiguration");
 
 	ASSERT(prAdapter);
+	kalMemZero(&rConfiguration, sizeof(rConfiguration));
 
 #if (CFG_NVRAM_EXISTENCE_CHECK == 1)
 	if (kalIsConfigurationExist(prAdapter->prGlueInfo) == FALSE) {
@@ -5012,6 +5016,8 @@ WLAN_STATUS wlanCheckSystemConfiguration(IN P_ADAPTER_T prAdapter)
 
 	if (fgGenErrMsg == TRUE) {
 		prBeacon = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, sizeof(WLAN_BEACON_FRAME_T) + sizeof(IE_SSID_T));
+		if (!prBeacon)
+			return WLAN_STATUS_FAILURE;
 
 		/* initialization */
 		kalMemZero(prBeacon, sizeof(WLAN_BEACON_FRAME_T) + sizeof(IE_SSID_T));
@@ -5131,7 +5137,7 @@ wlanoidQueryBssStatistics(IN P_ADAPTER_T prAdapter,
 	P_STA_RECORD_T prStaRec;
 	WLAN_STATUS rResult = WLAN_STATUS_FAILURE;
 	UINT_8 ucBssIndex;
-	ENUM_WMM_ACI_T eAci;
+	enum ENUM_WMM_ACI_T eAci;
 
 	DEBUGFUNC("wlanoidQueryBssStatistics");
 
@@ -5196,7 +5202,7 @@ VOID wlanDumpBssStatistics(IN P_ADAPTER_T prAdapter, UINT_8 ucBssIdx)
 {
 	P_BSS_INFO_T prBssInfo;
 	P_STA_RECORD_T prStaRec;
-	ENUM_WMM_ACI_T eAci;
+	enum ENUM_WMM_ACI_T eAci;
 	WIFI_WMM_AC_STAT_T arLLStats[WMM_AC_INDEX_NUM];
 	UINT_8 ucIdx;
 
@@ -5287,7 +5293,7 @@ WLAN_STATUS wlanQueryStaStatistics(IN P_ADAPTER_T prAdapter, IN PVOID pvQueryBuf
 	P_QUE_MGT_T prQM = &prAdapter->rQM;
 	CMD_GET_STA_STATISTICS_T rQueryCmdStaStatistics;
 	UINT_8 ucIdx;
-	ENUM_WMM_ACI_T eAci;
+	enum ENUM_WMM_ACI_T eAci;
 
 	DEBUGFUNC("wlanoidQueryStaStatistics");
 	do {
@@ -5443,6 +5449,7 @@ WLAN_STATUS wlanQueryStaStatistics(IN P_ADAPTER_T prAdapter, IN PVOID pvQueryBuf
 			prQueryStaStatistics->au4TcQueLen[ucIdx] = prStaRec->arTxQueue[ucIdx].u4NumElem;
 
 		rResult = WLAN_STATUS_SUCCESS;
+		kalMemZero(&rQueryCmdStaStatistics, sizeof(rQueryCmdStaStatistics));
 
 		/* 4 6. Ensure FW supports get station link status */
 		if (prAdapter->u4FwCompileFlag0 & COMPILE_FLAG0_GET_STA_LINK_STATUS) {
@@ -7035,7 +7042,7 @@ VOID wlanUpdateTxStatistics(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInf
 {
 	P_STA_RECORD_T prStaRec;
 	P_BSS_INFO_T prBssInfo;
-	ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
+	enum ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
 	P_QUE_MGT_T prQM = &prAdapter->rQM;
 	OS_SYSTIME rCurTime;
 
@@ -7082,7 +7089,7 @@ VOID wlanUpdateTxStatistics(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInf
 VOID wlanUpdateRxStatistics(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 {
 	P_STA_RECORD_T prStaRec;
-	ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
+	enum ENUM_WMM_ACI_T eAci = WMM_AC_BE_INDEX;
 
 	eAci = aucTid2ACI[prSwRfb->ucTid];
 	if (eAci < 0)

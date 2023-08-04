@@ -74,8 +74,7 @@ uint32_t gDbgLevel = WIFI_LOG_DBG;
 	} while (0)
 #define WIFI_ERR_FUNC(fmt, arg...)	\
 	do { \
-		if (gDbgLevel >= WIFI_LOG_ERR) \
-			pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
+		pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
 	} while (0)
 
 #define VERSION "2.0"
@@ -341,6 +340,7 @@ int32_t wifi_reset_end(enum ENUM_RESET_STATUS status)
 			if (mtk_wcn_wmt_func_on(WMTDRV_TYPE_WIFI) == MTK_WCN_BOOL_FALSE) {
 #endif
 				WIFI_ERR_FUNC("WMT turn on WIFI fail!\n");
+				powered = 0;
 				goto done;
 			} else {
 				WIFI_INFO_FUNC("WMT turn on WIFI success!\n");
@@ -419,7 +419,7 @@ ssize_t WIFI_write(struct file *filp, const char __user *buf, size_t count, loff
 	struct net_device *netdev = NULL;
 	struct PARAM_CUSTOM_P2P_SET_STRUCT p2pmode;
 	int32_t wait_cnt = 0;
-	int copy_size = 0;
+	uint32_t copy_size = 0;
 
 	down(&wr_mtx);
 	if (count <= 0) {
@@ -432,14 +432,12 @@ ssize_t WIFI_write(struct file *filp, const char __user *buf, size_t count, loff
 		goto done;
 	}
 #endif
-	copy_size = min(sizeof(local) - 1, count);
-	if (copy_size < 0) {
-		WIFI_ERR_FUNC("Invalid copy_size: %d\n", copy_size);
-		goto done;
-	}
+	copy_size = (sizeof(local) - 1) < (uint32_t) count ?
+		(sizeof(local) - 1) : (uint32_t) count;
+
 	if (copy_from_user(local, buf, copy_size) == 0) {
 		local[copy_size] = '\0';
-		WIFI_INFO_FUNC("WIFI_write %s, length %zu, copy_size %d\n",
+		WIFI_INFO_FUNC("WIFI_write %s, length %zu, copy_size %u\n",
 			local, count, copy_size);
 
 		if (local[0] == '0') {

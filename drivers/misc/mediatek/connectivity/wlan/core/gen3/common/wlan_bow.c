@@ -552,6 +552,7 @@ WLAN_STATUS bowCmdDestroyConnection(IN P_ADAPTER_T prAdapter, IN P_AMPC_COMMAND 
 
 	ASSERT(prAdapter);
 
+	kalMemZero(&rCmdBtOverWifi, sizeof(rCmdBtOverWifi));
 	prBowFsmInfo = &(prAdapter->rWifiVar.rBowFsmInfo);
 
 	/* 3 <1> If LinkCount == 0 ->Fail (Optional) */
@@ -635,6 +636,7 @@ WLAN_STATUS bowCmdSetPTK(IN P_ADAPTER_T prAdapter, IN P_AMPC_COMMAND prCmd)
 	P_STA_RECORD_T prStaRec = NULL;
 
 	ASSERT(prAdapter);
+	kalMemZero(&rCmdKey, sizeof(rCmdKey));
 
 	prBowFsmInfo = &(prAdapter->rWifiVar.rBowFsmInfo);
 
@@ -819,6 +821,7 @@ WLAN_STATUS bowCmdShortRangeMode(IN P_ADAPTER_T prAdapter, IN P_AMPC_COMMAND prC
 	CMD_TX_PWR_T rTxPwrParam;
 
 	ASSERT(prAdapter);
+	kalMemZero(&rTxPwrParam, sizeof(rTxPwrParam));
 
 	DBGLOG(BOW, EVENT, "bowCmdShortRangeMode.\n");
 
@@ -1095,6 +1098,7 @@ VOID wlanbowCmdEventLinkDisconnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T p
 	BOOL fgSendDeauth = FALSE;
 
 	ASSERT(prAdapter);
+	kalMemZero(&rBowTable, sizeof(rBowTable));
 
 	prBowFsmInfo = &(prAdapter->rWifiVar.rBowFsmInfo);
 	eFsmState = bowGetBowTableState(prAdapter, prBowFsmInfo->aucPeerAddress);

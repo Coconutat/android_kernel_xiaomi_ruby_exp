@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -2534,7 +2534,7 @@ uint8_t rsnCheckSaQueryTimeout(
 	GET_CURRENT_SYSTIME(&now);
 
 	if (CHECK_FOR_TIMEOUT(now, prBssSpecInfo->u4SaQueryStart,
-			      TU_TO_MSEC(1000))) {
+			      TU_TO_MSEC(SA_QUERY_RETRY_TIMEOUT))) {
 		DBGLOG(RSN, INFO, "association SA Query timed out\n");
 
 		prBssSpecInfo->ucSaQueryTimedOut = 1;
@@ -2720,11 +2720,10 @@ void rsnStartSaQueryTimer(IN struct ADAPTER *prAdapter,
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
 	DBGLOG(RSN, INFO, "Set SA Query timer %d (%d Tu)",
-	       prBssSpecInfo->u4SaQueryCount, 201);
+	       prBssSpecInfo->u4SaQueryCount, SA_QUERY_TIMEOUT);
 
 	cnmTimerStartTimer(prAdapter, &prBssSpecInfo->rSaQueryTimer,
-			   TU_TO_MSEC(201));
-
+			   TU_TO_MSEC(SA_QUERY_TIMEOUT));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -3241,7 +3240,7 @@ uint8_t rsnApCheckSaQueryTimeout(IN struct ADAPTER
 	GET_CURRENT_SYSTIME(&now);
 
 	if (CHECK_FOR_TIMEOUT(now, prStaRec->rPmfCfg.u4SAQueryStart,
-			      TU_TO_MSEC(1000))) {
+			      TU_TO_MSEC(SA_QUERY_RETRY_TIMEOUT))) {
 		DBGLOG(RSN, INFO, "association SA Query timed out\n");
 
 		/* XXX PMF TODO how to report STA REC disconnect?? */
@@ -3373,10 +3372,10 @@ void rsnApStartSaQueryTimer(IN struct ADAPTER *prAdapter,
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
 	DBGLOG(RSN, INFO, "AP Set SA Query timer %d (%d Tu)\n",
-	       prStaRec->rPmfCfg.u4SAQueryCount, 201);
+	       prStaRec->rPmfCfg.u4SAQueryCount, SA_QUERY_TIMEOUT);
 
 	cnmTimerStartTimer(prAdapter,
-			   &prStaRec->rPmfCfg.rSAQueryTimer, TU_TO_MSEC(201));
+		&prStaRec->rPmfCfg.rSAQueryTimer, TU_TO_MSEC(SA_QUERY_TIMEOUT));
 
 }
 

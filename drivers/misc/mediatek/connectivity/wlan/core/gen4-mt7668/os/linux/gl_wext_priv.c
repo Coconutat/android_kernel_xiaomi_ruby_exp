@@ -767,7 +767,6 @@ priv_set_int(IN struct net_device *prNetDev,
 
 	switch (u4SubCmd) {
 	case PRIV_CMD_TEST_MODE:
-		/* printk("TestMode=%ld\n", pu4IntBuf[1]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		if (pu4IntBuf[1] == PRIV_CMD_TEST_MAGIC_KEY) {
@@ -788,7 +787,6 @@ priv_set_int(IN struct net_device *prNetDev,
 		break;
 
 	case PRIV_CMD_TEST_CMD:
-		/* printk("CMD=0x%08lx, data=0x%08lx\n", pu4IntBuf[1], pu4IntBuf[2]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
@@ -803,7 +801,6 @@ priv_set_int(IN struct net_device *prNetDev,
 
 #if CFG_SUPPORT_PRIV_MCR_RW
 	case PRIV_CMD_ACCESS_MCR:
-		/* printk("addr=0x%08lx, data=0x%08lx\n", pu4IntBuf[1], pu4IntBuf[2]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		if (!prGlueInfo->fgMcrAccessAllowed) {
@@ -830,7 +827,6 @@ priv_set_int(IN struct net_device *prNetDev,
 #endif
 
 	case PRIV_CMD_SW_CTRL:
-		/* printk("addr=0x%08lx, data=0x%08lx\n", pu4IntBuf[1], pu4IntBuf[2]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
@@ -1053,7 +1049,6 @@ priv_get_int(IN struct net_device *prNetDev,
 
 	switch (u4SubCmd) {
 	case PRIV_CMD_TEST_CMD:
-		/* printk("CMD=0x%08lx, data=0x%08lx\n", pu4IntBuf[1], pu4IntBuf[2]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
@@ -1064,12 +1059,10 @@ priv_get_int(IN struct net_device *prNetDev,
 
 		status = priv_get_ndis(prNetDev, prNdisReq, &u4BufLen);
 		if (status == 0) {
-			/* printk("Result=%ld\n", *(PUINT_32)&prNdisReq->ndisOidContent[4]); */
 			prIwReqData->mode = *(PUINT_32) &prNdisReq->ndisOidContent[4];
 			/*
 			 *  if (copy_to_user(prIwReqData->data.pointer,
 			 *  &prNdisReq->ndisOidContent[4], 4)) {
-			 *  printk(KERN_NOTICE "priv_get_int() copy_to_user oidBuf fail(3)\n");
 			 *  return -EFAULT;
 			 *  }
 			 */
@@ -1078,7 +1071,6 @@ priv_get_int(IN struct net_device *prNetDev,
 
 #if CFG_SUPPORT_PRIV_MCR_RW
 	case PRIV_CMD_ACCESS_MCR:
-		/* printk("addr=0x%08lx\n", pu4IntBuf[1]); */
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		if (!prGlueInfo->fgMcrAccessAllowed) {
@@ -1094,7 +1086,6 @@ priv_get_int(IN struct net_device *prNetDev,
 
 		status = priv_get_ndis(prNetDev, prNdisReq, &u4BufLen);
 		if (status == 0) {
-			/* printk("Result=%ld\n", *(PUINT_32)&prNdisReq->ndisOidContent[4]); */
 			prIwReqData->mode = *(PUINT_32) &prNdisReq->ndisOidContent[4];
 		}
 		return status;
@@ -1121,8 +1112,6 @@ priv_get_int(IN struct net_device *prNetDev,
 		return status;
 
 	case PRIV_CMD_SW_CTRL:
-		/* printk(" addr=0x%08lx\n", pu4IntBuf[1]); */
-
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
@@ -1133,7 +1122,6 @@ priv_get_int(IN struct net_device *prNetDev,
 
 		status = priv_get_ndis(prNetDev, prNdisReq, &u4BufLen);
 		if (status == 0) {
-			/* printk("Result=%ld\n", *(PUINT_32)&prNdisReq->ndisOidContent[4]); */
 			prIwReqData->mode = *(PUINT_32) &prNdisReq->ndisOidContent[4];
 		}
 		return status;
@@ -1708,7 +1696,6 @@ priv_get_struct(IN struct net_device *prNetDev,
 		status = priv_get_ndis(prNetDev, prNdisReq, &u4BufLen);
 		if (status == 0) {
 			prNdisReq->outNdisOidLength = u4BufLen;
-			/* printk("len=%d Result=%08lx\n", u4BufLen, *(PUINT_32)&prNdisReq->ndisOidContent[4]); */
 
 			if (copy_to_user(prIwReqData->data.pointer, &prNdisReq->ndisOidContent[4], 4))
 				DBGLOG(REQ, INFO, "priv_get_struct() copy_to_user oidBuf fail(2)\n");
@@ -2125,6 +2112,8 @@ priv_set_driver(IN struct net_device *prNetDev,
 			DBGLOG(REQ, INFO, "%s access_ok Read fail written = %d\n", __func__, i4BytesWritten);
 			return -EFAULT;
 		}
+		if (prIwReqData->data.length >= IW_PRIV_BUF_SIZE)
+			return -EFAULT;
 		if (copy_from_user(pcExtra, prIwReqData->data.pointer, prIwReqData->data.length)) {
 			DBGLOG(REQ, INFO, "%s copy_form_user fail written = %d\n", __func__, prIwReqData->data.length);
 			return -EFAULT;
@@ -2143,8 +2132,8 @@ priv_set_driver(IN struct net_device *prNetDev,
 
 	if (i4BytesWritten > 0) {
 
-		if (i4BytesWritten > 2000)
-			i4BytesWritten = 2000;
+		if (i4BytesWritten > IW_PRIV_BUF_SIZE)
+			i4BytesWritten = IW_PRIV_BUF_SIZE;
 		prIwReqData->data.length = i4BytesWritten;	/* the iwpriv will use the length */
 
 	} else if (i4BytesWritten == 0) {
@@ -2444,6 +2433,12 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 #if CFG_AUTO_CHANNEL_SEL_SUPPORT
 #define CMD_GET_CH_RANK_LIST "GET_CH_RANK_LIST"
 #define CMD_GET_CH_DIRTINESS "GET_CH_DIRTINESS"
+#endif
+
+#if CFG_CHIP_RESET_HANG
+#define CMD_SET_RST_HANG                "RST_HANG_SET"
+
+#define CMD_SET_RST_HANG_ARG_NUM		2
 #endif
 
 #define CMD_EFUSE		"EFUSE"
@@ -4438,7 +4433,7 @@ INT_32 priv_driver_last_sec_mcs_info(IN P_ADAPTER_T prAdapter, IN char *pcComman
 				"%s, ", priv_driver_get_sgi_info(&prHwWlanInfo->rWtblPeerCap) == 0 ? "LGI" : "SGI");
 
 		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
-			"%s%s%s [PER: %02d%]\t", txmode < 5 ? HW_TX_MODE_STR[txmode] : HW_TX_MODE_STR[5],
+			"%s%s%s [PER: %02d%%]\t", txmode < 5 ? HW_TX_MODE_STR[txmode] : HW_TX_MODE_STR[5],
 			stbc ? ", STBC, " : ", ",
 			((priv_driver_get_ldpc_info(&prHwWlanInfo->rWtblTxConfig) == 0) ||
 			(txmode == TX_RATE_MODE_CCK) || (txmode == TX_RATE_MODE_OFDM)) ? "BCC" : "LDPC",
@@ -7506,7 +7501,6 @@ int priv_driver_set_txpower(IN struct net_device *prNetDev, IN char *pcCommand, 
 			u4Ret = kalkStrtos32(apcArgv[i + 1], 0, &(ai4Setting[i]));
 			if (u4Ret)
 				DBGLOG(REQ, LOUD, "parse apcArgv error u4Ret=%d\n", u4Ret);
-			/* printk("PeiHsuan setting[%d] = %d\n", i, setting[i]); */
 		}
 	} else {
 		DBGLOG(REQ, INFO, "set_txpower wrong argc : %d\n", i4Argc);
@@ -8181,37 +8175,50 @@ static int priv_driver_set_wow(IN struct net_device *prNetDev, IN char *pcComman
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou32(apcArgv[1], 0, &Enable);
+	if (i4Argc >= 2) {
+		u4Ret = kalkStrtou32(apcArgv[1], 0, &Enable);
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	DBGLOG(INIT, INFO, "CMD set_wow_enable = %d\n", Enable);
-	DBGLOG(INIT, INFO, "Scenario ID %d\n", pWOW_CTRL->ucScenarioId);
-	DBGLOG(INIT, INFO, "ucBlockCount %d\n", pWOW_CTRL->ucBlockCount);
-	DBGLOG(INIT, INFO, "interface %d\n", pWOW_CTRL->astWakeHif[0].ucWakeupHif);
-	DBGLOG(INIT, INFO, "gpio_pin %d\n", pWOW_CTRL->astWakeHif[0].ucGpioPin);
-	DBGLOG(INIT, INFO, "gpio_level 0x%x\n", pWOW_CTRL->astWakeHif[0].ucTriggerLvl);
-	DBGLOG(INIT, INFO, "gpio_timer %d\n", pWOW_CTRL->astWakeHif[0].u4GpioInterval);
+		DBGLOG(INIT, INFO, "CMD set_wow_enable = %d\n",
+			Enable);
+		DBGLOG(INIT, INFO, "Scenario ID %d\n",
+			pWOW_CTRL->ucScenarioId);
+		DBGLOG(INIT, INFO, "ucBlockCount %d\n",
+			pWOW_CTRL->ucBlockCount);
+		DBGLOG(INIT, INFO, "interface %d\n",
+			pWOW_CTRL->astWakeHif[0].ucWakeupHif);
+		DBGLOG(INIT, INFO, "gpio_pin %d\n",
+			pWOW_CTRL->astWakeHif[0].ucGpioPin);
+		DBGLOG(INIT, INFO, "gpio_level 0x%x\n",
+			pWOW_CTRL->astWakeHif[0].ucTriggerLvl);
+		DBGLOG(INIT, INFO, "gpio_timer %d\n",
+			pWOW_CTRL->astWakeHif[0].u4GpioInterval);
 
-	if (Enable == 1) {
-		DBGLOG(INIT, EVENT, "Rekey offload  wow enable<%d>\n", Enable);
-		setRekeyOffloadEnterWow(prGlueInfo);
-	} else if (Enable == 0) {
-		DBGLOG(INIT, EVENT, "FW offload Leave wow <%d>\n", Enable);
-		disableFWOffloadLeaveWow(prGlueInfo);
-	}
+		if (Enable == 1) {
+			DBGLOG(INIT, EVENT,
+				"Rekey offload  wow enable<%d>\n", Enable);
+			setRekeyOffloadEnterWow(prGlueInfo);
+		} else if (Enable == 0) {
+			DBGLOG(INIT, EVENT,
+				"FW offload Leave wow <%d>\n", Enable);
+			disableFWOffloadLeaveWow(prGlueInfo);
+		}
 
-	kalWowProcess(prGlueInfo, Enable);
+		kalWowProcess(prGlueInfo, Enable);
 
 #if defined(_HIF_USB)
-	if (Enable)
-		glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
-	else
-		glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_LINK_UP);
+		if (Enable)
+			glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
+		else
+			glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_LINK_UP);
 #endif
 
-	return 0;
+		return 0;
+	} else
+		return -1;
 }
 
 static int priv_driver_set_wow_enable(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
@@ -8230,16 +8237,20 @@ static int priv_driver_set_wow_enable(IN struct net_device *prNetDev, IN char *p
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou8(apcArgv[1], 0, &ucEnable);
+	if (i4Argc >= 2) {
+		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucEnable);
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	pWOW_CTRL->fgWowEnable = ucEnable;
+		pWOW_CTRL->fgWowEnable = ucEnable;
 
-	DBGLOG(PF, INFO, "WOW enable %d\n", pWOW_CTRL->fgWowEnable);
+		DBGLOG(PF, INFO, "WOW enable %d\n", pWOW_CTRL->fgWowEnable);
 
-	return 0;
+		return 0;
+	} else
+		return -1;
 }
 
 static int priv_driver_set_wow_par(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
@@ -8259,7 +8270,7 @@ static int priv_driver_set_wow_par(IN struct net_device *prNetDev, IN char *pcCo
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	if (i4Argc > 3) {
+	if (i4Argc >= 7) {
 
 		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucWakeupHif);
 		if (u4Ret)
@@ -8855,17 +8866,22 @@ static int priv_driver_set_adv_pws(IN struct net_device *prNetDev, IN char *pcCo
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	u4Ret = kalkStrtou8(apcArgv[1], 0, &ucAdvPws);
+	if (i4Argc >= 2) {
 
-	if (u4Ret)
-		DBGLOG(REQ, LOUD, "parse bEnable error u4Ret=%d\n", u4Ret);
+		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucAdvPws);
 
-	prGlueInfo->prAdapter->rWifiVar.ucAdvPws = ucAdvPws;
+		if (u4Ret)
+			DBGLOG(REQ, LOUD,
+				"parse bEnable error u4Ret=%d\n", u4Ret);
 
-	DBGLOG(INIT, INFO, "AdvPws:%d\n",
-	       prGlueInfo->prAdapter->rWifiVar.ucAdvPws);
+		prGlueInfo->prAdapter->rWifiVar.ucAdvPws = ucAdvPws;
 
-	return 0;
+		DBGLOG(INIT, INFO, "AdvPws:%d\n",
+		       prGlueInfo->prAdapter->rWifiVar.ucAdvPws);
+
+		return 0;
+	} else
+		return -1;
 
 }
 
@@ -9580,6 +9596,62 @@ static int priv_driver_get_deep_sleep_cnt(IN struct net_device *prNetDev, IN cha
 
 	return i4BytesWritten;
 }
+
+#if CFG_CHIP_RESET_HANG
+static int priv_driver_set_rst_hang(IN struct net_device *prNetDev,
+				IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	uint32_t u4Ret;
+
+
+	ASSERT(prNetDev);
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	if (i4Argc == 0) {
+		DBGLOG(REQ, INFO, "set_rst_hang Argc = %d\n", i4Argc);
+		return -EFAULT;
+	}
+
+	if (strnicmp(apcArgv[0], CMD_SET_RST_HANG,
+				strlen(CMD_SET_RST_HANG)) == 0) {
+		if (i4Argc < CMD_SET_RST_HANG_ARG_NUM) {
+			DBGLOG(REQ, STATE,
+				"[SER][L0] RST_HANG_SET arg num=%d,must be %d\n",
+				i4Argc, CMD_SET_RST_HANG_ARG_NUM);
+			return -EFAULT;
+		}
+		u4Ret = kalkStrtou8(apcArgv[1], 0, &fgIsResetHangState);
+		if (u4Ret)
+			DBGLOG(REQ, ERROR, "u4Ret=%d\n", u4Ret);
+
+		DBGLOG(REQ, STATE, "[SER][L0] set fgIsResetHangState=%d\n",
+							fgIsResetHangState);
+
+		if (fgIsResetHangState == SER_L0_HANG_RST_CMD_TRG) {
+			DBGLOG(REQ, STATE, "[SER][L0] cmd trigger\n");
+			glGetRstReason(RST_CMD_TRIGGER);
+			GL_RESET_TRIGGER(NULL, RST_FLAG_CHIP_RESET);
+		}
+
+	} else {
+		DBGLOG(REQ, STATE, "[SER][L0] get fgIsResetSqcState=%d\n",
+							fgIsResetHangState);
+		DBGLOG(REQ, ERROR, "[SER][L0] RST HANG subcmd(%s) error !\n",
+								apcArgv[0]);
+
+		return -EFAULT;
+	}
+
+	return 0;
+
+}
+#endif
 
 static int priv_driver_get_cnm_info(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
 {
@@ -11937,6 +12009,14 @@ INT_32 priv_driver_cmds(IN struct net_device *prNetDev, IN PCHAR pcCommand, IN I
 			i4BytesWritten = priv_driver_cccr_ops(prNetDev,
 							pcCommand,
 							i4TotalLen);
+
+#if CFG_CHIP_RESET_HANG
+		else if (strnicmp(pcCommand, CMD_SET_RST_HANG,
+				strlen(CMD_SET_RST_HANG)) == 0)
+			i4BytesWritten = priv_driver_set_rst_hang(
+				prNetDev, pcCommand, i4TotalLen);
+#endif
+
 #if CFG_SUPPORT_ADVANCE_CONTROL
 		else if (strnicmp(pcCommand, CMD_SET_NOISE, strlen(CMD_SET_NOISE)) == 0)
 			i4BytesWritten = priv_driver_set_noise(prNetDev, pcCommand, i4TotalLen);

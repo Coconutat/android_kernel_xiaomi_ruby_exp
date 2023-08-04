@@ -2670,7 +2670,7 @@ mtk_p2p_wext_discovery_results(IN struct net_device *prDev,
 		/* device capability */
 		if (1) {
 			UINT_8 data[40];
-			UINT_32 u4Offset = 0;
+			INT_32 i4Offset = 0;
 
 			iwe.cmd = IWEVCUSTOM;
 			iwe.u.data.flags = 0;
@@ -2678,12 +2678,12 @@ mtk_p2p_wext_discovery_results(IN struct net_device *prDev,
 			if (iwe.u.data.length > 40)
 				iwe.u.data.length = 40;
 
-			u4Offset = snprintf(data, iwe.u.data.length, "p2p_cap=%02x%02x%02x%02x%c",
+			i4Offset = snprintf(data, iwe.u.data.length, "p2p_cap=%02x%02x%02x%02x%c",
 				 prTargetResult->ucDeviceCapabilityBitmap, prTargetResult->ucGroupCapabilityBitmap,
 				 (UINT_8) prTargetResult->u2ConfigMethod,
 				 (UINT_8) (prTargetResult->u2ConfigMethod >> 8), '\0');
-			if (u4Offset < 0) {
-				DBGLOG(INIT, LOUD, "u4Offset = [%u]\n", u4Offset);
+			if (i4Offset < 0) {
+				DBGLOG(INIT, LOUD, "i4Offset = [%u]\n", i4Offset);
 				return -1;
 			}
 			current_ev =
@@ -2698,15 +2698,15 @@ mtk_p2p_wext_discovery_results(IN struct net_device *prDev,
 			if (iwe.u.data.length > 40)
 				iwe.u.data.length = 40;
 
-			u4Offset = snprintf(data, iwe.u.data.length, "p2p_dev_type=%02x%02x%02x%02x%02x%02x%c",
+			i4Offset = snprintf(data, iwe.u.data.length, "p2p_dev_type=%02x%02x%02x%02x%02x%02x%c",
 				 (UINT_8) prTargetResult->rPriDevType.u2CategoryID,
 				 (UINT_8) prTargetResult->rPriDevType.u2SubCategoryID,
 				 (UINT_8) prTargetResult->arSecDevType[0].u2CategoryID,
 				 (UINT_8) prTargetResult->arSecDevType[0].u2SubCategoryID,
 				 (UINT_8) prTargetResult->arSecDevType[1].u2CategoryID,
 				 (UINT_8) prTargetResult->arSecDevType[1].u2SubCategoryID, '\0');
-			if (u4Offset < 0) {
-				DBGLOG(INIT, LOUD, "u4Offset = [%u]\n", u4Offset);
+			if (i4Offset < 0) {
+				DBGLOG(INIT, LOUD, "i4Offset = [%u]\n", i4Offset);
 				return -1;
 			}
 			current_ev =
@@ -2721,11 +2721,11 @@ mtk_p2p_wext_discovery_results(IN struct net_device *prDev,
 			if (iwe.u.data.length > 40)
 				iwe.u.data.length = 40;
 
-			u4Offset =
+			i4Offset =
 			    snprintf(data, iwe.u.data.length, "p2p_grp_bssid= %pM %c",
 				 prTargetResult->aucBSSID, '\0');
-			if (u4Offset < 0) {
-				DBGLOG(INIT, LOUD, "u4Offset = [%u]\n", u4Offset);
+			if (i4Offset < 0) {
+				DBGLOG(INIT, LOUD, "i4Offset = [%u]\n", i4Offset);
 				return -1;
 			}
 			current_ev = iwe_stream_add_point(info, current_ev,
@@ -3100,16 +3100,16 @@ BOOLEAN kalP2PIndicateFound(IN P_GLUE_INFO_T prGlueInfo)
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 u4Offset = 0;
+	INT_32 i4Offset = 0;
 
 	ASSERT(prGlueInfo);
 
 	memset(&evt, 0, sizeof(evt));
 
-	u4Offset =
+	i4Offset =
 		snprintf(aucBuffer, IW_CUSTOM_MAX - 1, "P2P_DVC_FND");
-	if (u4Offset < 0) {
-		DBGLOG(INIT, LOUD, "u4Offset = [%u]\n", u4Offset);
+	if (i4Offset < 0) {
+		DBGLOG(INIT, LOUD, "i4Offset = [%u]\n", i4Offset);
 		return FALSE;
 	}
 	evt.data.length = strlen(aucBuffer);

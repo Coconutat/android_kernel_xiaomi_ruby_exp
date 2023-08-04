@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -116,6 +116,7 @@ enum WIFI_SUB_COMMAND {
 	WIFI_SUBCMD_CONFIG_ROAMING = 0x000a,			/* 0x000a */
 	WIFI_SUBCMD_ENABLE_ROAMING,				/* 0x000b */
 	WIFI_SUBCMD_SELECT_TX_POWER_SCENARIO,			/* 0x000c */
+	WIFI_SUBCMD_SET_LATENCY_MODE,				/*0x000d*/
 };
 
 enum RTT_SUB_COMMAND {
@@ -184,6 +185,7 @@ enum WIFI_ATTRIBUTE {
 	WIFI_ATTRIBUTE_ROAMING_WHITELIST_SSID,
 	WIFI_ATTRIBUTE_ROAMING_STATE,
 	WIFI_ATTRIBUTE_TX_POWER_SCENARIO,
+	WIFI_ATTRIBUTE_LOW_LATENCY_MODE,
 	WIFI_ATTRIBUTE_MAX
 };
 
@@ -390,6 +392,9 @@ extern const struct nla_policy qca_roaming_param_policy[
 
 extern const struct nla_policy nla_get_apf_policy[
 		APF_ATTRIBUTE_MAX + 1];
+
+/*record timestamp when wifi last on*/
+extern OS_SYSTIME lastWifiOnTime;
 
 /*******************************************************************************
  *                           MACROS
@@ -829,6 +834,11 @@ int mtk_cfg80211_vendor_driver_memory_dump(struct wiphy *wiphy,
 int mtk_cfg80211_vendor_event_wowlan_magic_pkt(
 	struct wiphy *wiphy,
 	struct wireless_dev *wdev, uint32_t num);
+#endif
+
+#if CFG_SUPPORT_LOWLATENCY_MODE
+int mtk_cfg80211_vendor_set_wifi_low_latency_mode(struct wiphy *wiphy,
+		struct wireless_dev *wdev, const void *data, int data_len);
 #endif
 
 #endif /* _GL_VENDOR_H */

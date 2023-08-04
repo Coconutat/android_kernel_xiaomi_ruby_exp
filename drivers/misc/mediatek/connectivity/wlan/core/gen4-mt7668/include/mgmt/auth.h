@@ -155,5 +155,8 @@ authProcessRxAuth1Frame(IN P_ADAPTER_T prAdapter,
 *                              F U N C T I O N S
 ********************************************************************************
 */
-
+BOOLEAN
+authFloodingCheck(IN P_ADAPTER_T prAdapter,
+			IN P_BSS_INFO_T prP2pBssInfo,
+			IN P_SW_RFB_T prSwRfb);
 #endif /* _AUTH_H */

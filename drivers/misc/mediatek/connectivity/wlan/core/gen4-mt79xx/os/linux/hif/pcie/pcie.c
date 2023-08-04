@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -36,6 +36,9 @@
 #endif
 
 #include "mt66xx_reg.h"
+#if CFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV
+#include <linux/irq.h>
+#endif
 
 
 /*******************************************************************************
@@ -175,7 +178,7 @@ static bool pcieCopyEvent(struct GL_HIF_INFO *prHifInfo,
 			  struct RTMP_DMABUF *prDmaBuf,
 			  uint8_t *pucDst, uint32_t u4Len);
 static bool pcieCopyTxData(struct MSDU_TOKEN_ENTRY *prToken,
-			   void *pucSrc, uint32_t u4Len);
+			   void *pucSrc, uint32_t u4Len, uint32_t u4offset);
 static bool pcieCopyRxData(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
@@ -837,6 +840,16 @@ int32_t glBusSetIrq(void *pvData, void *pfnIsr, void *pvCookie)
 	prHifInfo = &prGlueInfo->rHifInfo;
 	pdev = prHifInfo->pdev;
 
+#if CFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV
+	DBGLOG(INIT, INFO, "free pci irq vectors\n");
+	pci_free_irq_vectors(pdev);
+	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES);
+	if (ret < 0) {
+		DBGLOG(INIT, ERROR, "alloc_irq_vectors fail(%d)\n", ret);
+		return ret;
+	}
+#endif
+
 	prHifInfo->u4IrqId = pdev->irq;
 	ret = request_irq(prHifInfo->u4IrqId, mtk_pci_interrupt,
 		IRQF_SHARED, prNetDevice->name, prGlueInfo);
@@ -1020,9 +1033,9 @@ static bool pcieCopyEvent(struct GL_HIF_INFO *prHifInfo,
 }
 
 static bool pcieCopyTxData(struct MSDU_TOKEN_ENTRY *prToken,
-			   void *pucSrc, uint32_t u4Len)
+			   void *pucSrc, uint32_t u4Len, uint32_t u4offset)
 {
-	memcpy(prToken->prPacket, pucSrc, u4Len);
+	memcpy((uint8_t *)prToken->prPacket + u4offset, pucSrc, u4Len);
 	return true;
 }
 

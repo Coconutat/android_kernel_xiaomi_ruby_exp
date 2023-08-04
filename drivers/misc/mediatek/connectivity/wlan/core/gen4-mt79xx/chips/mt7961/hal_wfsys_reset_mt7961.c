@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -463,10 +463,17 @@ u_int8_t mt7961HalSetNoBTFwOwnEn(IN int32_t i4Enable)
 	uint32_t u4Res = 0;
         void *pvAddr = NULL;
 
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	DBGLOG(INIT, STATE, "[SER][L0.5] %s, i4Enable=%d\n",
 						bt_func_name, i4Enable);
-#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	pvAddr = GLUE_SYMBOL_GET(bt_func_name);
+#else
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	struct BT_NOTIFY_DESC *bt_notify_desc = NULL;
+
+	bt_notify_desc = get_bt_notify_callback();
+	pvAddr = bt_notify_desc->WifiNotifyBtSubResetStep1;
+#endif /* CFG_CHIP_RESET_KO_SUPPORT */
 #endif
 	if (pvAddr) {
 		bt_func = (p_bt_fun_type) pvAddr;

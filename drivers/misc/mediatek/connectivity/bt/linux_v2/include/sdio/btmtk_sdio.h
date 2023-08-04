@@ -2,17 +2,16 @@
 /*
  * Copyright (c) 2016,2017 MediaTek Inc.
  */
-
 #ifndef _BTMTK_SDIO_H_
 #define _BTMTK_SDIO_H_
 /* It's for reset procedure */
-#include <linux/mmc/sdio_ids.h>
 #include <linux/module.h>
 
 #include <linux/of_gpio.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio.h>
+#include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
 
 #include "btmtk_define.h"
@@ -178,5 +177,8 @@ struct btmtk_sdio_dev {
 
 int btmtk_sdio_read_bt_mcu_pc(u32 *val);
 int btmtk_sdio_read_conn_infra_pc(u32 *val);
+int btmtk_sdio_set_driver_own_for_subsys_reset(int enable);
+int btmtk_sdio_whole_reset(struct btmtk_dev *bdev);
+int btmtk_sdio_read_wifi_mcu_pc(u8 PcLogSel, u32 *val);
 
 #endif

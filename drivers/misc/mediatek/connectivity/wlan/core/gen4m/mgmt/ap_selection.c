@@ -93,9 +93,6 @@
 /* Support driver triggers roaming */
 #define RCPI_DIFF_DRIVER_ROAM			20 /* 10 dbm */
 
-/*  Enable driver select bssid_hint  */
-#define CFG_ENABLE_BSSID_HINT     0
-
 /* In case 2.4G->5G, the trigger rssi is RSSI_BAD_NEED_ROAM_24G_TO_5G
  * In other case(2.4G->2.4G/5G->2.4G/5G->5G), the trigger
  * rssi is RSSI_BAD_NEED_ROAM
@@ -600,13 +597,6 @@ static u_int8_t scanNeedReplaceCandidate(struct ADAPTER *prAdapter,
 			cCandRssi >= RSSI_SECOND_LEVEL &&
 			cCurrRssi >= RSSI_SECOND_LEVEL)
 			break;
-		if (eRoamType != ROAM_TYPE_PER &&
-			prCandBss->eBand == BAND_5G &&
-			cCandRssi >= GOOD_RSSI_FOR_HT_VHT) {
-			log_dbg(SCN, INFO, "CandBss in band[a] Opch, cCandRssi is %ddBm\n",
-					cCandRssi);
-			break;
-		}
 		if (cCandRssi - cCurrRssi >= RSSI_DIFF_BETWEEN_BSS)
 			return FALSE;
 		if (cCurrRssi - cCandRssi >= RSSI_DIFF_BETWEEN_BSS)
@@ -818,8 +808,17 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 
 		prBtmParam = aisGetBTMParam(prAdapter, ucBssIndex);
 		ucRequestMode = prBtmParam->ucRequestMode;
+		if (prBssDesc->prNeighbor &&
+			prBssDesc->prNeighbor->fgPrefPresence &&
+			!prBssDesc->prNeighbor->ucPreference) {
+			log_dbg(SCN, INFO,
+				MACSTR " preference is 0, skip it\n",
+				MAC2STR(prBssDesc->aucBSSID));
+			return FALSE;
+		}
 		if (ucRequestMode & WNM_BSS_TM_REQ_ABRIDGED) {
-			if (!prBssDesc->prNeighbor) {
+			if (!prBssDesc->prNeighbor &&
+				!prBssDesc->fgIsConnected) {
 				log_dbg(SCN, INFO,
 				     MACSTR " not in candidate list, skip it\n",
 				     MAC2STR(prBssDesc->aucBSSID));
@@ -1256,8 +1255,7 @@ struct BSS_DESC *scanSearchBssDescByScoreForAis(struct ADAPTER *prAdapter,
 	int32_t base, delta, goal;
 #endif
 
-	if (!prAdapter ||
-	    eRoamReason >= ROAMING_REASON_NUM || eRoamReason < 0) {
+	if (!prAdapter || eRoamReason >= ROAMING_REASON_NUM) {
 		log_dbg(SCN, ERROR,
 			"prAdapter %p, reason %d!\n", prAdapter, eRoamReason);
 		return NULL;
@@ -1340,7 +1338,6 @@ try_again:
 						"Do network selection even match bssid_hint\n");
 				} else
 #endif
-#if CFG_ENABLE_BSSID_HINT
 				{
 					log_dbg(SCN, INFO,
 						MACSTR" match bssid_hint\n",
@@ -1348,12 +1345,6 @@ try_again:
 					prCandBssDesc = prBssDesc;
 					break;
 				}
-#else
-				{
-					log_dbg(SCN, INFO,
-						"bssid_hint selection disabled\n");
-				}
-#endif
 			}
 		}
 
@@ -1391,6 +1382,14 @@ try_again:
 			}
 		}
 #endif
+
+		if (EQUAL_MAC_ADDR(prBssDesc->aucBSSID, prAisBssInfo->aucBSSID)
+			&& ROAMING_REASON_BTM_DISASSOC == eRoamReason) {
+			log_dbg(SCN, WARN,
+				"Skip " MACSTR " - BTM DisAssoc\n",
+				MAC2STR(prBssDesc->aucBSSID));
+			continue;
+		}
 
 		u2ScoreTotal = scanCalculateTotalScore(prAdapter, prBssDesc,
 			prRoamingFsmInfo->eReason, ucBssIndex);
@@ -1492,7 +1491,7 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 	struct ESS_CHNL_INFO *prEssChnlInfo;
 	struct LINK *prCurEssLink;
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
-	struct ROAMING_INFO *prRoamingFsmInfo;
+	struct ROAMING_INFO *prRoamingInfo;
 	uint8_t aucChnlBitMap[30] = {0,};
 	uint8_t aucChnlApNum[234] = {0,};
 	uint8_t aucChnlUtil[234] = {0,};
@@ -1516,7 +1515,6 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 
 	prAisSpecBssInfo =
 		aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 	if (!prAisSpecBssInfo) {
 		log_dbg(SCN, INFO, "No prAisSpecBssInfo\n");
 		return;
@@ -1533,6 +1531,8 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 		log_dbg(SCN, INFO, "No prCurEssLink\n");
 		return;
 	}
+
+	prRoamingInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 
 	kalMemZero(prEssChnlInfo, CFG_MAX_NUM_OF_CHNL_INFO *
 		sizeof(struct ESS_CHNL_INFO));
@@ -1648,12 +1648,15 @@ updated:
 		prEssChnlInfo[j].ucUtilization = aucChnlUtil[ucChnl];
 	}
 
-	if (prCurEssLink->u4NumElem >= 2 &&
-		prRoamingFsmInfo->fgFwTxPerEnabled == FALSE)
-		prRoamingFsmInfo->fgFwTxPerEnabled = TRUE;
-	else if (prCurEssLink->u4NumElem == 1 &&
-		prRoamingFsmInfo->fgFwTxPerEnabled == TRUE)
-		prRoamingFsmInfo->fgFwTxPerEnabled = FALSE;
+#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
+	if (prCurEssLink->u4NumElem > 2) {
+		prRoamingInfo->rSkipBtmInfo.ucConsecutiveBtmCount = 0;
+		kalMemZero(&prRoamingInfo->rSkipBtmInfo,
+			sizeof(struct ROAMING_SKIP_BTM));
+		kalMemZero(&prRoamingInfo->rSkipPerInfo,
+			sizeof(struct ROAMING_SKIP_PER));
+	}
+#endif
 
 	log_dbg(SCN, INFO, "Find %s in %d BSSes, result %d\n",
 		prConnSettings->aucSSID, prBSSDescList->u4NumElem,

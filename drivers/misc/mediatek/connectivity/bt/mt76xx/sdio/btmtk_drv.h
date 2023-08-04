@@ -103,11 +103,7 @@ struct btmtk_private {
 	int (*hw_process_int_status)(struct btmtk_private *priv);
 	void (*hci_snoop_save)(u8 type, u8 *buf, u32 len);
 	void (*firmware_dump)(struct btmtk_private *priv);
-	spinlock_t driver_lock;         /* spinlock used by driver */
-#ifdef CONFIG_DEBUG_FS
-	void *debugfs_data;
-#endif
-	bool surprise_removed;
+	spinlock_t lock;         /* spinlock used by driver */
 #if SUPPORT_FW_DUMP
 	struct semaphore fw_dump_semaphore;
 	struct task_struct *fw_dump_tsk;
@@ -119,54 +115,9 @@ struct btmtk_private {
 	bool no_fw_own;
 };
 
-#define MTK_VENDOR_PKT                 0xFE
-
-/* Vendor specific Bluetooth commands */
-#define BT_CMD_PSCAN_WIN_REPORT_ENABLE  0xFC03
-#define BT_CMD_ROUTE_SCO_TO_HOST        0xFC1D
-#define BT_CMD_SET_BDADDR               0xFC22
-#define BT_CMD_AUTO_SLEEP_MODE          0xFC23
-#define BT_CMD_HOST_SLEEP_CONFIG        0xFC59
-#define BT_CMD_HOST_SLEEP_ENABLE        0xFC5A
-#define BT_CMD_MODULE_CFG_REQ           0xFC5B
-#define BT_CMD_LOAD_CONFIG_DATA         0xFC61
-
-/* Sub-commands: Module Bringup/Shutdown Request/Response */
-#define MODULE_BRINGUP_REQ              0xF1
-#define MODULE_BROUGHT_UP               0x00
-#define MODULE_ALREADY_UP               0x0C
-
-#define MODULE_SHUTDOWN_REQ             0xF2
-
-/* Vendor specific Bluetooth events */
-#define BT_EVENT_AUTO_SLEEP_MODE        0x23
-#define BT_EVENT_HOST_SLEEP_CONFIG      0x59
-#define BT_EVENT_HOST_SLEEP_ENABLE      0x5A
-#define BT_EVENT_MODULE_CFG_REQ         0x5B
-#define BT_EVENT_POWER_STATE            0x20
-
-/* Bluetooth Power States */
-#define BT_PS_ENABLE                    0x02
-#define BT_PS_DISABLE                   0x03
-#define BT_PS_SLEEP                     0x01
-
-/* Host Sleep states */
-#define HS_ACTIVATED                    0x01
-#define HS_DEACTIVATED                  0x00
-
-/* Power Save modes */
-#define PS_SLEEP                        0x01
-#define PS_AWAKE                        0x00
-
-#define BT_CAL_HDR_LEN                  4
-#define BT_CAL_DATA_SIZE                28
-
 #define FW_DUMP_BUF_SIZE (1024*512)
-
 #define FW_DUMP_FILE_NAME_SIZE     64
-
 #define EVENT_COMPARE_SIZE     64
-
 
 /* stpbt device node */
 #define BT_NODE "stpbt"

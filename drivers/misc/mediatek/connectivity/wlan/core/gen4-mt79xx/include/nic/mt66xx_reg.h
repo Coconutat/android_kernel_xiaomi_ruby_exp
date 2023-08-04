@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -768,6 +768,13 @@ struct ENHANCE_MODE_DATA_STRUCT {
 	} rRxInfo;
 	uint32_t u4RcvMailbox0;
 	uint32_t u4RcvMailbox1;
+};
+
+struct TX_RES_INFO_STRUCT {
+	union {
+		uint16_t auTQCnt[SDIO_TX_RESOURCE_NUM];
+		uint32_t au4WTSR[SDIO_TX_RESOURCE_REG_NUM];
+	} rTxResInfo;
 };
 #endif
 
@@ -1561,6 +1568,7 @@ struct mt66xx_chip_info {
 #if (CFG_SUPPORT_WIFI_DL_TEST_MODE ==1)
 	u_int8_t fgFwdlTestMode;
 #endif
+	uint32_t (*getDongleType)(struct ADAPTER *prAdapter);
 };
 
 struct mt66xx_hif_driver_data {

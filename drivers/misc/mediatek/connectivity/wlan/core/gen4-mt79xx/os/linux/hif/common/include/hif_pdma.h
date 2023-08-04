@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -65,9 +65,9 @@
 #define RX_BUFFER_NORMSIZE			3840
 #define TX_BUFFER_NORMSIZE			3840
 
-#define HIF_TX_PREALLOC_DATA_BUFFER			1
-
+#ifndef HIF_NUM_OF_QM_RX_PKT_NUM
 #define HIF_NUM_OF_QM_RX_PKT_NUM			2048
+#endif
 #define HIF_IST_LOOP_COUNT					32
 /* Min msdu count to trigger Tx during INT polling state */
 #define HIF_IST_TX_THRESHOLD				1
@@ -106,6 +106,8 @@
 #endif
 
 #define HIF_TX_PAYLOAD_LENGTH				72
+
+#define HIF_TX_MAX_FRAG					3 /* MUST be odd */
 
 #define HIF_MSDU_REPORT_RETURN_TIMEOUT		10	/* sec */
 #define HIF_SER_TIMEOUT				10000	/* msec */
@@ -396,6 +398,13 @@ struct MSDU_TOKEN_ENTRY {
 	phys_addr_t rPktDmaAddr;
 	uint32_t u4PktDmaLength;
 	uint16_t u2Port; /* tx ring number */
+#if (CFG_SUPPORT_TX_SG == 1)
+	void *rPktDmaVAddr_nr[HIF_TX_MAX_FRAG];
+	phys_addr_t rPktDmaAddr_nr[HIF_TX_MAX_FRAG];
+	uint32_t u4PktDmaLength_nr[HIF_TX_MAX_FRAG];
+	uint8_t nr_frags;
+	uint32_t len_frags;
+#endif
 };
 
 struct MSDU_TOKEN_INFO {

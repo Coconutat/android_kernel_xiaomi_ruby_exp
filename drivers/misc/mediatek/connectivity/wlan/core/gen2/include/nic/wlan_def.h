@@ -670,6 +670,8 @@ typedef struct _RSN_INFO_T {
 	UINT_32 au4AuthKeyMgtSuite[MAX_NUM_SUPPORTED_AKM_SUITES];
 	UINT_16 u2RsnCap;
 	BOOLEAN fgRsnCapPresent;
+	UINT_16 u2PmkidCount;
+	UINT_8 aucPmkid[IW_PMKID_LEN];
 } /*__KAL_ATTRIB_PACKED__*/ RSN_INFO_T, *P_RSN_INFO_T;
 
 #define MAX_NUM_SUPPORTED_WAPI_AKM_SUITES    1	/* max number of supported AKM suites */

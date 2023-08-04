@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -97,6 +97,25 @@ enum POWER_SAVE_CALLER {
 	PS_CALLER_MAX_NUM = 24
 };
 
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+enum WAKEUP_TYPE {
+	ABNORMAL_INT,
+	SOFTWARE_INT,
+	TX_INT,
+	RX_DATA_INT,
+	RX_EVENT_INT,
+	RX_MGMT_INT,
+	RX_OTHERS_INT,
+	WAKEUP_TYPE_NUM
+};
+struct WAKEUP_STATISTIC {
+	uint32_t u4Count;
+	uint32_t u4TimePerHundred;
+	OS_SYSTIME rStartTime;
+};
+#endif /* fos_change end */
+
 enum ENUM_ECO_VER {
 	ECO_VER_1 = 1,
 	ECO_VER_2,
@@ -136,6 +155,11 @@ enum ENUM_REMOVE_BY_MSDU_TPYE {
  */
 #if defined(_HIF_USB)
 extern struct TIMER rSerSyncTimer;
+#endif
+
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+extern struct WAKEUP_STATISTIC g_arWakeupStatistic[WAKEUP_TYPE_NUM];
+extern uint32_t g_wake_event_count[EVENT_ID_END];
 #endif
 
 /*******************************************************************************
@@ -456,5 +480,11 @@ u_int8_t nicSerIsRxStop(IN struct ADAPTER *prAdapter);
 void nicSerReInitBeaconFrame(IN struct ADAPTER *prAdapter);
 void nicSerInit(IN struct ADAPTER *prAdapter, IN const u_int8_t bAtResetFlow);
 void nicSerDeInit(IN struct ADAPTER *prAdapter);
+
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+void nicUpdateWakeupStatistics(IN struct ADAPTER *prAdapter,
+	IN enum WAKEUP_TYPE intType);
+#endif /* fos_change end */
 
 #endif /* _NIC_H */

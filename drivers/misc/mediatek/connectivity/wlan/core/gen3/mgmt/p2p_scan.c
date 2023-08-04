@@ -158,6 +158,7 @@ VOID scnEventReturnChannel(IN P_ADAPTER_T prAdapter, IN UINT_8 ucScnSeqNum)
 {
 
 	CMD_SCAN_CANCEL rCmdScanCancel;
+	kalMemZero(&rCmdScanCancel, sizeof(rCmdScanCancel));
 
 	/* send cancel message to firmware domain */
 	rCmdScanCancel.ucSeqNum = ucScnSeqNum;

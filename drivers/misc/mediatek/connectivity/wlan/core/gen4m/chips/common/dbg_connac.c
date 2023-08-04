@@ -1413,7 +1413,7 @@ int32_t halShowStatInfo(struct ADAPTER *prAdapter,
 	enum AGG_RANGE_TYPE_T eRangeType = ENUM_AGG_RANGE_TYPE_TX;
 #endif
 	uint8_t ucBssIndex = AIS_DEFAULT_INDEX;
-	struct PARAM_LINK_SPEED_EX rLinkSpeed;
+	struct PARAM_LINK_SPEED_EX rLinkSpeed = {0};
 
 	ucSkipAr = prQueryStaStatistics->ucSkipAr;
 	prRxCtrl = &prAdapter->rRxCtrl;
@@ -2147,6 +2147,7 @@ int32_t halShowStatInfo(struct ADAPTER *prAdapter,
 
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac_get_rx_rate_info(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIdx,
 		OUT uint32_t *pu4Rate, OUT uint32_t *pu4Nss,
 		OUT uint32_t *pu4RxMode, OUT uint32_t *pu4FrMode,
 		OUT uint32_t *pu4Sgi)
@@ -2161,7 +2162,7 @@ int connac_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 		(!pu4Sgi))
 		return -1;
 
-	prStaRec = aisGetStaRecOfAP(prAdapter, AIS_DEFAULT_INDEX);
+	prStaRec = aisGetStaRecOfAP(prAdapter, ucBssIdx);
 	if (prStaRec) {
 		ucWlanIdx = prStaRec->ucWlanIndex;
 	} else {
@@ -2174,7 +2175,8 @@ int connac_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 		u4RxVector0 = prAdapter->arStaRec[ucStaIdx].u4RxVector0;
 		u4RxVector1 = prAdapter->arStaRec[ucStaIdx].u4RxVector1;
 		if ((u4RxVector0 == 0) || (u4RxVector1 == 0)) {
-			DBGLOG(SW4, WARN, "RxVector1 or RxVector2 is 0\n");
+			DBGLOG_LIMITED(SW4, WARN,
+					"RxVector1 or RxVector2 is 0\n");
 			return -1;
 		}
 	} else {

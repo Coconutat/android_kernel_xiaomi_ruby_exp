@@ -605,6 +605,8 @@ static VOID wmmQueryTsmResult(P_ADAPTER_T prAdapter, ULONG ulParam)
 	struct WMM_INFO *prWmmInfo = &prAdapter->rWifiVar.rWmmInfo;
 	CMD_GET_TSM_STATISTICS_T rGetTsmStatistics;
 
+	kalMemZero(&rGetTsmStatistics, sizeof(rGetTsmStatistics));
+
 	DBGLOG(WMM, INFO, "Query TSM statistics, tid = %d\n", prTsmReq->ucTID);
 	DBGLOG(WMM, INFO, "%p , aci %d, duration %d\n", prTsmReq, prTsmReq->ucACI, prTsmReq->u2Duration);
 	rGetTsmStatistics.ucBssIdx = prAdapter->prAisBssInfo->ucBssIndex;
@@ -660,6 +662,8 @@ wmmRemoveTSM(P_ADAPTER_T prAdapter, struct ACTIVE_RM_TSM_REQ *prActiveTsm, BOOLE
 	if (fgNeedStop) {
 		CMD_SET_TSM_STATISTICS_REQUEST_T rTsmStatistics;
 		P_STA_RECORD_T prStaRec = NULL;
+
+		kalMemZero(&rTsmStatistics, sizeof(rTsmStatistics));
 
 		if (!prAdapter->prAisBssInfo) {
 			DBGLOG(WMM, ERROR, "prAisBssInfo is NULL\n");

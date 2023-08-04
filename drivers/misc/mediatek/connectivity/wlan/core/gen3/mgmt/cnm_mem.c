@@ -542,6 +542,13 @@ P_STA_RECORD_T cnmStaRecAlloc(P_ADAPTER_T prAdapter, ENUM_STA_TYPE_T eStaType, U
 				prStaRec->afgIsIgnoreAmsduDuplicate[k] = FALSE;
 			}
 
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+			for (k = 0; k < TID_NUM + 1; k++) {
+				prStaRec->au2AmsduInvalidSN[k] = 0xFFFF;
+				prStaRec->afgIsAmsduInvalid[k] = FALSE;
+			}
+#endif
+
 			/* Initialize SW TX queues in STA_REC */
 			for (k = 0; k < STA_WAIT_QUEUE_NUM; k++)
 				LINK_INITIALIZE(&prStaRec->arStaWaitQueue[k]);

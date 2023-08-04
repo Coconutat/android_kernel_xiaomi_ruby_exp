@@ -4476,8 +4476,8 @@ WLAN_STATUS wlanCheckConnectedAP(IN P_ADAPTER_T prAdapter)
 	BOOLEAN fgGenAPMsg = FALSE;
 	P_WLAN_BEACON_FRAME_T prBeacon = NULL;
 	P_IE_SSID_T prSsid = NULL;
-	PARAM_SSID_T rSsid;
-	PARAM_802_11_CONFIG_T rConfiguration;
+	PARAM_SSID_T rSsid = { 0 };
+	PARAM_802_11_CONFIG_T rConfiguration = { 0 };
 	PARAM_RATES_EX rSupportedRates;
 	P_BSS_DESC_T prBssDesc = NULL;
 	ENUM_PARAM_NETWORK_TYPE_T eNetworkType;
@@ -4608,8 +4608,8 @@ WLAN_STATUS wlanCheckSystemConfiguration(IN P_ADAPTER_T prAdapter)
 	P_IE_SSID_T prSsid = NULL;
 	UINT_32 u4ErrCode = 0;
 	UINT_8 aucErrMsg[32];
-	PARAM_SSID_T rSsid;
-	PARAM_802_11_CONFIG_T rConfiguration;
+	PARAM_SSID_T rSsid = { 0 };
+	PARAM_802_11_CONFIG_T rConfiguration = { 0 };
 	PARAM_RATES_EX rSupportedRates;
 #endif
 
@@ -5737,6 +5737,8 @@ VOID wlanCfgApply(IN P_ADAPTER_T prAdapter)
 
 	prAdapter->prGlueInfo->i4Priority = wlanCfgGetInt32(prAdapter, "RTPri", 0);
 	/* TODO: Apply other Config */
+	prWifiVar->fgSapCheckPmkidInDriver =
+		(UINT_32) wlanCfgGetUint32(prAdapter, "SapCheckPmkidInDriver", 1);
 }
 #endif /* CFG_SUPPORT_CFG_FILE */
 

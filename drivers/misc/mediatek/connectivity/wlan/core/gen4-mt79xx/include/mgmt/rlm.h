@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -155,6 +155,7 @@ extern uint32_t g_au4IQData[256];
 		 << VHT_CAP_INFO_MAX_AMPDU_LENGTH_OFFSET))
 
 #define VHT_CAP_INFO_DEFAULT_HIGHEST_DATA_RATE			0
+#define VHT_CAP_INFO_EXT_NSS_BW_CAP				BIT(13)
 #endif
 
 #if CFG_SUPPORT_ONE_TIME_CAL
@@ -357,6 +358,19 @@ struct SUB_ELEMENT_LIST {
 	struct SUB_ELEMENT rSubIE;
 };
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+struct SWITCH_CH_AND_BAND_PARAMS {
+	enum ENUM_BAND eCsaBand;
+	uint8_t ucCsaNewCh;
+	uint8_t ucCsaCount;
+	uint8_t ucVhtS1;
+	uint8_t ucVhtS2;
+	uint8_t ucVhtBw;
+	enum ENUM_CHNL_EXT eSco;
+	uint8_t ucBssIndex;
+};
+#endif
+
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -397,6 +411,18 @@ struct SUB_ELEMENT_LIST {
 	((_prBssInfo)->ucPhyTypeSet & PHY_TYPE_SET_802_11AX)
 #endif
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+#define MAX_CSA_COUNT 255
+#define HAS_CH_SWITCH_PARAMS(prCSAParams) (prCSAParams->ucCsaNewCh > 0)
+#define HAS_SCO_PARAMS(prCSAParams) (prCSAParams->eSco > 0)
+#define HAS_WIDE_BAND_PARAMS(prCSAParams) \
+	(prCSAParams->ucVhtBw > 0 || \
+	 prCSAParams->ucVhtS1 > 0 || \
+	 prCSAParams->ucVhtS2 > 0)
+#define SHOULD_CH_SWITCH(current, prCSAParams) \
+	(HAS_CH_SWITCH_PARAMS(prCSAParams) && \
+	 (current < prCSAParams->ucCsaCount))
+#endif
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -538,6 +564,13 @@ void rlmGenerateCountryIE(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_DFS
 void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter,
 			     struct SW_RFB *prSwRfb);
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+void rlmResetCSAParams(struct BSS_INFO *prBssInfo);
+
+void rlmCsaTimeout(struct ADAPTER *prAdapter,
+				uintptr_t ulParamPtr);
+#endif /* CFG_SUPPORT_P2P_CSA */
 #endif
 
 uint32_t
@@ -569,6 +602,10 @@ rlmNotifyChannelWidthtTxDone(struct ADAPTER *prAdapter,
 
 uint8_t
 rlmGetBssOpBwByVhtAndHtOpInfo(struct BSS_INFO *prBssInfo);
+
+uint8_t
+rlmGetBssOpBwByOwnAndPeerCapability(struct ADAPTER *prAdapter,
+	struct BSS_INFO *prBssInfo);
 
 uint8_t
 rlmGetVhtOpBwByBssOpBw(uint8_t ucBssOpBw);
@@ -680,6 +717,7 @@ uint32_t rlmTriggerCalBackup(
 
 void rlmModifyVhtBwPara(uint8_t *pucVhtChannelFrequencyS1,
 			uint8_t *pucVhtChannelFrequencyS2,
+			uint8_t ucHtChannelFrequencyS3,
 			uint8_t *pucVhtChannelWidth);
 
 #if (CFG_SUPPORT_WIFI_6G == 1)

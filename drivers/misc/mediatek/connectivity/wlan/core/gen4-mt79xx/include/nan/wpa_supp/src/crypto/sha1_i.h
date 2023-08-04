@@ -1,8 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2005 MediaTek Inc.
  */
-
+/*
+ * SHA1 internal definitions
+ * Copyright (c) 2003-2005, Jouni Malinen <j@w1.fi>
+ *
+ * This software may be distributed under the terms of the BSD license.
+ * See README for more details.
+ */
 #ifndef SHA1_I_H
 #define SHA1_I_H
 

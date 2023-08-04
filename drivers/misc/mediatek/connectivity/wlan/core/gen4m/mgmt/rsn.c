@@ -154,7 +154,7 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 		       OUT struct RSN_INFO *prRsnInfo)
 {
 	uint32_t i;
-	int32_t u4RemainRsnIeLen;
+	int32_t i4RemainRsnIeLen;
 	uint16_t u2Version;
 	uint16_t u2Cap = 0;
 	uint32_t u4GroupSuite = RSN_CIPHER_SUITE_CCMP;
@@ -183,14 +183,14 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 	}
 
 	cp = (uint8_t *) &prInfoElem->u4GroupKeyCipherSuite;
-	u4RemainRsnIeLen = (int32_t) prInfoElem->ucLength - 2;
+	i4RemainRsnIeLen = (int32_t) prInfoElem->ucLength - 2;
 
 	do {
-		if (u4RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Group Key Cipher Suite field. */
-		if (u4RemainRsnIeLen < 4) {
+		if (i4RemainRsnIeLen < 4) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in group cipher suite (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -199,13 +199,13 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_32(cp, &u4GroupSuite);
 		cp += 4;
-		u4RemainRsnIeLen -= 4;
+		i4RemainRsnIeLen -= 4;
 
-		if (u4RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Pairwise Key Cipher Suite Count field. */
-		if (u4RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in pairwise cipher suite count (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -214,11 +214,11 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_16(cp, &u2PairSuiteCount);
 		cp += 2;
-		u4RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		/* Parse the Pairwise Key Cipher Suite List field. */
 		i = (uint32_t) u2PairSuiteCount * 4;
-		if (u4RemainRsnIeLen < (int32_t) i) {
+		if (i4RemainRsnIeLen < (int32_t) i) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in pairwise cipher suite list (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -228,15 +228,15 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 		pucPairSuite = cp;
 
 		cp += i;
-		u4RemainRsnIeLen -= (int32_t) i;
+		i4RemainRsnIeLen -= (int32_t) i;
 
-		if (u4RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Authentication and Key Management Cipher
 		 * Suite Count field.
 		 */
-		if (u4RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in auth & key mgt suite count (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -245,13 +245,13 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_16(cp, &u2AuthSuiteCount);
 		cp += 2;
-		u4RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		/* Parse the Authentication and Key Management Cipher
 		 * Suite List field.
 		 */
 		i = (uint32_t) u2AuthSuiteCount * 4;
-		if (u4RemainRsnIeLen < (int32_t) i) {
+		if (i4RemainRsnIeLen < (int32_t) i) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in auth & key mgt suite list (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -261,13 +261,13 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 		pucAuthSuite = cp;
 
 		cp += i;
-		u4RemainRsnIeLen -= (int32_t) i;
+		i4RemainRsnIeLen -= (int32_t) i;
 
-		if (u4RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the RSN u2Capabilities field. */
-		if (u4RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in RSN capabilities (IE len: %d)\n",
 			       prInfoElem->ucLength);
@@ -276,12 +276,12 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_16(cp, &u2Cap);
 		cp += 2;
-		u4RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
-		if (u4RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
-		if (u4RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 				"Fail to parse PMKID count in RSN iE\n");
 			return FALSE;
@@ -289,7 +289,7 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_16(cp, &u2PmkidCount);
 		cp += 2;
-		u4RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		if (u2PmkidCount > 4) {
 			DBGLOG(RSN, TRACE,
@@ -298,7 +298,7 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 			return FALSE;
 		}
 
-		if (u2PmkidCount > 0 && u4RemainRsnIeLen < 16 * u2PmkidCount) {
+		if (u2PmkidCount > 0 && i4RemainRsnIeLen < 16 * u2PmkidCount) {
 			DBGLOG(RSN, TRACE,
 				"Fail to parse PMKID in RSN iE, count: %d\n",
 				u2PmkidCount);
@@ -308,7 +308,7 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 		if (u2PmkidCount > 0) {
 			kalMemCopy(prRsnInfo->aucPmkid, cp, IW_PMKID_LEN);
 			cp += IW_PMKID_LEN;
-			u4RemainRsnIeLen -= IW_PMKID_LEN;
+			i4RemainRsnIeLen -= IW_PMKID_LEN;
 		}
 	} while (FALSE);
 
@@ -2057,6 +2057,7 @@ void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					  prStaRec->ucBssIndex);
 	*pu2StatusCode = STATUS_CODE_INVALID_INFO_ELEMENT;
+	kalMemZero(&rRsnIe, sizeof(struct RSN_INFO));
 
 	if (rsnParseRsnIE(prAdapter, prIe, &rRsnIe)) {
 		if ((rRsnIe.u4PairwiseKeyCipherSuiteCount != 1)
@@ -2404,6 +2405,8 @@ uint32_t rsnSetPmkid(IN struct ADAPTER *prAdapter,
 	struct PMKID_ENTRY *entry;
 	struct LINK *cache;
 
+	GLUE_SPIN_LOCK_DECLARATION();
+
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 		prPmkid->ucBssIdx);
 	cache = &prBssInfo->rPmkidCache;
@@ -2414,7 +2417,9 @@ uint32_t rsnSetPmkid(IN struct ADAPTER *prAdapter,
 		entry = kalMemAlloc(sizeof(struct PMKID_ENTRY), VIR_MEM_TYPE);
 		if (!entry)
 			return -ENOMEM;
+		GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 		LINK_INSERT_TAIL(cache,	&entry->rLinkEntry);
+		GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 	}
 
 	DBGLOG(RSN, INFO,
@@ -2448,6 +2453,8 @@ uint32_t rsnDelPmkid(IN struct ADAPTER *prAdapter,
 	struct PMKID_ENTRY *entry;
 	struct LINK *cache;
 
+	GLUE_SPIN_LOCK_DECLARATION();
+
 	if (!prPmkid)
 		return WLAN_STATUS_INVALID_DATA;
 
@@ -2466,7 +2473,9 @@ uint32_t rsnDelPmkid(IN struct ADAPTER *prAdapter,
 			DBGLOG(RSN, WARN, "Del " MACSTR " pmkid but mismatch\n",
 				MAC2STR(prPmkid->arBSSID));
 		}
+		GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 		LINK_REMOVE_KNOWN_ENTRY(cache, entry);
+		GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 		kalMemFree(entry, VIR_MEM_TYPE, sizeof(struct PMKID_ENTRY));
 	}
 
@@ -2484,18 +2493,28 @@ uint32_t rsnFlushPmkid(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
 	struct PMKID_ENTRY *entry;
-	struct LINK *cache;
+	struct LINK cache;
+
+	GLUE_SPIN_LOCK_DECLARATION();
 
 	prBssInfo =
 		GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	cache = &prBssInfo->rPmkidCache;
+	if (!prBssInfo) {
+		DBGLOG(RSN, ERROR, "prBssInfo is null\n");
+		return WLAN_STATUS_INVALID_DATA;
+	}
+	LINK_INITIALIZE(&cache);
 
 	DBGLOG(RSN, TRACE, "[%d] Flush Pmkid total:%d\n",
 		ucBssIndex,
-		cache->u4NumElem);
+		prBssInfo->rPmkidCache.u4NumElem);
 
-	while (!LINK_IS_EMPTY(cache)) {
-		LINK_REMOVE_HEAD(cache, entry, struct PMKID_ENTRY *);
+	GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
+	LINK_MERGE_TO_HEAD(&cache, &prBssInfo->rPmkidCache);
+	GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
+
+	while (!LINK_IS_EMPTY(&cache)) {
+		LINK_REMOVE_HEAD(&cache, entry, struct PMKID_ENTRY *);
 		kalMemFree(entry, VIR_MEM_TYPE, sizeof(struct PMKID_ENTRY));
 	}
 	return WLAN_STATUS_SUCCESS;
@@ -2600,7 +2619,7 @@ uint8_t rsnCheckSaQueryTimeout(
 	GET_CURRENT_SYSTIME(&now);
 
 	if (CHECK_FOR_TIMEOUT(now, prBssSpecInfo->u4SaQueryStart,
-			      TU_TO_MSEC(1000))) {
+			      TU_TO_MSEC(SA_QUERY_RETRY_TIMEOUT))) {
 		DBGLOG(RSN, INFO, "association SA Query timed out\n");
 
 		prBssSpecInfo->ucSaQueryTimedOut = 1;
@@ -2776,11 +2795,10 @@ void rsnStartSaQueryTimer(IN struct ADAPTER *prAdapter,
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
 	DBGLOG(RSN, INFO, "Set SA Query timer %d (%d Tu)",
-	       prBssSpecInfo->u4SaQueryCount, 201);
+	       prBssSpecInfo->u4SaQueryCount, SA_QUERY_TIMEOUT);
 
 	cnmTimerStartTimer(prAdapter, &prBssSpecInfo->rSaQueryTimer,
-			   TU_TO_MSEC(201));
-
+			   TU_TO_MSEC(SA_QUERY_TIMEOUT));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -3289,7 +3307,7 @@ uint8_t rsnApCheckSaQueryTimeout(IN struct ADAPTER
 	GET_CURRENT_SYSTIME(&now);
 
 	if (CHECK_FOR_TIMEOUT(now, prStaRec->rPmfCfg.u4SAQueryStart,
-			      TU_TO_MSEC(1000))) {
+			      TU_TO_MSEC(SA_QUERY_RETRY_TIMEOUT))) {
 		DBGLOG(RSN, INFO, "association SA Query timed out\n");
 
 		/* XXX PMF TODO how to report STA REC disconnect?? */
@@ -3307,7 +3325,9 @@ uint8_t rsnApCheckSaQueryTimeout(IN struct ADAPTER
 			if (bssRemoveClient(prAdapter, prBssInfo, prStaRec)) {
 				/* Indicate disconnect to Host. */
 				p2pFuncDisconnect(prAdapter, prBssInfo,
-					prStaRec, FALSE, 0);
+					prStaRec, FALSE,
+					REASON_CODE_DEAUTH_LEAVING_BSS,
+					TRUE);
 				/* Deactive BSS if PWR is IDLE and no peer */
 				if (IS_NET_PWR_STATE_IDLE(prAdapter,
 					prBssInfo->ucBssIndex)
@@ -3422,10 +3442,10 @@ void rsnApStartSaQueryTimer(IN struct ADAPTER *prAdapter,
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
 	DBGLOG(RSN, INFO, "AP Set SA Query timer %d (%d Tu)\n",
-	       prStaRec->rPmfCfg.u4SAQueryCount, 201);
+	       prStaRec->rPmfCfg.u4SAQueryCount, SA_QUERY_TIMEOUT);
 
 	cnmTimerStartTimer(prAdapter,
-			   &prStaRec->rPmfCfg.rSAQueryTimer, TU_TO_MSEC(201));
+		&prStaRec->rPmfCfg.rSAQueryTimer, TU_TO_MSEC(SA_QUERY_TIMEOUT));
 
 }
 

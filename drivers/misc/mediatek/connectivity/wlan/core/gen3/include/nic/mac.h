@@ -255,6 +255,9 @@
 
 #define RATE_VHT_PHY                            126	/* BSS Selector - Clause 22. HT PHY */
 #define RATE_HT_PHY                             127	/* BSS Selector - Clause 20. HT PHY */
+#define RATE_H2E_ONLY                           123 /* BSS Selector - Hash to Element only */
+#define RATE_H2E_ONLY_VAL                       (0x80 | 123)
+
 #define RATE_MASK                               BITS(0, 6)	/* mask bits for the rate */
 #define RATE_BASIC_BIT                          BIT(7)	/* mask bit for the rate belonging to the BSSBasicRateSet */
 
@@ -887,6 +890,8 @@
 #define ELEM_ID_VHT_OP                              192	/* VHT Operation information */
 #define ELEM_ID_WIDE_BAND_CHANNEL_SWITCH            194	/* Wide Bandwidth Channel Switch */
 #define ELEM_ID_OP_MODE                             199	/* Operation Mode Notification */
+#define ELEM_ID_RSNX                                244 /* RSN Extension */
+
 #define ELEM_ID_RESERVED                            255	/* Reserved */
 
 /* 7.3.2.1 SSID element */

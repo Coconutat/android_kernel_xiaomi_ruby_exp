@@ -235,6 +235,9 @@ uint8_t kalP2PGetWscMode(IN struct GLUE_INFO *prGlueInfo);
 #define kalP2PTxCarrierOn(_prGlueInfo, _prBssInfo) \
 		KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, _prGlueInfo)
 
+#define kalP2PIsTxCarrierOn(_prGlueInfo, _prBssInfo) \
+		KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, _prGlueInfo)
+
 #define kalP2PEnableNetDev(_prGlueInfo, _prBssInfo) \
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, _prGlueInfo)
 
@@ -267,6 +270,9 @@ void kalP2PGenP2P_IE(IN struct GLUE_INFO *prGlueInfo,
 		IN uint8_t ucRoleIdx);
 
 void kalP2PTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
+		IN struct BSS_INFO *prBssInfo);
+
+u_int8_t kalP2PIsTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
 		IN struct BSS_INFO *prBssInfo);
 
 void kalP2PEnableNetDev(IN struct GLUE_INFO *prGlueInfo,
@@ -395,7 +401,8 @@ kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 		IN struct P2P_CONNECTION_REQ_INFO *prP2pConnInfo,
 		IN uint8_t *pucRxIEBuf,
 		IN uint16_t u2RxIELen,
-		IN uint16_t u2StatusReason);
+		IN uint16_t u2StatusReason,
+		IN uint32_t eStatus);
 
 void
 kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,

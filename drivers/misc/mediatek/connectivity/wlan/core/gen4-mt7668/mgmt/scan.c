@@ -1442,6 +1442,12 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 				return NULL;
 
 			/* restore */
+			if (fgIsConnected) {
+				prAdapter->
+					rWifiVar.rAisFsmInfo.prTargetBssDesc =
+					prBssDesc;
+				DBGLOG(SCN, WARN, "Update prTargetBssDesc!\n");
+			}
 			prBssDesc->fgIsConnected = fgIsConnected;
 			prBssDesc->fgIsConnecting = fgIsConnecting;
 		}
@@ -1611,6 +1617,11 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 
 			break;
 		case ELEM_ID_VHT_CAP:
+			/* Error handling */
+			if (IE_LEN(pucIE) !=
+				(sizeof(IE_VHT_CAP_T) - 2))
+				break;
+
 			prBssDesc->fgIsVHTPresent = TRUE;
 #if CFG_SUPPORT_BFEE
 			prBssDesc->ucVhtCapNumSoundingDimensions =

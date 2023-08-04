@@ -666,7 +666,7 @@ static void soc5_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t ucIdx = 0;
 	uint8_t aucFlavor[2] = {0};
 
-	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
+	kalGetFwFlavor(&aucFlavor[0]);
 
 	for (ucIdx = 0; apucsoc5_0FwName[ucIdx]; ucIdx++) {
 		if ((*pucNameIdx + 3) >= ucMaxNameIdx) {
@@ -683,8 +683,7 @@ static void soc5_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 				apucsoc5_0FwName[ucIdx],
 				CFG_WIFI_IP_SET,
 				aucFlavor,
-				wlanGetEcoVersion(
-					prGlueInfo->prAdapter));
+				1);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -777,11 +776,19 @@ static void soc5_0asicConnac2xProcessTxInterrupt(
 	rIntrStatus = (union WPDMA_INT_STA_STRUCT)prHifInfo->u4IntStatus;
 	if (rIntrStatus.field_conn2x_single.wfdma0_tx_done_16)
 		halWpdmaProcessCmdDmaDone(
+#if CFG_TRI_TX_RING
+			prAdapter->prGlueInfo, TX_RING_FWDL_IDX_5);
+#else
 			prAdapter->prGlueInfo, TX_RING_FWDL_IDX_4);
+#endif
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_tx_done_17)
 		halWpdmaProcessCmdDmaDone(
+#if CFG_TRI_TX_RING
+			prAdapter->prGlueInfo, TX_RING_CMD_IDX_4);
+#else
 			prAdapter->prGlueInfo, TX_RING_CMD_IDX_3);
+#endif
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_tx_done_0) {
 		halWpdmaProcessDataDmaDone(
@@ -901,7 +908,7 @@ static void soc5_0asicConnac2xWfdmaManualPrefetch(
 	}
 	HAL_MCR_WR(prAdapter,
 		   WF_WFDMA_HOST_DMA0_WPDMA_TX_RING18_EXT_CTRL_ADDR,
-		   0x04000004);
+		   u4WrVal);
 	u4WrVal += 0x00400000;
 
 	/* fill last dummy ring */
@@ -1036,6 +1043,11 @@ static void soc5_0asicConnac2xWpdmaConfig(struct GLUE_INFO *prGlueInfo,
 		HAL_MCR_WR(prAdapter, u4DmaCfgCr, GloCfg.word);
 		configWfdmaRxRingThreshold(prAdapter);
 	}
+
+	/* Enable RX periodic delayed interrupt 1ms */
+	HAL_MCR_WR(prAdapter,
+		   WF_WFDMA_HOST_DMA0_HOST_PER_DLY_INT_CFG_ADDR,
+		   0xF14);
 }
 
 int soc5_0_Trigger_fw_assert(void)
@@ -1660,14 +1672,8 @@ void wlanCoAntVFE28En(IN struct ADAPTER *prAdapter)
 
 	if (fgCoAnt) {
 		if (gCoAntVFE28En == FALSE) {
-#if (KERNEL_VERSION(4, 15, 0) <= CFG80211_VERSION_CODE)
-			regmap_write(g_regmap,
-				MT6359_LDO_VFE28_OP_EN_SET, 0x1 << 8);
-			regmap_write(g_regmap,
-				MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
-#else
 			KERNEL_pmic_ldo_vfe28_lp(8, 0, 1, 0);
-#endif
+
 			DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Enable\n");
 			gCoAntVFE28En = TRUE;
 		} else {
@@ -1681,13 +1687,8 @@ void wlanCoAntVFE28En(IN struct ADAPTER *prAdapter)
 void wlanCoAntVFE28Dis(void)
 {
 	if (gCoAntVFE28En == TRUE) {
-#if (KERNEL_VERSION(4, 15, 0) <= CFG80211_VERSION_CODE)
-		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_EN_CLR, 0x1 << 8);
-		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
-		regmap_write(g_regmap, MT6359_LDO_VFE28_OP_CFG_CLR, 0x1 << 8);
-#else
 		KERNEL_pmic_ldo_vfe28_lp(8, 0, 0, 0);
-#endif
+
 		DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Disable\n");
 		gCoAntVFE28En = FALSE;
 	} else {
@@ -1776,7 +1777,7 @@ soc5_0_kalFirmwareImageMapping(
 
 	*ppvMapFileBuf = NULL;
 	*pu4FileLength = 0;
-	kalGetFwFlavor(prGlueInfo->prAdapter, &aucFlavor[0]);
+	kalGetFwFlavor(&aucFlavor[0]);
 
 	do {
 		/* <0.0> Get FW name prefix table */
@@ -1911,7 +1912,7 @@ uint32_t soc5_0_wlanImageSectionDownloadStage(
 	u_int8_t fgIsNotDownload = FALSE;
 	uint32_t u4Status = WLAN_STATUS_SUCCESS;
 	struct mt66xx_chip_info *prChipInfo = prAdapter->chip_info;
-	struct patch_dl_target target;
+	struct patch_dl_target target = {0};
 	struct PATCH_FORMAT_T *prPatchHeader;
 	struct ROM_EMI_HEADER *prRomEmiHeader;
 	struct FWDL_OPS_T *prFwDlOps;
@@ -2477,25 +2478,43 @@ static void soc5_0_DumpOtherCr(struct ADAPTER *prAdapter)
 	DBGLOG(HAL, ERROR,
 	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
 	       u4WrVal, u4Val);
-	u4WrVal = 0x00100001;
+	u4WrVal = 0x00108421;
 	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
 	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
 	DBGLOG(HAL, ERROR,
 	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
 	       u4WrVal, u4Val);
-	u4WrVal = 0x00100010;
+	u4WrVal = 0x00184210;
 	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
 	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
 	DBGLOG(HAL, ERROR,
 	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
 	       u4WrVal, u4Val);
-	u4WrVal = 0x00100017;
+	u4WrVal = 0x00194A52;
 	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
 	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
 	DBGLOG(HAL, ERROR,
 	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
 	       u4WrVal, u4Val);
-	u4WrVal = 0x0010001D;
+	u4WrVal = 0x001BDEF7;
+	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
+	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
+	DBGLOG(HAL, ERROR,
+	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
+	       u4WrVal, u4Val);
+	u4WrVal = 0x001C6318;
+	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
+	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
+	DBGLOG(HAL, ERROR,
+	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
+	       u4WrVal, u4Val);
+	u4WrVal = 0x001E739C;
+	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
+	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
+	DBGLOG(HAL, ERROR,
+	       "W 0x18060094=[0x%08x], 0x1806021C=[0x%08x]\n",
+	       u4WrVal, u4Val);
+	u4WrVal = 0x001EF7BD;
 	connac2x_DbgCrWrite(prAdapter, 0x18060094, u4WrVal);
 	connac2x_DbgCrRead(prAdapter, 0x1806021C, &u4Val);
 	DBGLOG(HAL, ERROR,
@@ -2625,7 +2644,8 @@ static int soc5_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 				conninfra_reset = TRUE;
 
 				DBGLOG(HAL, ERROR,
-					"conninfra_is_bus_hang, Chip reset\n");
+					"conninfra_is_bus_hang(%d), Chip reset\n",
+					conninfra_hang_ret);
 			} else {
 				/*
 				* not readable, but no_hang or rst_ongoing
@@ -2651,7 +2671,8 @@ static int soc5_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
  */
 		wf_ioremap_read(WF_MCU_CFG_LS_BASE_ADDR, &u4Value);
 		if (u4Value != 0x02050000) {
-			DBGLOG(HAL, ERROR, "184F_0000 != 02050000\n");
+			DBGLOG(HAL, ERROR, "0x184F_0000=[0x%08x]\n",
+				u4Value);
 			break;
 		}
 /*

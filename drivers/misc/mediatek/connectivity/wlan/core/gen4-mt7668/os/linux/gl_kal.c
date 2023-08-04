@@ -631,7 +631,6 @@ VOID kalQueryTxChksumOffloadParam(IN PVOID pvPacket, OUT PUINT_8 pucFlag)
 		 * we'll process IP packet only.
 		 */
 		if (skb->protocol != htons(ETH_P_IP)) {
-			/* printk("Wrong skb->protocol( = %08x) for TX Checksum Offload.\n", skb->protocol); */
 		} else
 #endif
 			ucFlag |= (TX_CS_IP_GEN | TX_CS_TCP_UDP_GEN);
@@ -1292,12 +1291,6 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 		if (pStatus) {
 			switch (pStatus->eStatusType) {
 			case ENUM_STATUS_TYPE_AUTHENTICATION:
-				/*
-				 *  printk(KERN_NOTICE "ENUM_STATUS_TYPE_AUTHENTICATION: L(%ld) [" MACSTR "] F:%lx\n",
-				 *  pAuth->Request[0].Length,
-				 *  MAC2STR(pAuth->Request[0].Bssid),
-				 *  pAuth->Request[0].Flags);
-				 */
 				/* indicate (UC/GC) MIC ERROR event only */
 				if ((pAuth->arRequest[0].u4Flags ==
 				     PARAM_AUTH_REQUEST_PAIRWISE_ERROR) ||
@@ -1314,16 +1307,6 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 				break;
 
 			case ENUM_STATUS_TYPE_CANDIDATE_LIST:
-				/*
-				 *  printk(KERN_NOTICE "Param_StatusType_PMKID_CandidateList: Ver(%ld) Num(%ld)\n",
-				 *  pPmkid->u2Version,
-				 *  pPmkid->u4NumCandidates);
-				 *  if (pPmkid->u4NumCandidates > 0) {
-				 *  printk(KERN_NOTICE "candidate[" MACSTR "] preAuth Flag:%lx\n",
-				 *  MAC2STR(pPmkid->arCandidateList[0].rBSSID),
-				 *  pPmkid->arCandidateList[0].fgFlags);
-				 *  }
-				 */
 				{
 					UINT_32 i;
 
@@ -1337,18 +1320,9 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 				break;
 
 			default:
-				/* case ENUM_STATUS_TYPE_MEDIA_STREAM_MODE */
-				/*
-				 *  printk(KERN_NOTICE "unknown media specific indication type:%x\n",
-				 *  pStatus->StatusType);
-				 */
 				break;
 			}
-		} else {
-			/*
-			 *  printk(KERN_WARNING "media specific indication buffer NULL\n");
-			 */
-		}
+		} 
 		break;
 
 #if CFG_SUPPORT_BCM && CFG_SUPPORT_BCM_BWCS
@@ -1375,9 +1349,6 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 			break;
 		}
 	default:
-		/*
-		 *  printk(KERN_WARNING "unknown indication:%lx\n", eStatus);
-		 */
 		break;
 	}
 }				/* kalIndicateStatusAndComplete */
@@ -1412,16 +1383,10 @@ kalUpdateReAssocReqInfo(IN P_GLUE_INFO_T prGlueInfo,
 
 	if (fgReassocRequest) {
 		if (u4FrameBodyLen < 15) {
-			/*
-			 *  printk(KERN_WARNING "frameBodyLen too short:%ld\n", frameBodyLen);
-			 */
 			return;
 		}
 	} else {
 		if (u4FrameBodyLen < 9) {
-			/*
-			 *  printk(KERN_WARNING "frameBodyLen too short:%ld\n", frameBodyLen);
-			 */
 			return;
 		}
 	}
@@ -1569,6 +1534,16 @@ kalHardStartXmit(struct sk_buff *prOrgSkb, IN struct net_device *prDev, P_GLUE_I
 		return WLAN_STATUS_ADAPTER_NOT_READY;
 	}
 #endif
+
+	if ((GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIndex)
+			->eNetworkType == NETWORK_TYPE_AIS) &&
+		(GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIndex)
+			->eConnectionState != PARAM_MEDIA_STATE_CONNECTED)) {
+		DBGLOG(INIT, INFO,
+			"ais status is not connected, skip this frame\n");
+		dev_kfree_skb(prOrgSkb);
+		return WLAN_STATUS_NOT_ACCEPTED;
+	}
 
 	if (prGlueInfo->prAdapter->fgIsEnableLpdvt) {
 		DBGLOG(INIT, INFO, "LPDVT enable, skip this frame\n");
@@ -2813,7 +2788,7 @@ int hif_thread(void *data)
 	struct net_device *dev = data;
 	P_GLUE_INFO_T prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(dev));
 	int ret = 0;
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T rHifThreadWakeLock;
 #endif
 
@@ -2828,7 +2803,11 @@ int hif_thread(void *data)
 
 	while (TRUE) {
 
-		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
+		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT
+#if CFG_CHIP_RESET_SUPPORT
+			|| kalIsResetting()
+#endif
+			) {
 			DBGLOG(INIT, INFO, "hif_thread should stop now...\n");
 			break;
 		}
@@ -2846,7 +2825,7 @@ int hif_thread(void *data)
 			ret = wait_event_interruptible(prGlueInfo->waitq_hif,
 						       ((prGlueInfo->ulFlag & GLUE_FLAG_HIF_PROCESS) != 0));
 		} while (ret != 0);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 		if (!KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rHifThreadWakeLock))
 			KAL_WAKE_LOCK(prGlueInfo->prAdapter, &rHifThreadWakeLock);
 #endif
@@ -2858,7 +2837,11 @@ int hif_thread(void *data)
 			 *  so we set the flag only to enable the interrupt later
 			 */
 			prGlueInfo->prAdapter->fgIsIntEnable = FALSE;
-			if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
+			if (prGlueInfo->ulFlag & GLUE_FLAG_HALT
+#if CFG_CHIP_RESET_SUPPORT
+				|| kalIsResetting()
+#endif
+				) {
 				/* Should stop now... skip pending interrupt */
 				DBGLOG(INIT, INFO, "ignore pending interrupt\n");
 			} else {
@@ -2891,13 +2874,20 @@ int hif_thread(void *data)
 	}
 
 	complete(&prGlueInfo->rHifHaltComp);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rHifThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, &rHifThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, &rHifThreadWakeLock);
 #endif
 
 	DBGLOG(INIT, INFO, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
+
+#if CFG_CHIP_RESET_HANG
+	while (fgIsResetHangState == SER_L0_HANG_RST_HANG) {
+		kalMsleep(SER_L0_HANG_LOG_TIME_INTERVAL);
+		DBGLOG(INIT, STATE, "[SER][L0] SQC hang!\n");
+	}
+#endif
 
 	return 0;
 }
@@ -2912,7 +2902,7 @@ int rx_thread(void *data)
 	P_QUE_ENTRY_T prQueueEntry = NULL;
 
 	int ret = 0;
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T rRxThreadWakeLock;
 #endif
 	UINT_32 u4LoopCount;
@@ -2933,7 +2923,11 @@ int rx_thread(void *data)
 
 	while (TRUE) {
 
-		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
+		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT
+#if CFG_CHIP_RESET_SUPPORT
+			|| kalIsResetting()
+#endif
+	   ) {
 			DBGLOG(INIT, INFO, "rx_thread should stop now...\n");
 			break;
 		}
@@ -2949,7 +2943,7 @@ int rx_thread(void *data)
 			ret = wait_event_interruptible(prGlueInfo->waitq_rx,
 						       ((prGlueInfo->ulFlag & GLUE_FLAG_RX_PROCESS) != 0));
 		} while (ret != 0);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 		if (!KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rRxThreadWakeLock))
 			KAL_WAKE_LOCK(prGlueInfo->prAdapter, &rRxThreadWakeLock);
 #endif
@@ -2978,13 +2972,20 @@ int rx_thread(void *data)
 	}
 
 	complete(&prGlueInfo->rRxHaltComp);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rRxThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, &rRxThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, &rRxThreadWakeLock);
 #endif
 
 	DBGLOG(INIT, INFO, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
+
+#if CFG_CHIP_RESET_HANG
+	while (fgIsResetHangState == SER_L0_HANG_RST_HANG) {
+		kalMsleep(SER_L0_HANG_LOG_TIME_INTERVAL);
+		DBGLOG(INIT, STATE, "[SER][L0] SQC hang!\n");
+	}
+#endif
 
 	return 0;
 }
@@ -3010,7 +3011,7 @@ int main_thread(void *data)
 	P_GL_IO_REQ_T prIoReq = NULL;
 	int ret = 0;
 	BOOLEAN fgNeedHwAccess = FALSE;
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T rTxThreadWakeLock;
 #endif
 
@@ -3054,7 +3055,7 @@ int main_thread(void *data)
 			ret = wait_event_interruptible(prGlueInfo->waitq,
 						       ((prGlueInfo->ulFlag & GLUE_FLAG_MAIN_PROCESS) != 0));
 		} while (ret != 0);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 		if (!KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rTxThreadWakeLock))
 			KAL_WAKE_LOCK(prGlueInfo->prAdapter, &rTxThreadWakeLock);
 #endif
@@ -3071,7 +3072,6 @@ int main_thread(void *data)
 #endif
 		if (test_and_clear_bit(GLUE_FLAG_FRAME_FILTER_AIS_BIT, &prGlueInfo->ulFlag)) {
 			P_AIS_FSM_INFO_T prAisFsmInfo = (P_AIS_FSM_INFO_T) NULL;
-			/* printk("prGlueInfo->u4OsMgmtFrameFilter = %x", prGlueInfo->u4OsMgmtFrameFilter); */
 			prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
 			prAisFsmInfo->u4AisPacketFilter = prGlueInfo->u4OsMgmtFrameFilter;
 		}
@@ -3226,13 +3226,20 @@ int main_thread(void *data)
 	wlanReleasePendingOid(prGlueInfo->prAdapter, 0);
 
 	complete(&prGlueInfo->rHaltComp);
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, &rTxThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, &rTxThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, &rTxThreadWakeLock);
 #endif
 
 	DBGLOG(INIT, INFO, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
+
+#if CFG_CHIP_RESET_HANG
+	while (fgIsResetHangState == SER_L0_HANG_RST_HANG) {
+		kalMsleep(SER_L0_HANG_LOG_TIME_INTERVAL);
+		DBGLOG(INIT, STATE, "[SER][L0] SQC hang!\n");
+	}
+#endif
 
 	return 0;
 
@@ -4199,6 +4206,7 @@ UINT_8 kalGetRsnIeMfpCap(IN P_GLUE_INFO_T prGlueInfo)
 struct file *kalFileOpen(const char *path, int flags, int rights)
 {
 	struct file *filp = NULL;
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	int err = 0;
 
 	filp = filp_open(path, flags, rights);
@@ -4206,29 +4214,40 @@ struct file *kalFileOpen(const char *path, int flags, int rights)
 		err = PTR_ERR(filp);
 		return NULL;
 	}
+#endif
 	return filp;
 }
 
 VOID kalFileClose(struct file *file)
 {
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	filp_close(file, NULL);
+#endif
 }
 
 UINT_32 kalFileRead(struct file *file, unsigned long long offset, unsigned char *data, unsigned int size)
 {
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 #if KERNEL_VERSION(4, 14, 0) <= CFG80211_VERSION_CODE
 	return kernel_read(file, data, size, &offset);
 #else
 	return kernel_read(file, offset, data, size);
 #endif
+#else
+	return 0;
+#endif
 }
 
 UINT_32 kalFileWrite(struct file *file, unsigned long long offset, unsigned char *data, unsigned int size)
 {
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 #if KERNEL_VERSION(4, 14, 0) <= CFG80211_VERSION_CODE
 	return kernel_write(file, data, size, (loff_t *)&offset);
 #else
 	return kernel_write(file, data, size, (loff_t)offset);
+#endif
+#else
+	return 0;
 #endif
 }
 
@@ -4776,16 +4795,16 @@ void kalIndicateRxAssocToUpperLayer(struct net_device *prDevHandler,
 			u2FrameLen, bss, CFG80211_RX,
 			MAC_FRAME_ASSOC_RSP);
 #else
-#if (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
-	/* [TODO] Set uapsd_queues field to zero first,fill it if needed*/
+#if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame,
-					u2FrameLen, 0);
-#else
-#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+		u2FrameLen, 0, NULL, 0);
+#elif (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
+	/* [TODO] Set uapsd_queues field to zero first,fill it if needed*/
+	cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame, u2FrameLen, 0);
+#elif (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 	cfg80211_rx_assoc_resp(prDevHandler, bss, prAssocRspFrame, u2FrameLen);
 #else
 	cfg80211_send_rx_assoc(prDevHandler, bss, prAssocRspFrame, u2FrameLen);
-#endif
 #endif
 #endif
 }
@@ -5395,7 +5414,7 @@ BOOLEAN kalMetCheckProfilingPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACK
 
 	return FALSE;
 }
-
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 static unsigned long __read_mostly tracing_mark_write_addr;
 
 static int __mt_find_tracing_mark_write_symbol_fn(void *prData, const char *pcNameBuf,
@@ -5407,11 +5426,13 @@ static int __mt_find_tracing_mark_write_symbol_fn(void *prData, const char *pcNa
 	}
 	return 0;
 }
-
+#endif
 static inline void __mt_update_tracing_mark_write_addr(void)
 {
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	if (unlikely(tracing_mark_write_addr == 0))
 		kallsyms_on_each_symbol(__mt_find_tracing_mark_write_symbol_fn, NULL);
+#endif
 }
 
 VOID kalMetTagPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACKET prPacket, IN ENUM_TX_PROFILING_TAG_T eTag)
@@ -6657,7 +6678,11 @@ VOID kalIndicateChannelSwitch(IN P_GLUE_INFO_T prGlueInfo,
 	DBGLOG(REQ, STATE, "DFS channel switch to %d\n", ucChannelNum);
 
 	cfg80211_chandef_create(&chandef, prChannel, rChannelType);
-	cfg80211_ch_switch_notify(prGlueInfo->prDevHandler, &chandef);
+	cfg80211_ch_switch_notify(prGlueInfo->prDevHandler, &chandef
+#if defined(ANDROID) && (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+		, 0
+#endif
+		);
 }
 #endif
 
@@ -6677,7 +6702,7 @@ VOID kalInitDevWakeup(P_ADAPTER_T prAdapter, struct device *prDev)
 unsigned long kal_kallsyms_lookup_name(const char *name)
 {
 	unsigned long ret = 0;
-
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
 	ret = kallsyms_lookup_name(name);
 	if (ret) {
 #ifdef CONFIG_ARM
@@ -6687,6 +6712,7 @@ unsigned long kal_kallsyms_lookup_name(const char *name)
 #endif
 #endif
 	}
+#endif
 	return ret;
 }
 

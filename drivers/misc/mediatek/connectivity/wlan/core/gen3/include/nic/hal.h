@@ -218,7 +218,7 @@ do { \
 	} else { \
 		_prAdapter->prGlueInfo->u4Register = _u4Offset; \
 		_prAdapter->prGlueInfo->prRegValue = _pu4Value; \
-		KAL_WAKE_LOCK_TIMEOUT(_prAdapter, &_prAdapter->prGlueInfo->rTimeoutWakeLock, \
+		KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prAdapter->prGlueInfo->rTimeoutWakeLock, \
 							MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT)); \
 		set_bit(GLUE_FLAG_HAL_MCR_RD_BIT, &_prAdapter->prGlueInfo->ulFlag); \
 		wake_up_interruptible(&_prAdapter->prGlueInfo->waitq_hif); \
@@ -245,7 +245,7 @@ do { \
 	} else { \
 		_prAdapter->prGlueInfo->u4Register = _u4Offset; \
 		_prAdapter->prGlueInfo->u4RegValue = _u4Value; \
-		KAL_WAKE_LOCK_TIMEOUT(_prAdapter, &_prAdapter->prGlueInfo->rTimeoutWakeLock, \
+		KAL_WAKE_LOCK_TIMEOUT(_prAdapter, _prAdapter->prGlueInfo->rTimeoutWakeLock, \
 							MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT)); \
 		set_bit(GLUE_FLAG_HAL_MCR_WR_BIT, &_prAdapter->prGlueInfo->ulFlag); \
 		wake_up_interruptible(&_prAdapter->prGlueInfo->waitq_hif); \

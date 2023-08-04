@@ -1455,6 +1455,44 @@ VOID rsnGenerateRSNIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo)
 
 }				/* rsnGenerateRSNIE */
 
+void rsnGenerateRSNXIE(IN P_ADAPTER_T prAdapter,
+	IN P_MSDU_INFO_T prMsduInfo)
+{
+	P_P2P_SPECIFIC_BSS_INFO_T prP2pSpecBssInfo = NULL;
+	P_BSS_INFO_T prBssInfo = NULL;
+	UINT_8 ucBssIndex;
+
+	ucBssIndex = prMsduInfo->ucBssIndex;
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+	if (!prBssInfo)
+		return;
+
+	/* AP + GO */
+	if (!IS_BSS_APGO(prBssInfo))
+		return;
+
+	prP2pSpecBssInfo =
+		prAdapter->rWifiVar.prP2pSpecificBssInfo;
+
+	if (prP2pSpecBssInfo &&
+		(prP2pSpecBssInfo->u2RsnxIeLen != 0)) {
+		PUINT_8 pucBuffer =
+			(PUINT_8) ((unsigned long)
+			prMsduInfo->prPacket + (unsigned long)
+			prMsduInfo->u2FrameLength);
+
+		kalMemCopy(pucBuffer,
+			prP2pSpecBssInfo->aucRsnxIeBuffer,
+			prP2pSpecBssInfo->u2RsnxIeLen);
+		prMsduInfo->u2FrameLength +=
+			prP2pSpecBssInfo->u2RsnxIeLen;
+
+		DBGLOG(RSN, INFO,
+			"Keep supplicant RSNXIE content w/o update\n");
+	}
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief Parse the given IE buffer and check if it is WFA IE and return Type and

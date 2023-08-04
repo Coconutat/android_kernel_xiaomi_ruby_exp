@@ -74,6 +74,10 @@
 #include "mt_dmac.h"
 #include "wf_ple.h"
 
+#if CFG_MTK_MDDP_SUPPORT
+#include "mddp.h"
+#endif
+
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -1674,7 +1678,7 @@ int32_t connac2x_show_umac_wtbl_info(
 		| puwtbl->serial_no.wtbl_d0.field.pn0);
 	/* UMAC WTBL DW 0,1 */
 	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
-		"UWTBL DW 0,1\n\tpn:%d\n\tcom_sn:%d\n",
+		"UWTBL DW 0,1\n\tpn:%llu\n\tcom_sn:%u\n",
 		pn,
 		puwtbl->serial_no.wtbl_d1.field.com_sn);
 
@@ -1968,7 +1972,7 @@ int32_t connac2x_show_stat_info(
 	uint8_t ucRaTableNum = sizeof(RATE_TBLE) / sizeof(char *);
 	uint8_t ucRaStatusNum = sizeof(RA_STATUS_TBLE) / sizeof(char *);
 	uint8_t ucBssIndex = AIS_DEFAULT_INDEX;
-	struct PARAM_LINK_SPEED_EX rLinkSpeed;
+	struct PARAM_LINK_SPEED_EX rLinkSpeed = {0};
 
 #if 0
 	uint8_t ucRaLtModeNum = sizeof(LT_MODE_TBLE) / sizeof(char *);
@@ -2931,7 +2935,7 @@ void connac2x_show_wfdma_glo_info(
 	uint32_t idx;
 	uint32_t u4hostBaseCrAddr;
 	uint32_t u4DmaCfgCrAddr = 0;
-	union WPDMA_GLO_CFG_STRUCT GloCfgValue;
+	union WPDMA_GLO_CFG_STRUCT GloCfgValue = {0};
 
 	for (idx = 0; idx < u4DmaNum; idx++) {
 		if (enum_wfdma_type == WFDMA_TYPE_HOST)
@@ -3114,13 +3118,16 @@ void connac2x_show_wfdma_desc(IN struct ADAPTER *prAdapter)
 		DBGLOG(HAL, INFO, "Dump WFDMA Rx Ring[%s]\n", prGroup->name);
 		prRxRing = &prHifInfo->RxRing[i];
 		u4SwIdx = prGroup->didx;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
+					  u4SwIdx, true, 64);
 		u4SwIdx = prGroup->didx == 0 ?
 			prGroup->cnt - 1 : prGroup->didx - 1;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
+					  u4SwIdx, true, 64);
 		u4SwIdx = prGroup->didx == prGroup->cnt - 1 ?
 			0 : prGroup->didx + 1;
-		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing, u4SwIdx, true);
+		kalDumpRxRing(prAdapter->prGlueInfo, prRxRing,
+					  u4SwIdx, true, 64);
 	}
 }
 
@@ -3335,6 +3342,9 @@ void connac2x_show_wfdma_info(IN struct ADAPTER *prAdapter)
 	connac2x_show_wfdma_desc(prAdapter);
 
 	connac2xDumpPPDebugCr(prAdapter);
+#if CFG_MTK_MDDP_SUPPORT
+	mddpNotifyDumpDebugInfo();
+#endif
 }
 
 void connac2x_show_dmashdl_info(IN struct ADAPTER *prAdapter)
@@ -4144,6 +4154,7 @@ void connac2x_DumpCrRange(
 
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac2x_get_rx_rate_info(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIdx,
 		OUT uint32_t *pu4Rate, OUT uint32_t *pu4Nss,
 		OUT uint32_t *pu4RxMode, OUT uint32_t *pu4FrMode,
 		OUT uint32_t *pu4Sgi)
@@ -4158,7 +4169,7 @@ int connac2x_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 		(!pu4Sgi))
 		return -1;
 
-	prStaRec = aisGetStaRecOfAP(prAdapter, AIS_DEFAULT_INDEX);
+	prStaRec = aisGetStaRecOfAP(prAdapter, ucBssIdx);
 	if (prStaRec) {
 		ucWlanIdx = prStaRec->ucWlanIndex;
 	} else {
@@ -4173,7 +4184,8 @@ int connac2x_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 		u4RxVector2 = prAdapter->arStaRec[ucStaIdx].u4RxVector2;
 		if ((u4RxVector0 == 0) || (u4RxVector1 == 0) ||
 			(u4RxVector2 == 0)) {
-			DBGLOG(SW4, WARN, "RxVector1 or RxVector2 is 0\n");
+			DBGLOG_LIMITED(SW4, WARN,
+					"RxVector1 or RxVector2 is 0\n");
 			return -1;
 		}
 	} else {

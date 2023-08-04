@@ -139,7 +139,6 @@ static int netdev_event(struct notifier_block *nb, unsigned long notification, v
 	}
 #if 0				/* CFG_SUPPORT_PASSPOINT */
 	{
-		/* printk(KERN_INFO "[netdev_event] IPV4_DAD is unlock now!!\n"); */
 		prGlueInfo->fgIsDad = FALSE;
 	}
 #endif /* CFG_SUPPORT_PASSPOINT */
@@ -198,7 +197,7 @@ static int net6dev_event(struct notifier_block *nb, unsigned long notification, 
 		DBGLOG(REQ, INFO, "netdev_event: prGlueInfo is empty.\n");
 		return NOTIFY_DONE;
 	}
-	/* printk(KERN_INFO "[net6dev_event] IPV6_DAD is unlock now!!\n"); */
+
 	prGlueInfo->fgIs6Dad = FALSE;
 
 	return NOTIFY_DONE;
@@ -297,6 +296,7 @@ int glUnregisterEarlySuspend(struct early_suspend *prDesc)
 }
 #endif
 
+#if (CFG_ENABLE_GKI_SUPPORT != 1)
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief Utility function for reading data from files on NVRAM-FS
@@ -427,7 +427,7 @@ static int nvram_write(char *filename, char *buf, ssize_t len, int offset)
 
 #endif
 }
-
+#endif
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief API for reading data on NVRAM
@@ -444,15 +444,18 @@ static int nvram_write(char *filename, char *buf, ssize_t len, int offset)
 /*----------------------------------------------------------------------------*/
 BOOLEAN kalCfgDataRead16(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Offset, OUT PUINT_16 pu2Data)
 {
+#if (CFG_ENABLE_GKI_SUPPORT != 1)
 	if (pu2Data == NULL)
 		return FALSE;
-
 	if (nvram_read(WIFI_NVRAM_FILE_NAME,
 		       (char *)pu2Data, sizeof(unsigned short), u4Offset) != sizeof(unsigned short)) {
 		return FALSE;
 	} else {
 		return TRUE;
 	}
+#else
+	return FALSE;
+#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -470,10 +473,14 @@ BOOLEAN kalCfgDataRead16(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Offset, OUT P
 /*----------------------------------------------------------------------------*/
 BOOLEAN kalCfgDataWrite16(IN P_GLUE_INFO_T prGlueInfo, UINT_32 u4Offset, UINT_16 u2Data)
 {
+#if (CFG_ENABLE_GKI_SUPPORT != 1)
 	if (nvram_write(WIFI_NVRAM_FILE_NAME,
 			(char *)&u2Data, sizeof(unsigned short), u4Offset) != sizeof(unsigned short)) {
 		return FALSE;
 	} else {
 		return TRUE;
 	}
+#else
+	return FALSE;
+#endif
 }

@@ -150,7 +150,8 @@ extern bool fgIsTxPowerDecreased;
 	GLUE_FLAG_NOTIFY_MD_CRASH | \
 	GLUE_FLAG_DRV_INT)
 
-#define GLUE_FLAG_RX_PROCESS (GLUE_FLAG_HALT | GLUE_FLAG_RX_TO_OS)
+#define GLUE_FLAG_RX_PROCESS (GLUE_FLAG_HALT | GLUE_FLAG_RX_TO_OS | \
+	GLUE_FLAG_RX_GRO_TIMEOUT)
 #else
 /* All flags for single thread driver */
 #define GLUE_FLAG_TX_PROCESS  0xFFFFFFFF
@@ -166,6 +167,8 @@ extern bool fgIsTxPowerDecreased;
 
 #define PERF_MON_TP_CONDITION (125000)
 #define PERF_MON_COEX_TP_THRESHOLD (100)
+
+#define PERF_MON_MCC_TP_THRESHOLD (50)
 
 /* By wifi.cfg first. If it is not set 1s by default; 100ms on more. */
 #define TX_LATENCY_STATS_UPDATE_INTERVAL (0)
@@ -201,7 +204,11 @@ extern bool fgIsTxPowerDecreased;
 #endif
 
 #define WIFI_LOG_MSG_MAX	(512)
+#if IS_ENABLED(CONFIG_ARM64)
 #define WIFI_LOG_MSG_BUFFER	(WIFI_LOG_MSG_MAX * 2)
+#else
+#define WIFI_LOG_MSG_BUFFER	(768)
+#endif
 
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
 #define PWR_LEVEL_STAT_UPDATE_INTERVAL	60	/* sec */
@@ -268,6 +275,7 @@ enum ENUM_SPIN_LOCK_CATEGORY_E {
 #if CFG_SUPPORT_NAN
 	SPIN_LOCK_NAN_NEGO_CRB,
 #endif
+	SPIN_LOCK_PMKID,
 	SPIN_LOCK_NUM
 };
 
@@ -1015,8 +1023,8 @@ do { \
 /*----------------------------------------------------------------------------*/
 /* Macros of systrace operations for using in Driver Layer                    */
 /*----------------------------------------------------------------------------*/
-#if !CONFIG_WLAN_DRV_BUILD_IN
-
+/* Not build-in project and not userload */
+#if (CONFIG_WLAN_DRV_BUILD_IN == 0) && (BUILD_QA_DBG == 1)
 #define kalTraceBegin(_fmt, ...) \
 	tracing_mark_write("B|%d|" _fmt "\n", current->tgid, ##__VA_ARGS__)
 
@@ -1066,12 +1074,16 @@ do { \
 #define TRACE(_expr, _fmt, ...) _expr
 
 #endif
-
 /*----------------------------------------------------------------------------*/
 /* Macros of wiphy operations for using in Driver Layer                       */
 /*----------------------------------------------------------------------------*/
 #define WIPHY_PRIV(_wiphy, _priv) \
 	(_priv = *((struct GLUE_INFO **) wiphy_priv(_wiphy)))
+
+/******************************************************************************
+ * 64 bit operand
+ ******************************************************************************/
+#define kal_div64_u64(_a, _b) div64_u64(_a, _b)
 
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
@@ -1118,8 +1130,7 @@ uint32_t
 kalProcessRxPacket(IN struct GLUE_INFO *prGlueInfo,
 		   IN void *pvPacket,
 		   IN uint8_t *pucPacketStart, IN uint32_t u4PacketLen,
-		   /* IN PBOOLEAN           pfgIsRetain, */
-		   IN u_int8_t fgIsRetain, IN enum ENUM_CSUM_RESULT aeCSUM[]);
+		   IN enum ENUM_CSUM_RESULT aeCSUM[]);
 
 uint32_t kalRxIndicatePkts(IN struct GLUE_INFO *prGlueInfo,
 			   IN void *apvPkts[],
@@ -1434,7 +1445,8 @@ uint32_t kalGetTxPendingFrameCount(IN struct GLUE_INFO
 uint32_t kalGetTxPendingCmdCount(IN struct GLUE_INFO
 				 *prGlueInfo);
 
-void kalClearCommandQueue(IN struct GLUE_INFO *prGlueInfo);
+void kalClearCommandQueue(IN struct GLUE_INFO *prGlueInfo,
+	IN u_int8_t fgIsNeedHandler);
 
 u_int8_t kalSetTimer(IN struct GLUE_INFO *prGlueInfo,
 		     IN uint32_t u4Interval);
@@ -1704,7 +1716,7 @@ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 #endif
 int32_t kalSetCpuNumFreq(uint32_t u4CoreNum,
 			 uint32_t u4Freq);
-int32_t kalGetFwFlavor(struct ADAPTER *prAdapter, uint8_t *flavor);
+int32_t kalGetFwFlavor(uint8_t *flavor);
 int32_t kalGetFwFlavorByPlat(uint8_t *flavor);
 int32_t kalGetConnsysVerId(void);
 int32_t kalPerMonSetForceEnableFlag(uint8_t uFlag);
@@ -1794,7 +1806,7 @@ int _kalSnprintf(char *buf, size_t size, const char *fmt, ...);
 int _kalSprintf(char *buf, const char *fmt, ...);
 
 /* systrace utilities */
-#if !CONFIG_WLAN_DRV_BUILD_IN
+#if (CONFIG_WLAN_DRV_BUILD_IN == 0) && (BUILD_QA_DBG == 1)
 void tracing_mark_write(const char *fmt, ...);
 #endif
 

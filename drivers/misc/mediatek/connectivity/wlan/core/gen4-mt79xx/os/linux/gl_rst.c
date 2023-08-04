@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -110,7 +110,7 @@ static void *glResetCallback(enum ENUM_WMTDRV_TYPE eSrcType,
 static u_int8_t is_bt_exist(void);
 static u_int8_t rst_L0_notify_step1(void);
 static void wait_core_dump_end(void);
-#endif
+#endif /* CFG_CHIP_RESET_KO_SUPPORT */
 #endif
 #endif
 
@@ -185,15 +185,32 @@ void glResetInit(struct GLUE_INFO *prGlueInfo)
 	/* 2. Initialize reset work */
 	INIT_WORK(&(wifi_rst.rst_trigger_work),
 		  mtk_wifi_trigger_reset);
-#endif
+#endif /* CFG_WMT_RESET_API_SUPPORT */
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+#if defined(_HIF_SDIO)
+	struct WIFI_NOTIFY_DESC wifi_notify_desc;
+
+	wifi_notify_desc.BtNotifyWifiSubResetStep1 = NULL;
+	if (prGlueInfo == NULL || prGlueInfo->prAdapter == NULL
+		|| prGlueInfo->prAdapter->chip_info == NULL) {
+		DBGLOG(INIT, ERROR, "[SER][L0] reset init fail!\n");
+		return;
+	}
+	if (prGlueInfo->prAdapter->chip_info->asicSetNoBTFwOwnEn != NULL) {
+		wifi_notify_desc.BtNotifyWifiSubResetStep1 = halPreventFwOwnEn;
+		register_wifi_notify_callback(&wifi_notify_desc);
+	}
+#endif /* _HIF_SDIO */
+#endif /* CFG_CHIP_RESET_KO_SUPPORT */
+
 	INIT_WORK(&(wifi_rst.rst_work), mtk_wifi_reset);
-#endif
+#endif /* CFG_SUPPORT_CONNINFRA == 0 */
 
 	fgIsResetting = FALSE;
 	fgIsRstPreventFwOwn = FALSE;
 	wifi_rst.prGlueInfo = prGlueInfo;
 #if (CFG_SUPPORT_CONNINFRA == 1)
-
 
 	update_driver_reset_status(fgIsResetting);
 	KAL_WAKE_LOCK_INIT(NULL, g_IntrWakeLock, "WLAN Reset");
@@ -224,12 +241,20 @@ void glResetUninit(void)
 	/* 1. Deregister reset callback */
 #if (CFG_SUPPORT_CONNINFRA == 0)
 	mtk_wcn_wmt_msgcb_unreg(WMTDRV_TYPE_WIFI);
-#else
+#else /* CFG_SUPPORT_CONNINFRA == 0 */
 	set_bit(GLUE_FLAG_HALT_BIT, &g_ulFlag);
 	wake_up_interruptible(&g_waitq_rst);
 	KAL_WAKE_LOCK_DESTROY(NULL, g_IntrWakeLock);
-#endif
-#endif
+#endif /* CFG_SUPPORT_CONNINFRA == 0 */
+#endif /* CFG_WMT_RESET_API_SUPPORT */
+
+#if (CFG_SUPPORT_CONNINFRA == 0)
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+#if defined(_HIF_SDIO)
+	unregister_wifi_notify_callback();
+#endif /* _HIF_SDIO */
+#endif /* CFG_CHIP_RESET_KO_SUPPORT */
+#endif /* CFG_SUPPORT_CONNINFRA == 0 */
 }
 /*----------------------------------------------------------------------------*/
 /*!
@@ -607,10 +632,10 @@ void glResetTriggerCommon(struct ADAPTER *prAdapter, uint32_t u4RstFlag,
 	u2FwPeerVersion = prAdapter->rVerInfo.u2FwPeerVersion;
 	fgDrvOwn = TRUE;
 
-	if (eResetReason >= 0 && eResetReason < RST_REASON_MAX)
+	if ((uint32_t)eResetReason < RST_REASON_MAX)
 		DBGLOG(INIT, ERROR,
 		       "Trigger reset in %s line %u reason %s\n",
-		       pucFile, u4Line, apcReason[eResetReason]);
+		       pucFile, u4Line, apcReason[(uint32_t)eResetReason]);
 	else
 		DBGLOG(INIT, ERROR,
 		       "Trigger reset in %s line %u but unsupported reason %d\n",
@@ -638,9 +663,20 @@ void glResetTriggerCommon(struct ADAPTER *prAdapter, uint32_t u4RstFlag,
 	halPrintHifDbgInfo(prAdapter);
 
 	if ((u4RstFlag & RST_FLAG_DO_CORE_DUMP)
-		&& (prChipDbg->show_mcu_debug_info != NULL))
+		&& (prChipDbg->show_mcu_debug_info != NULL)) {
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+		if (rstNotifyWholeChipRstStatus(RST_MODULE_WIFI,
+						RST_MODULE_STATE_DUMP_START,
+						NULL) == RST_MODULE_RET_FAIL)
+			return;
+#endif
 		prChipDbg->show_mcu_debug_info(prAdapter, NULL, 0,
 						       DBG_MCU_DBG_ALL, NULL);
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+		rstNotifyWholeChipRstStatus(RST_MODULE_WIFI,
+					RST_MODULE_STATE_DUMP_END, NULL);
+#endif
+	}
 }
 
 /*----------------------------------------------------------------------------*/
@@ -972,9 +1008,20 @@ static void mtk_wifi_reset(struct work_struct *work)
 	 * at this stage, this is a workaround by performing it again here
 	 * where the context is kernel thread from workqueue.
 	 */
-	if (prChipDbg->show_mcu_debug_info)
+	if (prChipDbg->show_mcu_debug_info) {
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+		if (rstNotifyWholeChipRstStatus(RST_MODULE_WIFI,
+						RST_MODULE_STATE_DUMP_START,
+						NULL) == RST_MODULE_RET_FAIL)
+			return;
+#endif
 		prChipDbg->show_mcu_debug_info(prAdapter, NULL, 0,
 						       DBG_MCU_DBG_ALL, NULL);
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+		rstNotifyWholeChipRstStatus(RST_MODULE_WIFI,
+					RST_MODULE_STATE_DUMP_END, NULL);
+#endif
+	}
 
 	mtk_wifi_reset_main(rst);
 }

@@ -279,16 +279,19 @@ void wlanImageSectionGetPatchInfoV2(IN struct ADAPTER
 	img_ptr += sizeof(struct PATCH_FORMAT_V2_T);
 	glo_desc = (struct PATCH_GLO_DESC *)img_ptr;
 	num_of_region = be2cpu32(glo_desc->section_num);
+
+	if (num_of_region > FW_MAX_SECTION_NUM) {
+		DBGLOG(INIT, ERROR,
+			"num_of_region[0x%x] is bigger than max section number\n",
+			num_of_region);
+		return;
+	}
+
 	DBGLOG(INIT, INFO,
 			"\tPatch ver: 0x%x, Section num: 0x%x, subsys: 0x%x\n",
 			glo_desc->patch_ver,
 			num_of_region,
 			be2cpu32(glo_desc->subsys));
-
-	if (num_of_region < 0) {
-		DBGLOG(INIT, WARN, "parse patch failed! num_of_region < 0.\n");
-		return;
-	}
 
 	/* section map */
 	img_ptr += sizeof(struct PATCH_GLO_DESC);
@@ -392,13 +395,14 @@ uint32_t wlanDownloadSectionV2(IN struct ADAPTER *prAdapter,
 	uint32_t u4Status = WLAN_STATUS_SUCCESS;
 
 	num_of_region = target->num_of_region;
-	if (num_of_region < 0) {
+
+	if (num_of_region > FW_MAX_SECTION_NUM) {
 		DBGLOG(INIT, ERROR,
-			"Firmware download num_of_region < 0 !\n");
+			"num_of_region[0x%x] is bigger than max section number\n",
+			num_of_region);
 		u4Status = WLAN_STATUS_FAILURE;
 		goto out;
 	}
-
 
 	for (i = 0; i < num_of_region; i++) {
 		struct patch_dl_buf *region;
@@ -618,7 +622,7 @@ uint32_t wlanImageSectionDownloadStage(
 	u_int8_t fgIsNotDownload = FALSE;
 	uint32_t u4Status = WLAN_STATUS_SUCCESS;
 	struct mt66xx_chip_info *prChipInfo = prAdapter->chip_info;
-	struct patch_dl_target target;
+	struct patch_dl_target target = {0};
 	struct PATCH_FORMAT_T *prPatchHeader;
 	struct FWDL_OPS_T *prFwDlOps;
 
@@ -1526,6 +1530,10 @@ uint32_t wlanConfigWifiFuncStatus(IN struct ADAPTER
 					u4Status = WLAN_STATUS_SUCCESS;
 				}
 			}
+
+			if (u4Status != WLAN_STATUS_SUCCESS)
+				DBGLOG_MEM8(INIT, WARN,
+					(uint8_t *) aucBuffer, u4EventSize);
 		}
 	} while (FALSE);
 
@@ -2039,11 +2047,10 @@ uint32_t wlanGetHarvardTailerInfo(IN struct ADAPTER
 	return WLAN_STATUS_SUCCESS;
 }
 
-uint32_t wlanGetConnacTailerInfo(IN struct ADAPTER
-	*prAdapter, IN void *prFwBuffer,
-	IN uint32_t u4FwSize, IN enum ENUM_IMG_DL_IDX_T eDlIdx)
+uint32_t wlanGetConnacTailerInfo(IN struct WIFI_VER_INFO *prVerInfo,
+	IN void *prFwBuffer, IN uint32_t u4FwSize,
+	IN enum ENUM_IMG_DL_IDX_T eDlIdx)
 {
-	struct WIFI_VER_INFO *prVerInfo = &prAdapter->rVerInfo;
 	struct TAILER_COMMON_FORMAT_T *prComTailer;
 	struct TAILER_REGION_FORMAT_T *prRegTailer;
 	uint8_t *pucImgPtr;
@@ -2102,7 +2109,7 @@ uint32_t wlanGetConnacTailerInfo(IN struct ADAPTER
 	}
 
 	if (prComTailer->ucFormatFlag && pucImgPtr < pucTailertPtr)
-		fwDlGetReleaseInfoSection(prAdapter, pucImgPtr);
+		fwDlGetReleaseInfoSection(prVerInfo, pucImgPtr);
 
 	return WLAN_STATUS_SUCCESS;
 }
@@ -2223,8 +2230,9 @@ uint32_t wlanConnacFormatDownload(IN struct ADAPTER
 		return WLAN_STATUS_FAILURE;
 	}
 
-	if (wlanGetConnacTailerInfo(prAdapter, prFwBuffer, u4FwSize,
-				    eDlIdx) != WLAN_STATUS_SUCCESS) {
+	if (wlanGetConnacTailerInfo(&prAdapter->rVerInfo,
+					prFwBuffer, u4FwSize,
+					eDlIdx) != WLAN_STATUS_SUCCESS) {
 		DBGLOG(INIT, WARN, "Get tailer info error!\n");
 		rDlStatus = WLAN_STATUS_FAILURE;
 		goto exit;
@@ -2245,6 +2253,9 @@ uint32_t wlanConnacFormatDownload(IN struct ADAPTER
 	rDlStatus = wlanImageSectionDownloadStage(prAdapter,
 			prFwBuffer, u4FwSize, ucRegionNum, eDlIdx,
 			&fgIsDynamicMemMap);
+
+	if (rDlStatus != WLAN_STATUS_SUCCESS)
+		goto exit;
 
 	ram_entry = wlanDetectRamEntry(&prAdapter->rVerInfo);
 
@@ -2333,7 +2344,10 @@ uint32_t wlanDownloadFW(IN struct ADAPTER *prAdapter)
 	}
 
 	if (prFwDlOps->phyAction)
-		prFwDlOps->phyAction(prAdapter);
+		rStatus = prFwDlOps->phyAction(prAdapter);
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		goto exit;
 
 	if (prChipInfo->coantVFE28En)
 		prChipInfo->coantVFE28En(prAdapter);
@@ -2363,10 +2377,11 @@ uint32_t wlanDownloadFW(IN struct ADAPTER *prAdapter)
 		}
 #endif
 	}
+
+exit:
 	DBGLOG(INIT, TRACE, "FW download End\n");
 
 	HAL_ENABLE_FWDL(prAdapter, FALSE);
-
 
 	return rStatus;
 }
@@ -2524,7 +2539,8 @@ uint32_t fwDlGetFwdlInfo(struct ADAPTER *prAdapter,
 	return u4Offset;
 }
 
-void fwDlGetReleaseInfoSection(struct ADAPTER *prAdapter, uint8_t *pucStartPtr)
+void fwDlGetReleaseInfoSection(struct WIFI_VER_INFO *prVerInfo,
+	uint8_t *pucStartPtr)
 {
 	struct HEADER_RELEASE_INFO *prFirstInfo;
 	struct HEADER_RELEASE_INFO *prRelInfo;
@@ -2547,12 +2563,12 @@ void fwDlGetReleaseInfoSection(struct ADAPTER *prAdapter, uint8_t *pucStartPtr)
 		pucCurPtr += sizeof(struct HEADER_RELEASE_INFO);
 		switch (prRelInfo->ucTag) {
 		case 0x01:
-			fwDlGetReleaseManifest(prAdapter, prRelInfo, pucCurPtr);
+			fwDlGetReleaseManifest(prVerInfo, prRelInfo, pucCurPtr);
 			ucManifestExist = 1;
 			break;
 		case 0x02:
 			if (!ucManifestExist)
-				fwDlGetReleaseManifest(prAdapter,
+				fwDlGetReleaseManifest(prVerInfo,
 					prRelInfo, pucCurPtr);
 			break;
 		default:
@@ -2566,16 +2582,103 @@ void fwDlGetReleaseInfoSection(struct ADAPTER *prAdapter, uint8_t *pucStartPtr)
 	}
 }
 
-void fwDlGetReleaseManifest(struct ADAPTER *prAdapter,
+void fwDlGetReleaseManifest(struct WIFI_VER_INFO *prVerInfo,
 			    struct HEADER_RELEASE_INFO *prRelInfo,
 			    uint8_t *pucStartPtr)
 {
-	kalMemZero(&prAdapter->rVerInfo.aucReleaseManifest,
-		   sizeof(prAdapter->rVerInfo.aucReleaseManifest));
-	kalMemCopy(&prAdapter->rVerInfo.aucReleaseManifest,
+	kalMemZero(&prVerInfo->aucReleaseManifest,
+		   sizeof(prVerInfo->aucReleaseManifest));
+	kalMemCopy(&prVerInfo->aucReleaseManifest,
 		   pucStartPtr, prRelInfo->u2Len);
 	DBGLOG(INIT, INFO, "Release manifest: %s\n",
-	       prAdapter->rVerInfo.aucReleaseManifest);
+	       prVerInfo->aucReleaseManifest);
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is called to get RAM CODE release manifest when
+ *        wifi is not on.
+ *
+ * @param ppucManifestBuffer Pointer to store Manifest string.
+ *        pu4ManifestSize    Pointer of Manifest string length,
+ *                           size is zero if manifest not copy into buffer.
+ *        u4BufferMaxSize    The max length of Manifest Buffer.
+ */
+/*----------------------------------------------------------------------------*/
+void wlanReadRamCodeReleaseManifest(uint8_t *pucManifestBuffer,
+		uint32_t *pu4ManifestSize, uint32_t u4BufferMaxSize)
+{
+#define FW_FILE_NAME_TOTAL 8
+#define FW_FILE_NAME_MAX_LEN 64
+	const struct firmware *fw_entry = NULL;
+	struct WIFI_VER_INFO *prVerInfo = NULL;
+	struct mt66xx_chip_info *prChipInfo = NULL;
+	struct device *prDev;
+	void *prFwBuffer = NULL;
+	uint8_t *aucFwName[FW_FILE_NAME_TOTAL + 1];
+	uint8_t aucFwNameBody[FW_FILE_NAME_TOTAL][FW_FILE_NAME_MAX_LEN];
+	uint8_t idx;
+
+	kalMemZero(aucFwName, sizeof(aucFwName));
+	kalMemZero(pucManifestBuffer, u4BufferMaxSize);
+	*pu4ManifestSize = 0;
+
+	glGetChipInfo((void **)&prChipInfo);
+	for (idx = 0; idx < FW_FILE_NAME_TOTAL; idx++)
+		aucFwName[idx] = (uint8_t *)(aucFwNameBody + idx);
+	idx = 0;
+	if (prChipInfo->fw_dl_ops->constructFirmwarePrio) {
+		prChipInfo->fw_dl_ops->constructFirmwarePrio(
+			NULL, NULL, aucFwName, &idx, FW_FILE_NAME_TOTAL);
+	} else {
+		DBGLOG(INIT, WARN, "Construct FW binary failed\n");
+		goto exit;
+	}
+
+	glGetDev((void *)prChipInfo->pdev, &prDev);
+	if (_kalRequestFirmware(&fw_entry, aucFwName[0], prDev)) {
+		DBGLOG(INIT, WARN, "Request FW image: %s failed\n",
+				aucFwName);
+		goto exit;
+	} else
+		DBGLOG(INIT, INFO, "Request FW image: %s done\n",
+				aucFwName[0]);
+
+	prFwBuffer = kalMemAlloc(ALIGN_4(fw_entry->size), VIR_MEM_TYPE);
+	if (!prFwBuffer) {
+		DBGLOG(INIT, WARN, "vmalloc(%u) failed\n",
+			ALIGN_4(fw_entry->size));
+		goto exit;
+	}
+
+	prVerInfo = (struct WIFI_VER_INFO *)
+		kalMemAlloc(sizeof(struct WIFI_VER_INFO), VIR_MEM_TYPE);
+	if (!prVerInfo) {
+		DBGLOG(INIT, WARN, "vmalloc(%u) failed\n",
+			sizeof(struct WIFI_VER_INFO));
+		goto exit;
+	}
+	kalMemCopy(prFwBuffer, fw_entry->data, fw_entry->size);
+	if (wlanGetConnacTailerInfo(prVerInfo, prFwBuffer, fw_entry->size,
+			IMG_DL_IDX_N9_FW) != WLAN_STATUS_SUCCESS) {
+		DBGLOG(INIT, WARN, "Get tailer info error!\n");
+		goto exit;
+	}
+
+	*pu4ManifestSize =
+		kalStrnLen(prVerInfo->aucReleaseManifest, u4BufferMaxSize);
+
+	kalMemCopy(pucManifestBuffer,
+		&prVerInfo->aucReleaseManifest,
+		*pu4ManifestSize);
+
+exit:
+	if (prFwBuffer)
+		kalMemFree(prFwBuffer, VIR_MEM_TYPE, ALIGN_4(fw_entry->size));
+	if (prVerInfo)
+		kalMemFree(prVerInfo, VIR_MEM_TYPE,
+			sizeof(struct WIFI_VER_INFO));
+	release_firmware(fw_entry);
 }
 
 #endif  /* CFG_ENABLE_FW_DOWNLOAD */

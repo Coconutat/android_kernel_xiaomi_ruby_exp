@@ -169,14 +169,11 @@ authComposeAuthFrameHeaderAndFF(IN P_ADAPTER_T prAdapter,
 		/* Fill the BSSID field with Target BSSID. */
 		COPY_MAC_ADDR(prAuthFrame->aucBSSID, aucPeerMACAddress);
 
-	} else if (prStaRec != NULL && IS_CLIENT_STA(prStaRec)) {
+	} else {
 		/* Fill the BSSID field with Current BSSID. */
 		COPY_MAC_ADDR(prAuthFrame->aucBSSID, aucMACAddress);
-	} else {
-		COPY_MAC_ADDR(prAuthFrame->aucBSSID, aucMACAddress);
-		DBGLOG(SAA, INFO,
-			"Error status code flow!\n");
 	}
+
 	/* Clear the SEQ/FRAG_NO field. */
 	prAuthFrame->u2SeqCtrl = 0;
 
@@ -186,6 +183,7 @@ authComposeAuthFrameHeaderAndFF(IN P_ADAPTER_T prAdapter,
 	prAuthFrame->u2AuthAlgNum = u2AuthAlgNum;	/* NOTE(Kevin): Optimized for ARM */
 #if CFG_SUPPORT_CFG80211_AUTH
 	if (prConnSettings->ucAuthDataLen != 0 &&
+			prStaRec &&
 			!IS_STA_IN_P2P(prStaRec)) {
 		kalMemCopy(prAuthFrame->aucAuthData,
 			prConnSettings->aucAuthData,
@@ -468,7 +466,8 @@ authSendAuthFrame(IN P_ADAPTER_T prAdapter,
 		ASSERT(prFalseAuthSwRfb);
 		prFalseAuthFrame = (P_WLAN_AUTH_FRAME_T) prFalseAuthSwRfb->pvHeader;
 
-		ASSERT(u2StatusCode != STATUS_CODE_SUCCESSFUL);
+		ASSERT((u2StatusCode != STATUS_CODE_SUCCESSFUL) &&
+			(u2StatusCode != WLAN_STATUS_SAE_HASH_TO_ELEMENT));
 
 		pucTransmitAddr = prFalseAuthFrame->aucDestAddr;
 
@@ -491,6 +490,7 @@ authSendAuthFrame(IN P_ADAPTER_T prAdapter,
 	/* fill the length of auth frame body */
 #if CFG_SUPPORT_CFG80211_AUTH
 	if (prConnSettings->ucAuthDataLen != 0 &&
+			prStaRec &&
 			!IS_STA_IN_P2P(prStaRec))
 		u2PayloadLen = (AUTH_ALGORITHM_NUM_FIELD_LEN +
 			prConnSettings->ucAuthDataLen);
@@ -740,7 +740,8 @@ authCheckRxAuthFrameStatus(IN P_ADAPTER_T prAdapter,
 	if (u2RxAuthAlgNum != (UINT_16) prStaRec->ucAuthAlgNum) {
 		DBGLOG(SAA, LOUD, "Discard Auth frame with auth type = %d, current = %d\n",
 		       u2RxAuthAlgNum, prStaRec->ucAuthAlgNum);
-		return WLAN_STATUS_FAILURE;
+		*pu2StatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
+		return WLAN_STATUS_SUCCESS;
 	}
 	/* WLAN_GET_FIELD_16(&prAuthFrame->u2AuthTransSeqNo, &u2RxTransactionSeqNum); */
 #if CFG_SUPPORT_CFG80211_AUTH
@@ -1219,6 +1220,8 @@ authProcessRxAuthFrame(IN P_ADAPTER_T prAdapter,
 			OUT PUINT_16 pu2ReturnStatusCode)
 {
 	P_WLAN_AUTH_FRAME_T prAuthFrame;
+	UINT_16 u2RxStatusCode;
+	UINT_16 u2RxTransactionSeqNum;
 	UINT_16 u2ReturnStatusCode = STATUS_CODE_SUCCESSFUL;
 
 	ASSERT(prSwRfb);
@@ -1247,12 +1250,31 @@ authProcessRxAuthFrame(IN P_ADAPTER_T prAdapter,
 		u2ReturnStatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
 #endif
 #if CFG_SUPPORT_CFG80211_AUTH
-	if (prAuthFrame->aucAuthData[0] != AUTH_TRANSACTION_SEQ_1 &&
-	   prAuthFrame->aucAuthData[0] != AUTH_TRANSACTION_SEQ_2)
+	u2RxStatusCode = (prAuthFrame->aucAuthData[3] << 8) +
+					prAuthFrame->aucAuthData[2];
 #else
-	if (prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1 &&
-	   prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_2)
+	u2RxStatusCode = prAuthFrame->u2StatusCode;
 #endif
+	if (u2RxStatusCode != STATUS_CODE_RESERVED) {
+		DBGLOG(AAA, LOUD, "Invalid Status code %d\n", u2RxStatusCode);
+		return WLAN_STATUS_FAILURE;
+	}
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	u2RxTransactionSeqNum = prAuthFrame->aucAuthData[0];
+#else
+	u2RxTransactionSeqNum = prAuthFrame->u2AuthTransSeqNo;
+#endif
+
+	if (prAuthFrame->u2AuthAlgNum != AUTH_ALGORITHM_NUM_OPEN_SYSTEM &&
+		prAuthFrame->u2AuthAlgNum != AUTH_ALGORITHM_NUM_SAE)
+		u2ReturnStatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
+	else if (prAuthFrame->u2AuthAlgNum == AUTH_ALGORITHM_NUM_OPEN_SYSTEM &&
+		u2RxTransactionSeqNum != AUTH_TRANSACTION_SEQ_1)
+		u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
+	else if (prAuthFrame->u2AuthAlgNum == AUTH_ALGORITHM_NUM_SAE &&
+		u2RxTransactionSeqNum != AUTH_TRANSACTION_SEQ_1 &&
+		u2RxTransactionSeqNum != AUTH_TRANSACTION_SEQ_2)
 		u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
 
 	*pu2ReturnStatusCode = u2ReturnStatusCode;
@@ -1283,6 +1305,7 @@ authProcessRxAuth1Frame(IN P_ADAPTER_T prAdapter,
 			IN UINT_16 u2ExpectedTransSeqNum, OUT PUINT_16 pu2ReturnStatusCode)
 {
 	P_WLAN_AUTH_FRAME_T prAuthFrame;
+	UINT_16 u2RxStatusCode;
 	UINT_16 u2ReturnStatusCode = STATUS_CODE_SUCCESSFUL;
 
 	ASSERT(prSwRfb);
@@ -1303,6 +1326,17 @@ authProcessRxAuth1Frame(IN P_ADAPTER_T prAdapter,
 	}
 
 	/* 4 <4> Parse the Fixed Fields of Authentication Frame Body. */
+#if CFG_SUPPORT_CFG80211_AUTH
+	u2RxStatusCode = (prAuthFrame->aucAuthData[3] << 8) +
+					prAuthFrame->aucAuthData[2];
+#else
+	u2RxStatusCode = prAuthFrame->u2StatusCode;
+#endif
+	if (u2RxStatusCode != STATUS_CODE_RESERVED) {
+		DBGLOG(AAA, LOUD, "Invalid Status code %d\n", u2RxStatusCode);
+		return WLAN_STATUS_FAILURE;
+	}
+
 	if (prAuthFrame->u2AuthAlgNum != u2ExpectedAuthAlgNum)
 		u2ReturnStatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
 #if CFG_SUPPORT_CFG80211_AUTH
@@ -1318,3 +1352,52 @@ authProcessRxAuth1Frame(IN P_ADAPTER_T prAdapter,
 
 }		/* end of authProcessRxAuth1Frame() */
 #endif
+
+/*---------------------------------------------------------------------------*/
+/*!
+ * @brief This function will validate the Rx Auth Frame and then return
+ *        the status code to AAA to indicate
+ *        if need to perform following actions
+ *        when the specified conditions were matched.
+ *
+ * @param[in] prAdapter          Pointer to the Adapter structure.
+ * @param[in] prSwRfb            Pointer to SW RFB data structure.
+ *
+ * @retval TRUE      Reply the Auth
+ * @retval FALSE     Don't reply the Auth
+ */
+/*---------------------------------------------------------------------------*/
+BOOLEAN
+authFloodingCheck(IN P_ADAPTER_T prAdapter,
+		    IN P_BSS_INFO_T prP2pBssInfo,
+		    IN P_SW_RFB_T prSwRfb)
+{
+	P_STA_RECORD_T prStaRec = (P_STA_RECORD_T) NULL;
+	P_WLAN_AUTH_FRAME_T prAuthFrame = (P_WLAN_AUTH_FRAME_T) NULL;
+
+	DBGLOG(SAA, TRACE, "authFloodingCheck Authentication Frame\n");
+
+
+	prAuthFrame = (P_WLAN_AUTH_FRAME_T) prSwRfb->pvHeader;
+
+	if ((prP2pBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT) ||
+	    (prP2pBssInfo->eIntendOPMode != OP_MODE_NUM)) {
+		/* We are not under AP Mode yet. */
+		DBGLOG(P2P, WARN,
+			"Current OP mode is not under AP mode. (%d)\n",
+			prP2pBssInfo->eCurrentOPMode);
+		return FALSE;
+	}
+
+	prStaRec = cnmGetStaRecByAddress(prAdapter,
+		prP2pBssInfo->ucBssIndex, prAuthFrame->aucSrcAddr);
+
+	if (!prStaRec) {
+		DBGLOG(SAA, TRACE, "Need reply.\n");
+		return TRUE;
+	}
+
+	DBGLOG(SAA, WARN, "Auth Flooding Attack, don't reply.\n");
+	return FALSE;
+}
+

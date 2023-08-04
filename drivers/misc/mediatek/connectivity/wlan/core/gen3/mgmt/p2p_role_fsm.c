@@ -265,9 +265,7 @@ p2pRoleFsmStateTransition(IN P_ADAPTER_T prAdapter,
 		fgIsTransitionOut = fgIsTransitionOut ? FALSE : TRUE;
 
 		if (!fgIsTransitionOut) {
-			if (prP2pRoleFsmInfo->eCurrentState != eNextState
-				&& prP2pRoleFsmInfo->eCurrentState >= 0
-				&& eNextState >= 0) {
+			if (prP2pRoleFsmInfo->eCurrentState != eNextState) {
 				DBGLOG(P2P, STATE, "[P2P_ROLE][%d]TRANSITION: [%s] -> [%s]\n",
 					    prP2pRoleFsmInfo->ucRoleIndex,
 					    apucDebugP2pRoleState[prP2pRoleFsmInfo->eCurrentState],

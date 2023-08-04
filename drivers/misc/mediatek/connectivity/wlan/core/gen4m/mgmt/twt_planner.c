@@ -925,6 +925,13 @@ void twtPlannerGetTsfDone(
 
 	ASSERT(prGetTsfCtxt);
 
+	if (prGetTsfCtxt->ucBssIdx >= P2P_DEV_BSS_INDEX) {
+		DBGLOG(TWT_PLANNER, ERROR,
+			"Error prGetTsfCtxt->ucBssIdx %d\n",
+			prGetTsfCtxt->ucBssIdx);
+		return;
+	}
+
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prGetTsfCtxt->ucBssIdx);
 	ASSERT(prBssInfo);
 	prStaRec = prBssInfo->prStaRecOfAP;

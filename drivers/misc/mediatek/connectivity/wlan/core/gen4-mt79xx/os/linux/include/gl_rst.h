@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -192,14 +192,20 @@ extern void update_driver_reset_status(uint8_t fgIsResetting);
 extern int32_t get_wifi_process_status(void);
 extern int32_t get_wifi_powered_status(void);
 
-#endif
+#endif /* CFG_SUPPORT_CONNINFRA == 1 */
 
 #if CFG_ENABLE_KEYWORD_EXCEPTION_MECHANISM
 extern int mtk_wcn_wmt_assert_keyword(enum ENUM_WMTDRV_TYPE type,
 	unsigned char *keyword);
-#endif
-#endif
-#endif
+#endif /* CFG_ENABLE_KEYWORD_EXCEPTION_MECHANISM */
+#else /* CFG_WMT_RESET_API_SUPPORT */
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+extern bool halPreventFwOwnEn(IN u_int8_t fgEnable);
+#endif /* CFG_CHIP_RESET_KO_SUPPORT */
+
+#endif /* CFG_WMT_RESET_API_SUPPORT */
+#endif /* CFG_CHIP_RESET_SUPPORT */
 
 /*******************************************************************************
  *                            P U B L I C   D A T A

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -146,6 +146,10 @@ void p2pFsmRunEventChGrant(IN struct ADAPTER *prAdapter,
 	struct MSG_CH_GRANT *prMsgChGrant = (struct MSG_CH_GRANT *) NULL;
 	struct BSS_INFO *prP2pBssInfo = (struct BSS_INFO *) NULL;
 
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+	struct AIS_FSM_INFO *prAisFsmInfo;
+#endif
+
 	do {
 		ASSERT_BREAK((prAdapter != NULL) && (prMsgHdr != NULL));
 
@@ -185,6 +189,27 @@ void p2pFsmRunEventChGrant(IN struct ADAPTER *prAdapter,
 			p2pRoleFsmRunEventChnlGrant(prAdapter, prMsgHdr,
 				P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter,
 					prP2pBssInfo->u4PrivateData));
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+			/* Keep Going when switch to new channel  */
+			prAisFsmInfo = aisGetAisFsmInfo(prAdapter,
+							AIS_DEFAULT_INDEX);
+			if (!prAisFsmInfo)
+				break;
+			if (prAisFsmInfo->eCurrentState ==
+					AIS_STATE_GO_SYNC_CHANNEL ||
+				prAisFsmInfo->ePreviousState ==
+					AIS_STATE_GO_SYNC_CHANNEL) {
+				/* Update AIS Steps*/
+				aisFsmSteps(prAdapter,
+					AIS_STATE_GO_SYNC_CH_DONE,
+					AIS_DEFAULT_INDEX);
+				/* Stop the Go sync channel timer  */
+				cnmTimerStopTimer(prAdapter,
+					&prAisFsmInfo->rGoSyncChannelTimer);
+			}
+#endif
+
 			break;
 		default:
 			ASSERT(FALSE);

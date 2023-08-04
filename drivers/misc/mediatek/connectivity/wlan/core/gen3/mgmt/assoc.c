@@ -131,6 +131,8 @@ APPEND_VAR_IE_ENTRY_T txAssocRespIETable[] = {
 #if CFG_SUPPORT_MTK_SYNERGY
 	{(ELEM_HDR_LEN + ELEM_MIN_LEN_MTK_OUI), NULL, rlmGenerateMTKOuiIE}	/* 221 */
 #endif
+	,
+	{(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL, rsnGenerateRSNXIE}	/* 244 */
 
 };
 #endif /* CFG_SUPPORT_AAA */

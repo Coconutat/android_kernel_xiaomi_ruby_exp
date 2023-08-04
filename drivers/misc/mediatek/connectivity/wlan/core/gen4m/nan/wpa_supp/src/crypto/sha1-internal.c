@@ -196,6 +196,8 @@ SHA1Transform(u32 state[5], const unsigned char buffer[64]) {
 #ifdef SHA1HANDSOFF
 	union CHAR64LONG16 workspace;
 
+	os_memset(&workspace, 0, 64);
+
 	block = &workspace;
 	os_memcpy(block, buffer, 64);
 #else

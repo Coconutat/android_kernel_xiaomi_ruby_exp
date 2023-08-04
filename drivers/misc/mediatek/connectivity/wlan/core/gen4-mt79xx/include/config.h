@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -298,7 +298,13 @@
 
 #define CFG_SUPPORT_OSHARE	1
 
-#define CFG_SUPPORT_LOWLATENCY_MODE	1
+#ifndef CFG_SUPPORT_LOWLATENCY_MODE
+#define CFG_SUPPORT_LOWLATENCY_MODE	0
+#endif
+
+#ifndef CFG_SUPPORT_LINK_LAYER_STAT
+#define CFG_SUPPORT_LINK_LAYER_STAT	0
+#endif
 
 #define CFG_SUPPORT_ANT_SWAP		0
 
@@ -416,6 +422,26 @@
 #define CFG_SUPPORT_TX_TSO_SW                     0
 #endif
 
+/* Support Allocate TX packet buffer(streaming DMA) for TX ring buffer
+ * With feature enabled, wifi driver will copy packet from protocal
+ *  stack alloc mem(prskb)  to buffer that mentioned above.
+ * With disabled, wifi driver not alloc TX packet buffer(streaming DMA)
+ * for TX ring buffer, direct use protocal stack mem, it will reduce mem
+ * copy ops in wifi driver. sometimes it will help for peak TP, but must
+ * confirm that IOMMU for PCIE is supported on platform.
+ */
+#ifndef CFG_HIF_TX_PREALLOC_DATA_BUFFER
+#define CFG_HIF_TX_PREALLOC_DATA_BUFFER			1
+#endif
+
+/* Support Linux netdevice Scatter/gather IO (NETIF_F_SG)
+ * With feature enabled, L3 netdevice will push gathered skbs to wifi driver
+ * and the driver should put fragmented memories to DMA properly.
+ */
+#ifndef CFG_SUPPORT_TX_SG
+#define CFG_SUPPORT_TX_SG                         0
+#endif
+
 /* 2 Flags for Driver Parameters */
 /*------------------------------------------------------------------------------
  * Flags for EHPI Interface in Colibri Platform
@@ -521,6 +547,10 @@
 
 #define CFG_CHIP_RESET_SUPPORT          1
 
+#ifndef CFG_CHIP_RESET_USB_DISCONNECT
+#define CFG_CHIP_RESET_USB_DISCONNECT   0
+#endif
+
 #ifndef CFG_CHIP_RESET_USE_DTS_GPIO_NUM
 #define CFG_CHIP_RESET_USE_DTS_GPIO_NUM 0
 #endif
@@ -561,7 +591,9 @@
  */
 
 /*! Maximum number of SW TX packet queue */
+#ifndef CFG_TX_MAX_PKT_NUM
 #define CFG_TX_MAX_PKT_NUM                      1024
+#endif
 
 /*! Maximum number of SW TX CMD packet buffer */
 #define CFG_TX_MAX_CMD_PKT_NUM                  32
@@ -1192,7 +1224,7 @@
  * Flags of SDIO test pattern support
  *------------------------------------------------------------------------------
  */
-#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 1
+#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 0
 
 /*------------------------------------------------------------------------------
  * Flags of Workaround
@@ -1534,6 +1566,54 @@
 #define CFG_SUPPORT_P2P_PREFERRED_FREQ_LIST  1
 
 /*------------------------------------------------------------------------------
+ * Flag used for P2P GO CSA
+ * Value 0: Disable
+ * Value 1: Enable
+ * Note: Must Enable CFG_SUPPORT_DFS,
+ * CFG_SUPPORT_DFS_MASTER,
+ * CFG_SUPPORT_IDC_CH_SWITCH in advance
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_SUPPORT_P2P_CSA
+#if	CFG_SUPPORT_IDC_CH_SWITCH && \
+	CFG_SUPPORT_DFS && \
+	CFG_SUPPORT_DFS_MASTER
+#define CFG_SUPPORT_P2P_CSA	0
+#endif
+#endif
+
+/*------------------------------------------------------------------------------
+ * Flags of AUTO SCC mode Support
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_SUPPORT_AUTO_SCC
+#if CFG_SUPPORT_IDC_CH_SWITCH && \
+	CFG_SUPPORT_DFS_MASTER && \
+	CFG_SUPPORT_DFS && \
+	CFG_SUPPORT_P2P_CSA
+#define CFG_SUPPORT_AUTO_SCC 1
+#else
+#define CFG_SUPPORT_AUTO_SCC 0
+#endif
+#endif
+
+/*------------------------------------------------------------------------------
+ * Flags of Channel switch to the channel selected by ACS
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_SUPPORT_P2P_CSA_ACS
+#if CFG_SUPPORT_IDC_CH_SWITCH && \
+	CFG_SUPPORT_DFS_MASTER && \
+	CFG_SUPPORT_DFS && \
+	CFG_SUPPORT_P2P_CSA
+#define CFG_SUPPORT_P2P_CSA_ACS 1
+#else
+#define CFG_SUPPORT_P2P_CSA_ACS 0
+#endif
+#endif
+
+
+/*------------------------------------------------------------------------------
  * Flag used for P2P GO to find the best channel list
  * Value 0: Disable
  * Value 1: Enable
@@ -1602,6 +1682,15 @@
 #ifndef CONFIG_WIFI_SUPPORT_GET_NOISE
 #define CONFIG_WIFI_SUPPORT_GET_NOISE  0
 #endif
+
+/*------------------------------------------------------------------------------
+ * Driver supports WiFi get antenna report
+ *------------------------------------------------------------------------------
+ */
+#ifndef CONFIG_WIFI_ANTENNA_REPORT
+#define CONFIG_WIFI_ANTENNA_REPORT  0
+#endif
+
 /*------------------------------------------------------------------------------
  * Flags of using wlan_assistant (only Android) to read/write NVRAM
  *------------------------------------------------------------------------------
@@ -1714,6 +1803,10 @@
 */
 #ifndef CFG_DC_USB_WOW_CALLBACK
 #define CFG_DC_USB_WOW_CALLBACK 0
+#else
+#if CFG_DC_USB_WOW_CALLBACK
+#define CFG_POWER_OFF_CTRL_SUPPORT 1
+#endif
 #endif
 /*------------------------------------------------------------------------------
  * Support wfdma reallocation by triggering L1 reset when device probe
@@ -2012,6 +2105,35 @@
 /* Flags of WAC (Wireless Accessory Configuration) feature */
 #ifndef CFG_SUPPORT_WAC
 #define CFG_SUPPORT_WAC				0
+#endif
+
+/* Compact for some platforms, or wifi will probe fail */
+#ifndef CFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV
+#define CFG_ALLOC_IRQ_VECTORS_IN_WIFI_DRV		0
+#endif
+
+#ifndef CFG_SUPPORT_STAT_STATISTICS
+#define CFG_SUPPORT_STAT_STATISTICS	0 /* fos_change oneline */
+#endif
+
+#ifndef CFG_SUPPORT_EXCEPTION_STATISTICS
+#define CFG_SUPPORT_EXCEPTION_STATISTICS 0 /* fos_change oneline */
+#endif
+
+#ifndef CFG_SUPPORT_WAKEUP_STATISTICS
+#define CFG_SUPPORT_WAKEUP_STATISTICS 0 /* fos_change oneline */
+#endif
+
+#ifndef CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+#define CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS 0 /* fos_change oneline */
+#endif
+
+/* Flags of disable driver mapping tx queue function
+ * 0: use driver mapping tx queue function
+ * 1: use linux netstack mapping tx queue function
+ */
+#ifndef CFG_DISABLE_DRIVER_MAPPING_TXQ
+#define CFG_DISABLE_DRIVER_MAPPING_TXQ 0
 #endif
 
 /*******************************************************************************

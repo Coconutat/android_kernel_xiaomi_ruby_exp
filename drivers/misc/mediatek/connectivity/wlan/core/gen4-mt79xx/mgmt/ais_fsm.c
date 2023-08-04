@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -38,6 +38,9 @@
 #define AP_TX_POWER		  20
 #endif
 
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+#define AIS_GO_SYNC_CHNL_TIMEOUT_SEC	5
+#endif
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -69,6 +72,10 @@ static uint8_t *apucDebugAisState[AIS_STATE_NUM] = {
 	(uint8_t *) DISP_STRING("REQ_REMAIN_ON_CHANNEL"),
 	(uint8_t *) DISP_STRING("REMAIN_ON_CHANNEL"),
 	(uint8_t *) DISP_STRING("OFF_CHNL_TX")
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+	, (uint8_t *) DISP_STRING("GO_SYNC_CHANNEL")
+	, (uint8_t *) DISP_STRING("GO_SYNC_CH_DONE")
+#endif
 };
 
 /*******************************************************************************
@@ -359,6 +366,8 @@ void aisFsmInit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	/* Support AP Selection */
 	prAisFsmInfo->ucJoinFailCntAfterScan = 0;
 
+	prAisFsmInfo->fgIsScanOidAborted = FALSE;
+
 	prAisFsmInfo->fgIsScanning = FALSE;
 
 	/* 4 <1.1> Initiate FSM - Timer INIT */
@@ -398,6 +407,14 @@ void aisFsmInit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 			  (PFN_MGMT_TIMEOUT_FUNC)
 			  aisFsmRunEventSecModeChangeTimeout,
 			  (unsigned long)ucBssIndex);
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+	cnmTimerInitTimer(prAdapter,
+			  &prAisFsmInfo->rGoSyncChannelTimer,
+			  (PFN_MGMT_TIMEOUT_FUNC)
+			  aisFsmRunEventGoSyncChannelTimeout,
+			  (unsigned long)ucBssIndex);
+#endif
 
 	prMgmtTxReqInfo = &prAisFsmInfo->rMgmtTxInfo;
 	LINK_INITIALIZE(&prMgmtTxReqInfo->rTxReqLink);
@@ -1091,6 +1108,10 @@ void aisFsmStateAbort_SCAN(IN struct ADAPTER *prAdapter,
 	prScanCancelMsg->ucSeqNum = prAisFsmInfo->ucSeqNumOfScanReq;
 	prScanCancelMsg->ucBssIndex = ucBssIndex;
 	prScanCancelMsg->fgIsChannelExt = FALSE;
+	if (prAisFsmInfo->fgIsScanOidAborted) {
+		prScanCancelMsg->fgIsOidRequest = TRUE;
+		prAisFsmInfo->fgIsScanOidAborted = FALSE;
+	}
 
 	/* unbuffered message to guarantee scan is cancelled in sequence */
 	mboxSendMsg(prAdapter, MBOX_ID_0, (struct MSG_HDR *)prScanCancelMsg,
@@ -1556,9 +1577,31 @@ void aisFsmSteps(IN struct ADAPTER *prAdapter,
 						prAisFsmInfo->prTargetBssDesc =
 						    prBssDesc;
 
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+						/* If ais channel connected is
+						 * the same as GO or
+						 * no GO.
+						 * Connection run as normal
+						 */
+						DBGLOG(AIS, STATE,
+							"Switch to AIS_STATE_GO_SYNC_CHANNEL Target CH= %d\n",
+						    prAisFsmInfo
+						    ->prTargetBssDesc
+						    ->ucChannelNum);
+
+						eNextState =
+						    (cnmIsSCCAutoSwitch(
+							    prAdapter,
+							    prAisFsmInfo
+							    ->prTargetBssDesc
+							    ->ucChannelNum)) ?
+						    AIS_STATE_GO_SYNC_CHANNEL :
+						    AIS_STATE_REQ_CHANNEL_JOIN;
+#else
 						/* Transit to channel acquire */
 						eNextState =
 						    AIS_STATE_REQ_CHANNEL_JOIN;
+#endif
 						fgIsTransition = TRUE;
 
 						/* increase connection trial
@@ -2470,6 +2513,25 @@ void aisFsmSteps(IN struct ADAPTER *prAdapter,
 				fgIsTransition = TRUE;
 			}
 			break;
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+		case AIS_STATE_GO_SYNC_CHANNEL:
+			/* has decided to do CSA */
+			cnmSCCAutoSwitchMode(prAdapter,
+				prAisFsmInfo->prTargetBssDesc->ucChannelNum);
+
+			/* start timer
+			* if timeout, still fall into MCC
+			*/
+			cnmTimerStartTimer(prAdapter,
+				&prAisFsmInfo->rGoSyncChannelTimer,
+				SEC_TO_MSEC(AIS_GO_SYNC_CHNL_TIMEOUT_SEC));
+			break;
+		case AIS_STATE_GO_SYNC_CH_DONE:
+			eNextState = AIS_STATE_REQ_CHANNEL_JOIN;
+			fgIsTransition = TRUE;
+			break;
+#endif
 
 		default:
 			/* Make sure we have handle all STATEs */
@@ -4709,6 +4771,10 @@ static void aisFsmRunEventScanDoneTimeOut(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex = (uint8_t) ulParam;
 
 	DEBUGFUNC("aisFsmRunEventScanDoneTimeOut()");
+/* fos_change begin */
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+	prAdapter->total_scandone_timeout_count++;
+#endif /* fos_change end */
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
@@ -4955,6 +5021,18 @@ void aisFsmRunEventSecModeChangeTimeout(IN struct ADAPTER *prAdapter,
 
 	aisBssSecurityChanged(prAdapter, ucBssIndex);
 }
+
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+void aisFsmRunEventGoSyncChannelTimeout(IN struct ADAPTER *prAdapter,
+					unsigned long ulParamPtr)
+{
+	uint8_t ucBssIndex = (uint8_t) ulParamPtr;
+
+	aisFsmSteps(prAdapter,
+		AIS_STATE_GO_SYNC_CH_DONE,
+		ucBssIndex);
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -5433,9 +5511,11 @@ void aisBssLinkDown(IN struct ADAPTER *prAdapter,
 	struct BSS_INFO *prAisBssInfo;
 	u_int8_t fgDoAbortIndication = FALSE;
 	struct CONNECTION_SETTINGS *prConnSettings;
+	struct AIS_FSM_INFO *prAisFsmInfo;
 
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
+	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 
 	/* 4 <1> Diagnose Connection for Beacon Timeout Event */
 	if (prAisBssInfo->eConnectionState == MEDIA_STATE_CONNECTED) {
@@ -5450,6 +5530,11 @@ void aisBssLinkDown(IN struct ADAPTER *prAdapter,
 			fgDoAbortIndication = TRUE;
 		}
 	}
+
+	/* disconnect during join state */
+	if (prAisFsmInfo->eCurrentState == AIS_STATE_JOIN)
+		fgDoAbortIndication = TRUE;
+
 	/* 4 <2> invoke abort handler */
 	if (fgDoAbortIndication) {
 		prConnSettings->fgIsDisconnectedByNonRequest = TRUE;
@@ -6654,8 +6739,6 @@ void aisRemoveTimeoutBlacklist(struct ADAPTER *prAdapter)
 		if (!CHECK_FOR_TIMEOUT(rCurrent, prEntry->rAddTime,
 				       SEC_TO_MSEC(AIS_BLACKLIST_TIMEOUT)))
 			continue;
-		LINK_MGMT_RETURN_ENTRY(&prAdapter->rWifiVar.rBlackList,
-			prEntry);
 		prBssDesc = scanSearchBssDescByBssid(prAdapter,
 						     prEntry->aucBSSID);
 		if (prBssDesc) {

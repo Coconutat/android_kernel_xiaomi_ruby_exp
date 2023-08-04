@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -86,6 +86,10 @@ enum ENUM_AIS_STATE {
 	AIS_STATE_REQ_REMAIN_ON_CHANNEL,
 	AIS_STATE_REMAIN_ON_CHANNEL,
 	AIS_STATE_OFF_CHNL_TX,
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+	AIS_STATE_GO_SYNC_CHANNEL,
+	AIS_STATE_GO_SYNC_CH_DONE,
+#endif
 	AIS_STATE_NUM
 };
 
@@ -226,6 +230,10 @@ struct AIS_FSM_INFO {
 
 	struct TIMER rSecModeChangeTimer;
 
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+	struct TIMER rGoSyncChannelTimer;
+#endif
+
 	uint8_t ucSeqNumOfReqMsg;
 	uint8_t ucSeqNumOfChReq;
 	uint8_t ucSeqNumOfChAbort;
@@ -244,6 +252,8 @@ struct AIS_FSM_INFO {
 
 	struct PARAM_SCAN_REQUEST_ADV rScanRequest;
 	uint8_t aucScanIEBuf[MAX_IE_LENGTH];
+
+	u_int8_t fgIsScanOidAborted;
 
 	/* Pending Request List */
 	struct LINK rPendingReqList;
@@ -507,6 +517,10 @@ void aisFsmRunEventDeauthTimeout(IN struct ADAPTER
 void aisFsmRunEventSecModeChangeTimeout(IN struct ADAPTER
 					*prAdapter, unsigned long ulParamPtr);
 
+#if (CFG_SUPPORT_AUTO_SCC == 1)
+void aisFsmRunEventGoSyncChannelTimeout(IN struct ADAPTER
+				*prAdapter, unsigned long ulParamPtr);
+#endif
 /*----------------------------------------------------------------------------*/
 /* OID/IOCTL Handling                                                         */
 /*----------------------------------------------------------------------------*/

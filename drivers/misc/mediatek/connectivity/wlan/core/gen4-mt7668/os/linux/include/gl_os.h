@@ -555,9 +555,6 @@ struct _GLUE_INFO_T {
 
 	/*! \brief wext wpa related information */
 	GL_WPA_INFO_T rWpaInfo;
-#if CFG_SUPPORT_REPLAY_DETECTION
-	struct SEC_DETECT_REPLAY_INFO prDetRplyInfo;
-#endif
 
 	/* Pointer to ADAPTER_T - main data structure of internal protocol stack */
 	P_ADAPTER_T prAdapter;
@@ -700,7 +697,7 @@ struct _GLUE_INFO_T {
 	UINT_8 aucDADipv6[16];
 #endif				/* CFG_SUPPORT_PASSPOINT */
 
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
+#if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T rIntrWakeLock;
 	KAL_WAKE_LOCK_T rTimeoutWakeLock;
 #endif

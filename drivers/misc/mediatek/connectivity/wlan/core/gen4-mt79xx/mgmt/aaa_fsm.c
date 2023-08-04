@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -191,8 +191,7 @@ void aaaFsmRunEventTxReqTimeOut(IN struct ADAPTER *prAdapter,
 	switch (prStaRec->eAuthAssocState) {
 	case AAA_STATE_SEND_AUTH2:
 		DBGLOG(AAA, ERROR,
-			       "LOST EVENT ,Auth Tx done disappear for (%d)Ms\n",
-			TU_TO_MSEC(TX_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
+			       "LOST EVENT ,Auth Tx done disappear timeout");
 
 		prStaRec->eAuthAssocState = AA_STATE_IDLE;
 
@@ -440,6 +439,7 @@ bow_proc:
 			 * if the status code was successful
 			 */
 			ASSERT(!(u2StatusCode == STATUS_CODE_SUCCESSFUL));
+			return;
 		}
 
 		if (prBssInfo->u4RsnSelectedAKMSuite ==
@@ -451,6 +451,23 @@ bow_proc:
 				FALSE,
 				(uint8_t)prBssInfo->u4PrivateData);
 			DBGLOG(AAA, INFO, "Forward RxAuth\n");
+			if (prStaRec && prStaRec->fgIsInUse) {
+				cnmTimerStopTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer);
+				/*ToDo:Init Timer to check get
+				 * Auth Txdone avoid sta_rec not clear
+				 */
+				cnmTimerInitTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					(PFN_MGMT_TIMEOUT_FUNC)
+					aaaFsmRunEventTxReqTimeOut,
+					(unsigned long) prStaRec);
+
+				cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(
+					DOT11_RSNA_SAE_RETRANS_PERIOD_TU));
+			}
 			return;
 		}
 

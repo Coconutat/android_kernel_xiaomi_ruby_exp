@@ -278,9 +278,13 @@
 #define RATE_48M                                96	/* 48M */
 #define RATE_54M                                108	/* 54M */
 /* 7.3.2.14 BSS membership selector */
+/* BSS Selector - Hash To Element only */
+#define RATE_H2E_ONLY                           123
+/* BSS Selector - Clause 22. HT PHY */
+#define RATE_VHT_PHY                            126
+/* BSS Selector - Clause 20. HT PHY */
+#define RATE_HT_PHY                             127
 
-#define RATE_VHT_PHY                            126	/* BSS Selector - Clause 22. HT PHY */
-#define RATE_HT_PHY                             127	/* BSS Selector - Clause 20. HT PHY */
 #define RATE_MASK                               BITS(0, 6)	/* mask bits for the rate */
 #define RATE_BASIC_BIT                          BIT(7)	/* mask bit for the rate belonging to the BSSBasicRateSet */
 
@@ -566,6 +570,8 @@
 #define AUTH_TRANSACTION_SEQ_3                      3
 #define AUTH_TRANSACTION_SEQ_4                      4
 
+#define AUTH_STATUS_CODE_FIELD_LEN                  2
+
 /* 7.3.1.3 Beacon Interval field */
 #define BEACON_INTERVAL_FIELD_LEN                   2
 
@@ -732,6 +738,8 @@
 #define STATUS_CODE_DESTINATION_STA_NOT_PRESENT     49	/* Destination STA is not present within this QBSS */
 #define STATUS_CODE_DESTINATION_STA_NOT_QSTA        50	/* Destination STA is not a QSTA */
 #define STATUS_CODE_ASSOC_DENIED_LARGE_LIS_INTERVAL 51	/* Association denied because the ListenInterval is too large */
+
+#define WLAN_STATUS_SAE_HASH_TO_ELEMENT             126
 
 /* proprietary definition of reserved field of Status Code */
 #define STATUS_CODE_JOIN_FAILURE                    0xFFF0	/* Join failure */
@@ -1316,7 +1324,10 @@
 #define ACTION_NEIGHBOR_REPORT_RSP                  5	/* Neighbor report response */
 
 /* 7.4.7 Public Action frame details */
-#define ACTION_PUBLIC_20_40_COEXIST                 0	/* 20/40 BSS coexistence */
+/* 20/40 BSS coexistence */
+#define ACTION_PUBLIC_20_40_COEXIST                 0
+/* 20/40 BSS coexistence */
+#define ACTION_PUBLIC_VENDOR_SPECIFIC               9
 
 #if CFG_SUPPORT_802_11W
 /* SA Query Action frame (IEEE 802.11w/D8.0, 7.4.9) */

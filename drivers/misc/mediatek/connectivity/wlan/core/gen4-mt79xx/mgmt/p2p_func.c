@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1110,6 +1110,39 @@ void p2pFuncStopComplete(IN struct ADAPTER *prAdapter,
 
 }				/* p2pFuncStopComplete */
 
+void
+p2pFuncParseWmmParam(struct AC_QUE_PARMS *prACQueParms,
+		uint8_t ucAC,
+		uint32_t u4Param)
+{
+	uint8_t ucEn =
+		(u4Param & BIT(0));
+	uint8_t ucAifs =
+		(u4Param & BITS(4, 7)) >> 4;
+	uint8_t ucCWmin =
+		(u4Param & BITS(8, 11)) >> 8;
+	uint8_t ucCWmax =
+		(u4Param & BITS(12, 15)) >> 12;
+	uint16_t u2Txop =
+		(u4Param & BITS(16, 31)) >> 16;
+
+	if (!ucEn)
+		return;
+
+	prACQueParms[ucAC].u2Aifsn = ucAifs;
+	prACQueParms[ucAC].u2CWmin = (1 << ucCWmin) - 1;
+	prACQueParms[ucAC].u2CWmax = (1 << ucCWmax) - 1;
+	prACQueParms[ucAC].u2TxopLimit = u2Txop;
+
+	DBGLOG(WMM, TRACE,
+		"AC:%d AIFS:0x%X, CWmin:0x%X, CWmax;0x%X, TXOP:0x%X\n",
+		ucAC,
+		prACQueParms[ucAC].u2Aifsn,
+		prACQueParms[ucAC].u2CWmin,
+		prACQueParms[ucAC].u2CWmax,
+		prACQueParms[ucAC].u2TxopLimit);
+}
+
 /*---------------------------------------------------------------------------*/
 /*!
  * @brief This function will start a P2P Group Owner and send Beacon Frames.
@@ -1305,6 +1338,15 @@ p2pFuncStartGO(IN struct ADAPTER *prAdapter,
 					CIPHER_SUITE_NONE, 0xff);
 		}
 #endif
+		p2pFuncParseWmmParam(prBssInfo->arACQueParms, 0,
+			prAdapter->rWifiVar.u4P2pGoWmmParamAC0);
+		p2pFuncParseWmmParam(prBssInfo->arACQueParms, 1,
+			prAdapter->rWifiVar.u4P2pGoWmmParamAC1);
+		p2pFuncParseWmmParam(prBssInfo->arACQueParms, 2,
+			prAdapter->rWifiVar.u4P2pGoWmmParamAC2);
+		p2pFuncParseWmmParam(prBssInfo->arACQueParms, 3,
+			prAdapter->rWifiVar.u4P2pGoWmmParamAC3);
+
 		nicQmUpdateWmmParms(prAdapter, prBssInfo->ucBssIndex);
 #endif /* CFG_SUPPORT_AAA */
 
@@ -1850,6 +1892,9 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 		(struct P2P_ROLE_FSM_INFO *) NULL;
 	struct CMD_RDD_ON_OFF_CTRL *prCmdRddOnOffCtrl;
 	uint8_t role_idx = 0;
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	u_int8_t fgIsPureAp = TRUE;
+#endif
 
 	DEBUGFUNC("p2pFuncDfsSwitchCh()");
 
@@ -1875,6 +1920,12 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 		/* Depend on eCurrentOPMode and ucPhyTypeSet */
 		prBssInfo->ucConfigAdHocAPMode = AP_MODE_MIXED_11BG;
 	}
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	fgIsPureAp = p2pFuncIsAPMode(
+			prAdapter->rWifiVar.prP2PConnSettings
+			[prBssInfo->u4PrivateData]);
+#endif
 
 	/* Overwrite BSS PHY type set by Feature Options */
 	bssDetermineApBssInfoPhyTypeSet(prAdapter,
@@ -1903,13 +1954,30 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 	/* Setup channel and bandwidth */
 	rlmBssInitForAPandIbss(prAdapter, prBssInfo);
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	/* Update Beacon to FW. Note that we have to set Op mode Rx
+	 * flag to TRUE in order to update VHT OP Notification IE.
+	 * Otherwise, clients will not be able to process VHT OP
+	 * Notification IE and assume wrong Rx NSS.
+	 */
+	prBssInfo->fgIsOpChangeRxNss = TRUE;
+
+	if (fgIsPureAp)
+		bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
+	else if (rlmUpdateParamsForAP(prAdapter, prBssInfo, FALSE) == FALSE)
+		bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
+
+	prBssInfo->fgIsOpChangeRxNss = FALSE;
+#else
 	/* Update Beacon again for network phy type confirmed. */
 	bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
+#endif
 
-	nicPmIndicateBssCreated(prAdapter, prBssInfo->ucBssIndex);
 
 	/* Reset HW TSF Update Mode and Beacon Mode */
 	nicUpdateBss(prAdapter, prBssInfo->ucBssIndex);
+
+	nicPmIndicateBssCreated(prAdapter, prBssInfo->ucBssIndex);
 
 	prCmdRddOnOffCtrl = (struct CMD_RDD_ON_OFF_CTRL *)
 		cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
@@ -6741,7 +6809,8 @@ uint8_t p2pFunGetAcsBestCh(IN struct ADAPTER *prAdapter,
 	return rPreferChannel.ucChannel;
 }
 
-#if (CFG_SUPPORT_P2PGO_ACS == 1)
+#if (CFG_SUPPORT_P2PGO_ACS == 1 ||\
+	CFG_SUPPORT_P2P_CSA_ACS == 1)
 void p2pFunGetAcsBestChList(IN struct ADAPTER *prAdapter,
 		IN uint8_t eBandSel,
 		IN enum ENUM_MAX_BANDWIDTH_SETTING eChnlBw,
@@ -6819,7 +6888,7 @@ void p2pFunGetAcsBestChList(IN struct ADAPTER *prAdapter,
 	*/
 	*pucSortChannelNumber = ucInUsedCHNumber;
 	for (i = 0; i < ucInUsedCHNumber; i++) {
-		DBGLOG(P2P, INFO, "ACS idx=%d, band[%d] ch[%d]\n",
+		DBGLOG(P2P, TRACE, "ACS idx=%d, band[%d] ch[%d]\n",
 				i,
 				(prSortChannelList+i)->eBand,
 				(prSortChannelList+i)->ucChannelNum);
@@ -7101,11 +7170,15 @@ p2pFunDetermineChnlSwitchPolicy(IN struct ADAPTER *prAdapter,
 {
 	enum ENUM_CHNL_SWITCH_POLICY ePolicy = CHNL_SWITCH_POLICY_CSA;
 
-#if CFG_SEND_DEAUTH_DURING_CHNL_SWITCH
 	struct BSS_INFO *prBssInfo;
-
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	if (!prBssInfo || IS_BSS_APGO(prBssInfo))
+		return ePolicy;
+#endif
+
+#if CFG_SEND_DEAUTH_DURING_CHNL_SWITCH
 	/* Send deauth frame to clients:
 	 * 1. Cross band
 	 * 2. BW > 20MHz
@@ -7170,14 +7243,33 @@ p2pFunNotifyChnlSwitch(IN struct ADAPTER *prAdapter,
 		break;
 	case CHNL_SWITCH_POLICY_CSA:
 		/* Set CSA IE */
-		prAdapter->rWifiVar.fgCsaInProgress = TRUE;
 		prAdapter->rWifiVar.ucChannelSwitchMode = 1;
 		prAdapter->rWifiVar.ucNewChannelNumber =
 			prNewChannelInfo->ucChannelNum;
+#if (CFG_SUPPORT_P2P_CSA == 1)
+		prAdapter->rWifiVar.ucChannelSwitchCount =
+			prAdapter->rWifiVar.ucP2pCsaCount;
+		prAdapter->rWifiVar.ucSecondaryOffset =
+			rlmGetScoByChnInfo(prAdapter, prNewChannelInfo);
+		prAdapter->rWifiVar.ucNewChannelWidth =
+			rlmGetVhtOpBwByBssOpBw(prNewChannelInfo->ucChnlBw);
+		prAdapter->rWifiVar.ucNewChannelS1 =
+			nicFreq2ChannelNum(
+				prNewChannelInfo->u4CenterFreq1 * 1000);
+		prAdapter->rWifiVar.ucNewChannelS2 = 0;
+#else
 		prAdapter->rWifiVar.ucChannelSwitchCount = 5;
+#endif
 
 		/* Send Action Frame */
 		rlmSendChannelSwitchFrame(prAdapter, prBssInfo->ucBssIndex);
+
+		/* To prevent race condition, we have to set CSA flags
+		 * after all CSA parameters are updated. In this way,
+		 * we can guarantee that CSA IE will be and only be
+		 * reported once in the beacon.
+		 */
+		prAdapter->rWifiVar.fgCsaInProgress = TRUE;
 
 		/* Update Beacon */
 		bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
@@ -7199,7 +7291,20 @@ p2pFunChnlSwitchNotifyDone(IN struct ADAPTER *prAdapter)
 	if (!prAdapter)
 		return;
 
-	prBssInfo = cnmGetSapBssInfo(prAdapter);
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	/* check if P2P BSS existed
+	* note that we have either P2P or SAP now
+	* flow might be changed if P2P/SAP existed
+	* at the same time
+	*/
+	prBssInfo = cnmGetP2pBssInfo(prAdapter);
+
+	if (!prBssInfo)
+#endif
+	{
+		prBssInfo = cnmGetSapBssInfo(prAdapter);
+	}
+
 	if (!prBssInfo)
 		return;
 
@@ -7268,6 +7373,73 @@ uint8_t p2pFuncIsBufferableMMPDU(IN struct ADAPTER *prAdapter,
 	DBGLOG(P2P, TRACE, "fgIsBufferableMMPDU = %u\n", fgIsBufferableMMPDU);
 	return fgIsBufferableMMPDU;
 }
+
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+void p2pFuncSetCsaChnlScanReq(IN struct ADAPTER *prAdapter)
+{
+	struct BSS_INFO *prP2pBssInfo = NULL;
+	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo;
+	struct MSG_P2P_SCAN_REQUEST *prP2pScanReqMsg;
+	struct P2P_SCAN_REQ_INFO *prScanReqInfo;
+
+	uint32_t u4MsgSize = 0;
+	uint8_t ucNumOf5gChannel = 0;
+
+	if (!prAdapter) {
+		DBGLOG(P2P, WARN, "prAdapter is NULL!\n");
+		return;
+	}
+
+	prP2pBssInfo = cnmGetP2pBssInfo(prAdapter);
+
+	if (!prP2pBssInfo) {
+		DBGLOG(P2P, WARN, "prP2pBssInfo is NULL!\n");
+		return;
+	}
+
+	prP2pRoleFsmInfo = P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter,
+					prP2pBssInfo->u4PrivateData);
+
+	if (!prP2pRoleFsmInfo) {
+		DBGLOG(P2P, WARN, "prP2pRoleFsmInfo is NULL!\n");
+		return;
+	}
+
+	prScanReqInfo = &(prP2pRoleFsmInfo->rScanReqInfo);
+	if (prScanReqInfo->fgIsScanRequest == TRUE) {
+		DBGLOG(P2P, WARN, "P2P SCAN is going on, ignore CSA\n");
+		return;
+	}
+
+	u4MsgSize = sizeof(struct MSG_P2P_SCAN_REQUEST) + (
+				MAX_5G_BAND_CHN_NUM *
+				sizeof(struct RF_CHANNEL_INFO));
+
+	prP2pScanReqMsg = cnmMemAlloc(prAdapter, RAM_TYPE_MSG, u4MsgSize);
+	if (prP2pScanReqMsg == NULL) {
+		DBGLOG(P2P, ERROR, "alloc scan req. fail\n");
+		return;
+	}
+
+	kalMemSet(prP2pScanReqMsg, 0, u4MsgSize);
+	prP2pScanReqMsg->eScanType = SCAN_TYPE_ACTIVE_SCAN;
+	prP2pScanReqMsg->ucBssIdx = prP2pRoleFsmInfo->ucBssIndex;
+	prP2pScanReqMsg->i4SsidNum = 0;
+	prP2pScanReqMsg->u4IELen = 0;
+	prP2pScanReqMsg->eScanReason = SCAN_REASON_CSA;
+
+	/* get non-DFS channel list */
+	rlmDomainGetChnlList(prAdapter, BAND_5G, TRUE,
+				 MAX_5G_BAND_CHN_NUM, &ucNumOf5gChannel,
+				 prP2pScanReqMsg->arChannelListInfo);
+
+	prP2pScanReqMsg->u4NumChannel = (uint32_t)ucNumOf5gChannel;
+
+	p2pRoleFsmRunEventScanRequest(prAdapter,
+			(struct MSG_HDR *) prP2pScanReqMsg);
+
+}
+#endif
 
 #if CFG_AP_80211KVR_INTERFACE
 void p2pFunMulAPAgentBssStatusNotification(
@@ -7425,3 +7597,150 @@ void p2pFunMulAPAgentBssStatusNotification(
 }
 #endif /* CFG_AP_80211KVR_INTERFACE */
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+void p2pFuncSwitchGcChannel(
+		struct ADAPTER *prAdapter,
+		struct BSS_INFO *prP2pBssInfo)
+{
+	u_int8_t fgEnable = FALSE;
+	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
+		(struct P2P_ROLE_FSM_INFO *) NULL;
+	struct P2P_CHNL_REQ_INFO *prChnlReqInfo =
+		(struct P2P_CHNL_REQ_INFO *) NULL;
+	struct GL_P2P_INFO *prGlueP2pInfo =
+		(struct GL_P2P_INFO *) NULL;
+	struct RF_CHANNEL_INFO rRfChnlInfo;
+	uint8_t role_idx = 0;
+
+#if CFG_SUPPORT_DFS_MASTER
+	fgEnable = TRUE;
+#endif
+
+	if (!prAdapter || !fgEnable) {
+		DBGLOG(P2P, TRACE, "Not support DFS function\n");
+		return;
+	}
+
+	role_idx = prP2pBssInfo->u4PrivateData;
+
+	prP2pRoleFsmInfo = P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter, role_idx);
+	if (!prP2pRoleFsmInfo) {
+		DBGLOG(P2P, WARN, "GC is not active\n");
+		return;
+	}
+
+	prChnlReqInfo = &prP2pRoleFsmInfo->rChnlReqInfo;
+
+	if (prChnlReqInfo->ucReqChnlNum == prP2pBssInfo->ucPrimaryChannel) {
+		DBGLOG(P2P, WARN, "same channel, no need to switch channel\n");
+		return;
+	}
+
+	/* Free chandef buffer */
+	prGlueP2pInfo = prAdapter->prGlueInfo->prP2PInfo[role_idx];
+	if (!prGlueP2pInfo) {
+		DBGLOG(P2P, WARN, "p2p glue info is not active\n");
+		return;
+	}
+	if (prGlueP2pInfo->chandef != NULL) {
+		if (prGlueP2pInfo->chandef->chan) {
+			cnmMemFree(prAdapter,
+			    prGlueP2pInfo->chandef->chan);
+			prGlueP2pInfo->chandef->chan = NULL;
+		}
+		cnmMemFree(prAdapter,
+			prGlueP2pInfo->chandef);
+		prGlueP2pInfo->chandef = NULL;
+	}
+
+	/* Sameband CSA */
+	/* Update channel parameters & channel request info */
+	rlmGetChnlInfoForCSA(prAdapter,
+			prP2pBssInfo->eBand,
+			prP2pBssInfo->ucPrimaryChannel,
+			prP2pBssInfo->ucBssIndex,
+			&rRfChnlInfo);
+
+	p2pFuncSetChannel(prAdapter, role_idx, &rRfChnlInfo);
+
+	rlmBssUpdateChannelParams(prAdapter, prP2pBssInfo);
+
+	DBGLOG(P2P, INFO,
+		"SCO=%d H1=%d H2=%d H3=%d BW=%d S1=%d S2=%d CH=%d Band=%d TxN=%d RxN=%d\n",
+		prP2pBssInfo->eBssSCO,
+		prP2pBssInfo->ucHtOpInfo1,
+		prP2pBssInfo->u2HtOpInfo2,
+		prP2pBssInfo->u2HtOpInfo3,
+		prP2pBssInfo->ucVhtChannelWidth,
+		prP2pBssInfo->ucVhtChannelFrequencyS1,
+		prP2pBssInfo->ucVhtChannelFrequencyS2,
+		prP2pBssInfo->ucPrimaryChannel,
+		prP2pBssInfo->eBand,
+		prP2pBssInfo->ucOpTxNss,
+		prP2pBssInfo->ucOpRxNss);
+
+	prChnlReqInfo->ucReqChnlNum = prP2pBssInfo->ucPrimaryChannel;
+	prChnlReqInfo->eBand = prP2pBssInfo->eBand;
+	prChnlReqInfo->eChnlSco = prP2pBssInfo->eBssSCO;
+	prChnlReqInfo->eChannelWidth = prP2pBssInfo->ucVhtChannelWidth;
+	prChnlReqInfo->ucCenterFreqS1 = prP2pBssInfo->ucVhtChannelFrequencyS1;
+	prChnlReqInfo->ucCenterFreqS2 = prP2pBssInfo->ucVhtChannelFrequencyS2;
+
+	p2pRoleFsmStateTransition(prAdapter,
+		prP2pRoleFsmInfo,
+		P2P_ROLE_STATE_SWITCH_CHANNEL);
+}
+#endif /* CFG_SUPPORT_P2P_CSA */
+
+#if CFG_POWER_OFF_CTRL_SUPPORT
+void p2pFuncPreReboot(void)
+{
+	struct wiphy *wiphy = NULL;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter;
+	struct MSG_P2P_CONNECTION_ABORT *prDisconnMsg = NULL;
+	struct BSS_INFO *prBssInfo;
+	uint8_t aucBCAddr[] = BC_MAC_ADDR;
+	uint8_t ucRoleIdx;
+	uint8_t ucBssIdx;
+
+	wiphy = wlanGetWiphy();
+	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
+	prAdapter = prGlueInfo->prAdapter;
+
+	for (ucRoleIdx = 0; ucRoleIdx < KAL_P2P_NUM; ucRoleIdx++) {
+		ucBssIdx = prAdapter->rWifiVar
+			.aprP2pRoleFsmInfo[ucRoleIdx]->ucBssIndex;
+		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
+		if (IS_BSS_P2P(prBssInfo) &&
+			prBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE &&
+			prBssInfo->eConnectionState == MEDIA_STATE_CONNECTED) {
+			break;
+		}
+	}
+
+	if (ucRoleIdx == KAL_P2P_NUM)
+		return;
+
+	prDisconnMsg =
+		(struct MSG_P2P_CONNECTION_ABORT *)
+		cnmMemAlloc(prGlueInfo->prAdapter, RAM_TYPE_MSG,
+		sizeof(struct MSG_P2P_CONNECTION_ABORT));
+
+	if (prDisconnMsg == NULL)
+		return;
+
+	prDisconnMsg->rMsgHdr.eMsgId = MID_MNY_P2P_CONNECTION_ABORT;
+	prDisconnMsg->ucRoleIdx = ucRoleIdx;
+	prDisconnMsg->u2ReasonCode = REASON_CODE_DEAUTH_LEAVING_BSS;
+	prDisconnMsg->fgSendDeauth = TRUE;
+	COPY_MAC_ADDR(prDisconnMsg->aucTargetID, aucBCAddr);
+
+	DBGLOG(P2P, WARN, "Disconnect pre reboot\n");
+
+	mboxSendMsg(prGlueInfo->prAdapter,
+		MBOX_ID_0,
+		(struct MSG_HDR *) prDisconnMsg,
+		MSG_SEND_METHOD_BUF);
+}
+#endif

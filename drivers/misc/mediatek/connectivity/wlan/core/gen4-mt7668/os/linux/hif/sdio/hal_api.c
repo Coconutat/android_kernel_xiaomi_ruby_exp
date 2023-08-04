@@ -385,7 +385,10 @@ BOOLEAN halSetDriverOwn(IN P_ADAPTER_T prAdapter)
 				if (prAdapter->u4OwnFailedLogCount > LP_OWN_BACK_FAILED_RESET_CNT) {
 					/* Trigger RESET */
 #if CFG_CHIP_RESET_SUPPORT
-					glResetTrigger(prAdapter);
+					/* Trigger RESET */
+					glGetRstReason(RST_DRV_OWN_FAIL);
+					GL_RESET_TRIGGER(prAdapter,
+						RST_FLAG_DO_CORE_DUMP);
 #endif
 				}
 				GET_CURRENT_SYSTIME(&prAdapter->rLastOwnFailedLogTime);
@@ -459,7 +462,9 @@ BOOLEAN halSetDriverOwn(IN P_ADAPTER_T prAdapter)
 				if (fgTimeout) {
 					/* Trigger RESET */
 #if CFG_CHIP_RESET_SUPPORT
-					glResetTrigger(prAdapter);
+					glGetRstReason(RST_DRV_OWN_FAIL);
+					GL_RESET_TRIGGER(prAdapter,
+						RST_FLAG_DO_CORE_DUMP);
 #endif
 				}
 
@@ -1894,7 +1899,7 @@ VOID halProcessSoftwareInterrupt(IN P_ADAPTER_T prAdapter)
 	if ((u4IntrBits & WHISR_D2H_SW_ASSERT_INFO_INT) != 0) {
 		halPrintFirmwareAssertInfo(prAdapter);
 #if CFG_CHIP_RESET_SUPPORT
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter, RST_FLAG_DO_CORE_DUMP);
 #endif
 	}
 
@@ -2199,6 +2204,32 @@ VOID halPrintHifDbgInfo(IN P_ADAPTER_T prAdapter)
 {
 	halPrintMailbox(prAdapter);
 	halPollDbgCr(prAdapter, LP_OWN_BACK_FAILED_DBGCR_POLL_ROUND);
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Check if HIF state is READY for upper layer cfg80211
+*
+* @param prAdapter      Pointer to the Adapter structure.
+*
+* @return (TRUE: ready, FALSE: not ready)
+*/
+/*----------------------------------------------------------------------------*/
+BOOLEAN halIsHifStateReady(IN P_ADAPTER_T prAdapter)
+{
+	if (!prAdapter)
+		return FALSE;
+
+	if (!prAdapter->prGlueInfo)
+		return FALSE;
+
+	if (prAdapter->prGlueInfo->u4ReadyFlag == 0)
+		return FALSE;
+
+	if (prAdapter->prGlueInfo->rHifInfo.state != SDIO_STATE_READY)
+		return FALSE;
+
+	return TRUE;
 }
 
 BOOLEAN halIsTxResourceControlEn(IN P_ADAPTER_T prAdapter)

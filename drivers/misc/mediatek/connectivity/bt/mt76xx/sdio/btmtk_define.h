@@ -108,59 +108,9 @@ do {												\
 #define PRINT_DUMP_COUNT		20
 
 /**
- * SYS control
- */
-#define SYSCTL	0x400000
-
-/**
- * WLAN
- */
-#define WLAN	0x410000
-
-/**
- * MCUCTL
- */
-#define CLOCK_CTL	0x0708
-#define INT_LEVEL	0x0718
-#define COM_REG0	0x0730
-#define SEMAPHORE_00	0x07B0
-#define SEMAPHORE_01	0x07B4
-#define SEMAPHORE_02	0x07B8
-#define SEMAPHORE_03	0x07BC
-
-/**
- * Timeout setting, mescs
- */
-#define USB_CTRL_IO_TIMO	100
-#define USB_INTR_MSG_TIMO	2000
-
-
-/**
- * USB request type definition
- */
-#define DEVICE_VENDOR_REQUEST_OUT	0x40
-#define DEVICE_VENDOR_REQUEST_IN	0xc0
-#define DEVICE_CLASS_REQUEST_OUT	0x20
-#define DEVICE_CLASS_REQUEST_IN		0xa0
-
-#define BTUSB_MAX_ISOC_FRAMES	10
-#define BTUSB_INTR_RUNNING	0
-#define BTUSB_BULK_RUNNING	1
-#define BTUSB_ISOC_RUNNING	2
-#define BTUSB_SUSPENDING	3
-#define BTUSB_DID_ISO_RESUME	4
-
-/**
  * ROM patch related
  */
-#define PATCH_HCI_HEADER_SIZE	4
-#define PATCH_WMT_HEADER_SIZE	5
-#define PATCH_HEADER_SIZE	(PATCH_HCI_HEADER_SIZE + PATCH_WMT_HEADER_SIZE)
-#define UPLOAD_PATCH_UNIT	2048
-#define PATCH_INFO_SIZE		30
-#define PATCH_PHASE1		1
-#define PATCH_PHASE2		2
-#define PATCH_PHASE3		3
+#define MTK_PATCH_HEADER_SIZE		30
 #define PATCH_LEN_ILM		(192 * 1024)
 
 

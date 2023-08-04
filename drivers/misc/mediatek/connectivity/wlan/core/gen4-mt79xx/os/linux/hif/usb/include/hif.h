@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -53,7 +53,9 @@ enum ENUM_USB_END_POINT {
 #define HIF_IST_LOOP_COUNT              (4)
 #define HIF_IST_TX_THRESHOLD            (1) /* Min msdu count to trigger Tx during INT polling state */
 
+#ifndef HIF_NUM_OF_QM_RX_PKT_NUM
 #define HIF_NUM_OF_QM_RX_PKT_NUM        (512)
+#endif
 
 #define HIF_TX_BUFF_COUNT_TC0            256
 #define HIF_TX_BUFF_COUNT_TC1            256

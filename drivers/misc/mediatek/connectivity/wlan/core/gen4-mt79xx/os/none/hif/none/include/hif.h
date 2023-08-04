@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -55,7 +55,9 @@ struct BUS_INFO {
  *******************************************************************************
  */
 /* Common data type */
+#ifndef HIF_NUM_OF_QM_RX_PKT_NUM
 #define HIF_NUM_OF_QM_RX_PKT_NUM        512
+#endif
 
 /* chip dependent? used in wlanHarvardFormatDownload */
 #define HIF_CR4_FWDL_SECTION_NUM            2

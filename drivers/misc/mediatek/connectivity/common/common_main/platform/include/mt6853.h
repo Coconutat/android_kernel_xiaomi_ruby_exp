@@ -293,6 +293,12 @@
 #define SPI_TOP_RDAT	0x58
 
 /**********************************************************************/
+/* Base: conn_mcu_btif_0 (0x180a_2000) */
+/**********************************************************************/
+#define CONN_MCU_BTIF_0_BASE	0x180a2000
+#define BTIF_WAK_ADDR_OFFSET	0x64
+
+/**********************************************************************/
 /* Base: conn_mcu_cfg_on_base (0x180a_3000) */
 /**********************************************************************/
 /**********************************************************************/
@@ -310,8 +316,8 @@
 #define MT6359_LDO_VCN33_1_OP_EN_SET         (MT6359_PMIC_REG_BASE+0x1bea)
 #define MT6359_LDO_VCN33_1_OP_CFG_SET        (MT6359_PMIC_REG_BASE+0x1bf0)
 #define MT6359_LDO_VCN33_2_CON0              (MT6359_PMIC_REG_BASE+0x1c08)
-#define MT6359_LDO_VCN33_2_OP_EN_SET         (MT6359_PMIC_REG_BASE+0x1c10)
-#define MT6359_LDO_VCN33_2_OP_CFG_SET        (MT6359_PMIC_REG_BASE+0x1c16)
+#define MT6359_LDO_VCN33_2_OP_EN             (MT6359_PMIC_REG_BASE+0x1c0e)
+#define MT6359_LDO_VCN33_2_OP_CFG            (MT6359_PMIC_REG_BASE+0x1c14)
 #define MT6359_LDO_VCN13_CON0                (MT6359_PMIC_REG_BASE+0x1c1c)
 #define MT6359_LDO_VCN13_OP_EN_SET           (MT6359_PMIC_REG_BASE+0x1c24)
 #define MT6359_LDO_VCN13_OP_CFG_SET          (MT6359_PMIC_REG_BASE+0x1c2a)
@@ -348,10 +354,10 @@
 	MT6359_LDO_VCN33_2_CON0
 #define PMIC_RG_LDO_VCN33_2_LP_MASK                         0x1
 #define PMIC_RG_LDO_VCN33_2_LP_SHIFT                        1
-#define PMIC_RG_LDO_VCN33_2_OP_EN_SET_ADDR                  \
-	MT6359_LDO_VCN33_2_OP_EN_SET
-#define PMIC_RG_LDO_VCN33_2_OP_CFG_SET_ADDR                 \
-	MT6359_LDO_VCN33_2_OP_CFG_SET
+#define PMIC_RG_LDO_VCN33_2_OP_EN_ADDR                      \
+	MT6359_LDO_VCN33_2_OP_EN
+#define PMIC_RG_LDO_VCN33_2_OP_CFG_ADDR                     \
+	MT6359_LDO_VCN33_2_OP_CFG
 #define PMIC_RG_LDO_VCN13_LP_ADDR                           \
 	MT6359_LDO_VCN13_CON0
 #define PMIC_RG_LDO_VCN13_LP_MASK                           0x1

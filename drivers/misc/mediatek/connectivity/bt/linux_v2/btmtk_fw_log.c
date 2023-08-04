@@ -1,7 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright (c) 2018 MediaTek Inc.
- */
 /* Define for proce node */
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -152,13 +148,13 @@ static void btmtk_proc_create_new_entry(void)
 		BTMTK_ERR("Unable to creat dir");
 		return;
 	}
-	proc_show_entry =  proc_create("bt_fw_version", 0640, bmain_info->proc_dir, &BT_proc_fops);
+	proc_show_entry =  proc_create("bt_fw_version", 0600, bmain_info->proc_dir, &BT_proc_fops);
 	if (proc_show_entry == NULL) {
 		BTMTK_ERR("Unable to creat bt_fw_version node");
 		remove_proc_entry("stpbt", NULL);
 	}
 
-	proc_show_chip_reset_count_entry = proc_create(PROC_BT_CHIP_RESET_COUNT, 0640,
+	proc_show_chip_reset_count_entry = proc_create(PROC_BT_CHIP_RESET_COUNT, 0600,
 			bmain_info->proc_dir, &BT_proc_chip_reset_count_fops);
 	if (proc_show_chip_reset_count_entry == NULL) {
 		BTMTK_ERR("Unable to creat %s node", PROC_BT_CHIP_RESET_COUNT);
@@ -353,13 +349,16 @@ ssize_t btmtk_fops_readfwlog(struct file *filp, char __user *buf, size_t count, 
 }
 ssize_t btmtk_fops_writefwlog(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
 {
-	int i = 0, len = 0, ret = -1;
+#if (CFG_ENABLE_DEBUG_WRITE == 0)
+	return -ENODEV;
+#else
+	int i = 0, len = 0, ret = 0;
 	int hci_idx = 0;
 	int vlen = 0, index = 3;
 	struct sk_buff *skb = NULL;
 	struct sk_buff *skb_opcode = NULL;
-	int state = BTMTK_STATE_INIT;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	int state = 0;
+	unsigned char fstate = 0;
 	u8 *i_fwlog_buf = NULL;
 	u8 *o_fwlog_buf = NULL;
 	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
@@ -379,7 +378,8 @@ ssize_t btmtk_fops_writefwlog(struct file *filp, const char __user *buf, size_t 
 		goto exit;
 	}
 
-	o_fwlog_buf = kmalloc(HCI_MAX_COMMAND_SIZE, GFP_KERNEL);
+	/* allocate 16 more bytes for header part */
+	o_fwlog_buf = kmalloc(HCI_MAX_COMMAND_SIZE + 16, GFP_KERNEL);
 	if (!o_fwlog_buf) {
 		BTMTK_ERR("%s: alloc o_fwlog_buf failed", __func__);
 		ret = -ENOMEM;
@@ -394,7 +394,7 @@ ssize_t btmtk_fops_writefwlog(struct file *filp, const char __user *buf, size_t 
 	}
 
 	memset(i_fwlog_buf, 0, HCI_MAX_COMMAND_BUF_SIZE);
-	memset(o_fwlog_buf, 0, HCI_MAX_COMMAND_SIZE);
+	memset(o_fwlog_buf, 0, HCI_MAX_COMMAND_SIZE + 16);
 	if (copy_from_user(i_fwlog_buf, buf, count) != 0) {
 		BTMTK_ERR("%s: Failed to copy data", __func__);
 		ret = -ENODATA;
@@ -415,6 +415,17 @@ ssize_t btmtk_fops_writefwlog(struct file *filp, const char __user *buf, size_t 
 		ret = count;
 		goto exit;
 	}
+
+#if CFG_SUPPORT_BMR_RX_CLK
+	if (strncmp(i_fwlog_buf, "bmr_irq=", strlen("bmr_irq=")) == 0) {
+		u8 val = *(i_fwlog_buf + strlen("bmr_irq=")) - '0';
+
+		bmain_info->bmr_irq_flag = val;
+		BTMTK_INFO("%s: set rxclk_irq_flag to %d", __func__, bmain_info->bmr_irq_flag);
+		ret = count;
+		goto exit;
+	}
+#endif
 
 	/* For bperf, EX: echo bperf=1 > /dev/stpbtfwlog */
 	if (strncmp(i_fwlog_buf, "bperf=", strlen("bperf=")) == 0) {
@@ -523,6 +534,10 @@ ssize_t btmtk_fops_writefwlog(struct file *filp, const char __user *buf, size_t 
 		} else if (!(*pos >= '0' && *pos <= '9') && !(*pos >= 'A' && *pos <= 'F')
 			&& !(*pos >= 'a' && *pos <= 'f')) {
 			BTMTK_ERR("%s: There is an invalid input(%c)", __func__, *pos);
+			ret = -EINVAL;
+			goto exit;
+		} else if (len + 1 >= HCI_MAX_COMMAND_SIZE) {
+			BTMTK_ERR("%s: input data exceed maximum command length (%d)", __func__, len);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -664,6 +679,7 @@ exit:
 	kfree(o_fwlog_buf);
 
 	return ret;	/* If input is correct should return the same length */
+#endif //CFG_ENABLE_DEBUG_WRITE == 0
 }
 
 int btmtk_fops_openfwlog(struct inode *inode, struct file *file)
@@ -863,7 +879,7 @@ int btmtk_dispatch_fwlog(struct btmtk_dev *bdev, struct sk_buff *skb)
 {
 	static u8 fwlog_picus_blocking_warn;
 	static u8 fwlog_fwdump_blocking_warn;
-	int state = BTMTK_STATE_INIT;
+	int state = 0;
 	u8 hci_reset_event[HCI_RESET_EVT_LEN] = { 0x04, 0x0E, 0x04, 0x01, 0x03, 0x0c, 0x00 };
 	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
 	struct sk_buff *skb_opcode = NULL;
@@ -878,6 +894,10 @@ int btmtk_dispatch_fwlog(struct btmtk_dev *bdev, struct sk_buff *skb)
 		if (state != BTMTK_STATE_FW_DUMP) {
 			BTMTK_INFO("%s: FW dump begin", __func__);
 			DUMP_TIME_STAMP("FW_dump_start");
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+			if (rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_DUMP_START, NULL) == RST_MODULE_RET_FAIL)
+				return 0;
+#endif
 			btmtk_hci_snoop_print_to_log();
 			/* Print too much log, it may cause kernel panic. */
 			dump_data_counter = 0;
@@ -915,6 +935,9 @@ int btmtk_dispatch_fwlog(struct btmtk_dev *bdev, struct sk_buff *skb)
 			DUMP_TIME_STAMP("FW_dump_end");
 			if (bmain_info->hif_hook.waker_notify)
 				bmain_info->hif_hook.waker_notify(bdev);
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+			rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_DUMP_END, NULL);
+#endif
 		}
 
 		if (skb_queue_len(&g_fwlog->fwlog_queue) < FWLOG_ASSERT_QUEUE_COUNT) {

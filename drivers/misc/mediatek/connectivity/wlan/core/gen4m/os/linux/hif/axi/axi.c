@@ -1322,7 +1322,11 @@ static bool axiAllocTxCmdBuf(struct RTMP_DMABUF *prDmaBuf,
 			     uint32_t u4Num, uint32_t u4Idx)
 {
 	/* only for cmd & fw download ring */
+#if CFG_TRI_TX_RING
+	if (u4Num == TX_RING_CMD_IDX_4 || u4Num == TX_RING_FWDL_IDX_5) {
+#else
 	if (u4Num == TX_RING_CMD_IDX_3 || u4Num == TX_RING_FWDL_IDX_4) {
+#endif
 		prDmaBuf->AllocSize = AXI_TX_CMD_BUFF_SIZE;
 		prDmaBuf->AllocPa = grMem.rTxCmdBuf[u4Idx].pa;
 		prDmaBuf->AllocVa = grMem.rTxCmdBuf[u4Idx].va;
@@ -1474,8 +1478,8 @@ static void axiDumpRx(struct GL_HIF_INFO *prHifInfo,
 	prRxCell = &prRxRing->Cell[u4Idx];
 	prDmaBuf = &prRxCell->DmaBuf;
 
-	if (prRxCell->pPacket)
-		DBGLOG_MEM128(HAL, INFO, prRxCell->pPacket, u4DumpLen);
+	if (prDmaBuf->AllocVa)
+		DBGLOG_MEM128(HAL, INFO, prDmaBuf->AllocVa, u4DumpLen);
 }
 #else /* AXI_CFG_PREALLOC_MEMORY_BUFFER */
 static void axiAllocDesc(struct GL_HIF_INFO *prHifInfo,

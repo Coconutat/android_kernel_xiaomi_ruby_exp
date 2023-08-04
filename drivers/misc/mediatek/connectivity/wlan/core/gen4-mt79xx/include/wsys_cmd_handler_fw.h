@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2017 MediaTek Inc.
  */
@@ -1514,19 +1514,6 @@ struct CMD_GET_STATISTICS {
 };
 
 struct EVENT_STATISTICS {
-
-	/* DWORD_0 - Common Part*/
-	uint8_t  ucEvtVer;
-	/* if the structure size is changed, the ucEvtVer shall be increased.*/
-	uint8_t  aucPadding0[1];
-	uint16_t u2EvtLen;       /* cmd size including common part and body.*/
-
-	uint8_t  ucType;
-	uint8_t  ucBssIndex;
-	uint8_t  aucPadding1[2];
-	uint8_t  ucBandIdx;
-	uint8_t  aucPadding2[3];
-
 	/* Link quality for customer */
 	union LARGE_INTEGER rTransmittedFragmentCount;
 	union LARGE_INTEGER rMulticastTransmittedFrameCount;
@@ -1542,7 +1529,8 @@ struct EVENT_STATISTICS {
 	union LARGE_INTEGER rFCSErrorCount;
 	union LARGE_INTEGER rMdrdyCnt;
 	union LARGE_INTEGER rChnlIdleCnt;
-	uint32_t au4Padding3[16];
+	uint32_t u4HwMacAwakeDuration;
+	uint32_t au4Padding3[15];
 
 	/* wifi_radio_stat */
 	int32_t      i4RadioIdx;

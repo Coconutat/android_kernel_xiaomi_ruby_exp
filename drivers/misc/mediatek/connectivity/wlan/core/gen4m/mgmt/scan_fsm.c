@@ -142,10 +142,13 @@ void scnFsmSteps(IN struct ADAPTER *prAdapter,
 
 	do {
 		/* Coverity */
-		if (prScanInfo->eCurrentState >= 0 && eNextState >= 0) {
+		if ((uint32_t)prScanInfo->eCurrentState < SCAN_STATE_NUM &&
+			(uint32_t)eNextState < SCAN_STATE_NUM) {
 			log_dbg(SCN, STATE, "[SCAN]TRANSITION: [%s] -> [%s]\n",
-				apucDebugScanState[prScanInfo->eCurrentState],
-				apucDebugScanState[eNextState]);
+			apucDebugScanState[
+				(uint32_t) prScanInfo->eCurrentState],
+			apucDebugScanState[
+				(uint32_t) eNextState]);
 		}
 		/* NOTE(Kevin): This is the only place to change the
 		 * eCurrentState(except initial)
@@ -405,7 +408,7 @@ void scnSendScanReqV2(IN struct ADAPTER *prAdapter)
 		/* if WFD enable, not do dbdc scan and reduce dwell time to
 		 * enhance latency
 		 */
-		if (wlanWfdEnabled(prAdapter) || prAdapter->fgEnLowLatencyMode) {
+		if (wlanWfdEnabled(prAdapter)) {
 			prCmdScanReq->ucScnFuncMask |= ENUM_SCN_DBDC_SCAN_DIS;
 			prCmdScanReq->u2ChannelDwellTime =
 				SCAN_CHANNEL_DWELL_TIME_MIN_MSEC;
@@ -529,6 +532,7 @@ void scnFsmMsgAbort(IN struct ADAPTER *prAdapter, IN struct MSG_HDR *prMsgHdr)
 	prScanCancel = (struct MSG_SCN_SCAN_CANCEL *) prMsgHdr;
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prScanParam = &prScanInfo->rScanParam;
+	kalMemZero(&rCmdScanCancel, sizeof(rCmdScanCancel));
 
 	if (prScanInfo->eCurrentState != SCAN_STATE_IDLE) {
 		if (prScanCancel->ucSeqNum == prScanParam->ucSeqNum &&
@@ -1201,17 +1205,34 @@ void scnEventSchedScanDone(IN struct ADAPTER *prAdapter,
 /*----------------------------------------------------------------------------*/
 bool scnEnableSplitScan(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 {
-	uint8_t ucWfdEn = FALSE, ucRoamingEn = FALSE;
+	uint8_t ucWfdEn = FALSE, ucTrxPktEn = FALSE, ucRoamingEn = FALSE;
+	struct PERF_MONITOR *prPerMonitor;
 	struct BSS_INFO *prBssInfo = NULL;
 	struct AIS_FSM_INFO *prAisFsmInfo;
+	unsigned long ulTrxPacketsDiffTotal = 0;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	prPerMonitor = &prAdapter->rPerMonitor;
 
 	if (!prBssInfo)
 		return FALSE;
-	/* Enable condition: WFD case*/
+	/* Enable condition 1: WFD case*/
 	ucWfdEn = wlanWfdEnabled(prAdapter);
 
+	/* Enable condition 2: (TX + RX) packets in last 1s > 30,
+	 * exclude P2P device because prPerMonitor not include P2P device
+	 */
+	if (ucBssIndex < P2P_DEV_BSS_INDEX && IS_BSS_ACTIVE(prBssInfo)) {
+		ulTrxPacketsDiffTotal +=
+			(prPerMonitor->ulTxPacketsDiffLastSec[ucBssIndex] +
+			prPerMonitor->ulRxPacketsDiffLastSec[ucBssIndex]);
+
+		if (ulTrxPacketsDiffTotal > SCAN_SPLIT_PACKETS_THRESHOLD) {
+			log_dbg(SCN, TRACE, "SplitScan: TRXPacket=%ld",
+				ulTrxPacketsDiffTotal);
+			ucTrxPktEn = TRUE;
+		}
+	}
 	/* Enable Pre-condition: not in roaming, avoid roaming scan too long */
 	if (ucBssIndex < KAL_AIS_NUM) {
 		prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
@@ -1220,14 +1241,10 @@ bool scnEnableSplitScan(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 			prAisFsmInfo->eCurrentState == AIS_STATE_LOOKING_FOR)
 			ucRoamingEn = TRUE;
 	}
-	log_dbg(SCN, TRACE, "SplitScan: Roam(%d),WFD(%d)",
-				ucRoamingEn, ucWfdEn);
-	/* Enable split scan:
-	 * 1. when (not in roam) & (WFD)
-	 * 2. Roaming & Gaming mode
-	 */
-	if (((!ucRoamingEn) && (ucWfdEn)) ||
-	    (ucRoamingEn && prAdapter->fgEnLowLatencyMode))
+	log_dbg(SCN, TRACE, "SplitScan: Roam(%d),WFD(%d),TRX(%d)",
+				ucRoamingEn, ucWfdEn, ucTrxPktEn);
+	/* Enable split scan when (not in roam) & (WFD or TRX packet > 30) */
+	if ((!ucRoamingEn) && (ucWfdEn || ucTrxPktEn))
 		return TRUE;
 	else
 		return FALSE;
@@ -1423,18 +1440,23 @@ scnFsmSchedScanRequest(IN struct ADAPTER *prAdapter,
 u_int8_t scnFsmSchedScanStopRequest(IN struct ADAPTER *prAdapter)
 {
 	uint8_t ucBssIndex = 0;
+	struct BSS_INFO *prAisBssInfo;
 
 	ASSERT(prAdapter);
 
 	ucBssIndex =
 		prAdapter->rWifiVar.rScanInfo.rSchedScanParam.ucBssIndex;
-
-	if (aisGetAisBssInfo(prAdapter,
-		ucBssIndex) == NULL) {
-		log_dbg(SCN, WARN,
-			"prAisBssInfo%d is NULL\n",
-			ucBssIndex);
+	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
+	if (prAisBssInfo == NULL) {
+		log_dbg(SCN, WARN, "prAisBssInfo is NULL\n");
 		return FALSE;
+	}
+
+	if (prAisBssInfo->eConnectionState == MEDIA_STATE_DISCONNECTED &&
+		IS_NET_ACTIVE(prAdapter, prAisBssInfo->ucBssIndex)) {
+		UNSET_NET_ACTIVE(prAdapter, prAisBssInfo->ucBssIndex);
+		/* sync with firmware */
+		nicDeactivateNetwork(prAdapter,	prAisBssInfo->ucBssIndex);
 	}
 
 	if (!scnFsmSchedScanSetAction(prAdapter, SCHED_SCAN_ACT_DISABLE)) {

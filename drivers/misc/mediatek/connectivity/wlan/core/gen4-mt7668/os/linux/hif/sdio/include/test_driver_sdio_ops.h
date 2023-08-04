@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/* 
- *Copyright (c) 2020 MediaTek Inc. 
- */
- 
+/*
+  *Copyright (c) 2020 MediaTek Inc. 
+*/
 
 
 #ifndef __TEST_DRV_SDIO_OPS_H__

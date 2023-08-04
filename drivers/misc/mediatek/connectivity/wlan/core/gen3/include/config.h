@@ -880,6 +880,11 @@
  */
 #define CFG_SUPPORT_REPLAY_DETECTION		1
 
+/* Enable Fragment Support */
+#define CFG_SUPPORT_FRAG_SUPPORT 1
+/* Enable Detection for 2021 Frag/AGG Attack from WFA */
+#define CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION	1
+
 /*------------------------------------------------------------------------------
  * Flags of driver delay calibration atfer efuse buffer mode CMD
  *------------------------------------------------------------------------------

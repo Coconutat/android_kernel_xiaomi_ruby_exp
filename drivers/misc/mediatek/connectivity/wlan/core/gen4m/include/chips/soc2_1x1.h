@@ -36,6 +36,10 @@
 #define SOC2_1X1_RX_EVENT_HDR_LENGTH              12
 #define MTK_CUSTOM_OID_INTERFACE_VERSION     0x00000200	/* for WPDWifi DLL */
 #define MTK_EM_INTERFACE_VERSION		0x0001
+#define SOC2_1X1_CONN_HIF_ON_BASE		0x18007000
+#define SOC2_1X1_CONSYS_HCLK_CHECK_BIT		0x10000
+#define SOC2_1X1_CONSYS_OSCCLK_CHECK_BIT	0x20000
+#define SOC2_1X1_CONSYS_CLOCK_CHECK_VALUE	0x30000
 
 /*******************************************************************************
  *                         D A T A   T Y P E S

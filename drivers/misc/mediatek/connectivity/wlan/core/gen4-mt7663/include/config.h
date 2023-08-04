@@ -106,7 +106,7 @@
 #define MTK_WCN_HIF_AXI			0
 #endif
 
-
+#undef CONFIG_MTK_EMI
 
 /* Android build-in driver switch, Mike 2016/11/11*/
 #ifndef CFG_BUILT_IN_DRIVER

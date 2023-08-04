@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -792,6 +792,8 @@ static uint32_t heRlmRecHeMcsMap(
 		prStaRec->u2HeRxMcsMapBW80 |=
 			BITS(ucHeCapMcsOwnNotSupportOffset, 15);
 	}
+	prStaRec->u2HeRxMcsMapBW80Assoc = prStaRec->u2HeRxMcsMapBW80;
+
 	if (prStaRec->u2HeRxMcsMapBW80 != u2McsMap)
 		DBGLOG(RLM, WARN, "Change HeRxMcsMapBW80 from 0x%x to 0x%x\n",
 			u2McsMap, prStaRec->u2HeRxMcsMapBW80);
@@ -832,6 +834,7 @@ static uint32_t heRlmRecHeMcsMap(
 		prStaRec->u2HeRxMcsMapBW160 = BITS(0, 15);
 		prStaRec->u2HeTxMcsMapBW160 = BITS(0, 15);
 	}
+	prStaRec->u2HeRxMcsMapBW160Assoc = prStaRec->u2HeRxMcsMapBW160;
 
 	/* BW 80+80 */
 	if (HE_IS_PHY_CAP_CHAN_WIDTH_SET_BW80P80_5G(prStaRec->ucHePhyCapInfo)) {
@@ -862,6 +865,7 @@ static uint32_t heRlmRecHeMcsMap(
 		prStaRec->u2HeRxMcsMapBW80P80 = BITS(0, 15);
 		prStaRec->u2HeTxMcsMapBW80P80 = BITS(0, 15);
 	}
+	prStaRec->u2HeRxMcsMapBW80P80Assoc = prStaRec->u2HeRxMcsMapBW80P80;
 
 	log_dbg(RLM, LOUD, "PhyCap:1st:%x,..heRlmRecHeMcsMap-80:%x,%x,160:%x,%x,80+80:%x,%x\n",
 		prStaRec->ucHePhyCapInfo[0],
@@ -921,6 +925,28 @@ static void heRlmRecHePPEThresholds(struct ADAPTER *prAdapter,
 		}
 	}
 }
+
+#if (CFG_SUPPORT_WIFI_6G == 1)
+void heRlmRecHe6GCapInfo(
+	struct ADAPTER *prAdapter,
+	struct STA_RECORD *prStaRec,
+	uint8_t *pucIE)
+{
+	struct _IE_HE_6G_BAND_CAP_T *prHe6GCap =
+		(struct _IE_HE_6G_BAND_CAP_T *) pucIE;
+
+	/* if payload not contain any aucVarInfo,
+	 * IE size = sizeof(struct _IE_HE_6G_BAND_CAP_T)
+	 */
+	if (IE_SIZE(prHe6GCap) < (sizeof(struct _IE_HE_6G_BAND_CAP_T))) {
+		DBGLOG(SCN, WARN,
+			"HE_6G_CAP IE_LEN err(%d)!\n", IE_LEN(prHe6GCap));
+		return;
+	}
+
+	prStaRec->u2He6gBandCapInfo = prHe6GCap->u2CapInfo;
+}
+#endif
 
 void heRlmRecHeCapInfo(
 	struct ADAPTER *prAdapter,

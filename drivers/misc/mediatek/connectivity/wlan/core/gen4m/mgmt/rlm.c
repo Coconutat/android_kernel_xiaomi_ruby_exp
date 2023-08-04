@@ -987,7 +987,7 @@ static void rlmFillExtCapIE(struct ADAPTER *prAdapter,
 
 	if (fg40mAllowed)
 		SET_EXT_CAP(prExtCap->aucCapabilities, ELEM_MAX_LEN_EXT_CAP,
-			    ELEM_EXT_CAP_20_40_COEXIST_SUPPORT);
+			ELEM_EXT_CAP_20_40_COEXIST_SUPPORT_BIT);
 
 #if CFG_SUPPORT_802_11AC
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
@@ -1047,7 +1047,7 @@ static void rlmFillExtCapIE(struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_MSCS_SUPPORT
-	if (mscsIsFpSupport(prAdapter))
+	if (mscsIsFpSupport(prAdapter) && IS_BSS_AIS(prBssInfo))
 		SET_EXT_CAP(prExtCap->aucCapabilities, ELEM_MAX_LEN_EXT_CAP,
 				ELEM_EXT_CAP_MSCS_BIT);
 #endif
@@ -3355,10 +3355,6 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 		&prBssInfo->ucVhtChannelFrequencyS1,
 		&prBssInfo->ucPrimaryChannel);
 	prBssInfo->ucVhtChannelWidth = (uint8_t)eChannelWidth;
-	if (prBssInfo->ucVhtChannelWidth == CW_20_40MHZ
-			&& prBssInfo->eBssSCO == CHNL_EXT_SCN)
-		prBssInfo->ucHtOpInfo1 &=
-			~(HT_OP_INFO1_SCO | HT_OP_INFO1_STA_CHNL_WIDTH);
 
 	rlmRevisePreferBandwidthNss(prAdapter, prBssInfo->ucBssIndex, prStaRec);
 
@@ -3548,6 +3544,7 @@ static void rlmRecAssocRespIeInfoForClient(struct ADAPTER *prAdapter,
 	ASSERT(pucIE);
 
 	prStaRec = prBssInfo->prStaRecOfAP;
+	kalMemZero(&rSsid, sizeof(rSsid));
 
 	if (!prStaRec)
 		return;
@@ -3855,9 +3852,7 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 	 * last syncing and need to sync again
 	 */
 	struct CMD_SET_BSS_RLM_PARAM rBssRlmParam;
-#if (CFG_SUPPORT_802_11AX == 1)
 	struct CMD_SET_BSS_INFO rBssInfo;
-#endif
 	u_int8_t fgNewParameter = FALSE;
 
 	ASSERT(prAdapter);
@@ -3912,6 +3907,8 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 	rBssRlmParam.u2VhtBasicMcsSet = prBssInfo->u2VhtBasicMcsSet;
 	rBssRlmParam.ucRxNss = prBssInfo->ucOpRxNss;
 	rBssRlmParam.ucTxNss = prBssInfo->ucOpTxNss;
+
+	kalMemZero(&rBssInfo, sizeof(struct CMD_SET_BSS_INFO));
 #if (CFG_SUPPORT_802_11AX == 1)
 	if (fgEfuseCtrlAxOn == 1)
 		rBssInfo.ucBssColorInfo = prBssInfo->ucBssColorInfo;
@@ -5944,6 +5941,7 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 		return;
 	}
 
+	kalMemZero(&rSsid, sizeof(rSsid));
 	prCSAParams = &prBssInfo->CSAParams;
 	prBssInfo->ucPrimaryChannel = prCSAParams->ucCsaNewCh;
 	prBssInfo->eBand = (prCSAParams->ucCsaNewCh <= 14) ? BAND_2G4 : BAND_5G;
@@ -6195,6 +6193,7 @@ uint32_t rlmSendSmPowerSaveFrame(struct ADAPTER *prAdapter,
 		DBGLOG(RLM, WARN,
 		       "Can't switch to RxNss = %d since we don't support.\n",
 		       ucOpRxNss);
+		cnmMgtPktFree(prAdapter, prMsduInfo);
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -6805,8 +6804,14 @@ uint8_t rlmGetBssOpBwByOwnAndPeerCapability(IN struct ADAPTER *prAdapter,
 	ASSERT(prBssInfo);
 	ASSERT(prBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE);
 
-	ucOpMaxBw = cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex);
 	prStaRec = prBssInfo->prStaRecOfAP;
+
+	if (prStaRec == NULL) {
+		DBGLOG(RLM, WARN, "AP is gone? Use current BW setting\n");
+		return rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo);
+	}
+
+	ucOpMaxBw = cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex);
 
 #if CFG_SUPPORT_802_11AC
 	if (RLM_NET_IS_11AC(prBssInfo)) { /* VHT */

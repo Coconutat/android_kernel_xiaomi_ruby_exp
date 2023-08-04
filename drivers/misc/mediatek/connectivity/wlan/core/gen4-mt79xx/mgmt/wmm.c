@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -933,6 +933,12 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, unsigned long ulParam,
 		prActiveTsmReq = wmmGetActiveTsmReq(
 			prAdapter, ucTid, !prTsmReq->u2Duration, TRUE,
 			ucBssIndex);
+
+		if (!prActiveTsmReq) {
+			DBGLOG(WMM, ERROR, "prActiveTsmReq is NULL!\n");
+			return;
+		}
+
 		/* if exist triggered tsm on the same ts, replace it */
 		if (prActiveTsmReq->prTsmReq) {
 			cnmTimerStopTimer(prAdapter,

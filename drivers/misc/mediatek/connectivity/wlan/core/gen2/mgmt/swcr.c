@@ -428,6 +428,10 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 
 				switch (ucOpt0) {
 				case 0:
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n", ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = (QM_GET_TX_QUEUE_LEN(prAdapter, ucOpt1));
 					g_au4SwCr[2] = prQM->au4MinReservedTcResource[ucOpt1];
 					g_au4SwCr[3] = prQM->au4CurrentTcResource[ucOpt1];
@@ -435,11 +439,19 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 					break;
 
 				case 1:
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n", ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prQM->au4ForwardCount[ucOpt1];
 					g_au4SwCr[2] = prQM->au4HeadStaRecIndex[ucOpt1];
 					break;
 
 				case 2:
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n", ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prQM->arTxQueue[ucOpt1].u4NumElem;	/* only one */
 
 					break;
@@ -454,6 +466,10 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 				prTxCtrl = &prAdapter->rTxCtrl;
 				switch (ucOpt0) {
 				case 0:
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n", ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prAdapter->rTxCtrl.rTc.aucFreeBufferCount[ucOpt1];
 					g_au4SwCr[2] = prAdapter->rTxCtrl.rTc.aucMaxNumOfBuffer[ucOpt1];
 					break;
@@ -510,9 +526,11 @@ VOID swCtrlCmdCategory1(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 		/* Read */
 		switch (ucIndex) {
 		case SWCTRL_STA_QUE_INFO:
-			{
-				g_au4SwCr[1] = prStaRec->arTxQueue[ucOpt1].u4NumElem;
+			if (ucOpt1 >= TC_NUM) {
+				DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n", ucOpt1);
+				break;
 			}
+			g_au4SwCr[1] = prStaRec->arTxQueue[ucOpt1].u4NumElem;
 			break;
 		case SWCTRL_STA_INFO:
 			switch (ucOpt1) {

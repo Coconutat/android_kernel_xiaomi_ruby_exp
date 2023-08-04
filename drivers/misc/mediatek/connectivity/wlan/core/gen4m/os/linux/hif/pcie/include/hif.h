@@ -195,6 +195,9 @@ struct BUS_INFO {
 	const uint32_t tx_ring0_data_idx;
 	const uint32_t tx_ring1_data_idx;
 	const uint32_t tx_ring2_data_idx;
+#if CFG_TRI_TX_RING
+	const uint32_t tx_ring3_data_idx;
+#endif
 	const unsigned int max_static_map_addr;
 	const uint32_t fw_own_clear_addr;
 	const uint32_t fw_own_clear_bit;

@@ -343,7 +343,7 @@ VOID aisFsmInit(IN P_ADAPTER_T prAdapter)
 	kalMemZero(&prAisSpecificBssInfo->rBTMParam, sizeof(prAisSpecificBssInfo->rBTMParam));
 
 #if (CFG_REFACTORY_PMKSA == 1)
-	LINK_INITIALIZE(&prAisSpecificBssInfo->rPmkidCache);
+	LINK_INITIALIZE(&prAisBssInfo->rPmkidCache);
 #endif
 
 	/* DBGPRINTF("[2] ucBmpDeliveryAC:0x%x, ucBmpTriggerAC:0x%x, ucUapsdSp:0x%x", */

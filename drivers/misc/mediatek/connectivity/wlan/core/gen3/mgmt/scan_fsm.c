@@ -597,6 +597,7 @@ VOID scnFsmMsgAbort(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHdr)
 		if (prScanCancel->ucSeqNum == prScanParam->ucSeqNum &&
 		    prScanCancel->ucBssIndex == prScanParam->ucBssIndex) {
 			/* send cancel message to firmware domain */
+			kalMemZero(&rCmdScanCancel, sizeof(rCmdScanCancel));
 			rCmdScanCancel.ucSeqNum = prScanParam->ucSeqNum;
 			rCmdScanCancel.ucIsExtChannel = (UINT_8) prScanCancel->fgIsChannelExt;
 
@@ -1556,6 +1557,7 @@ BOOLEAN scnFsmPSCNSetHotlist(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_ADD_HO
 	P_SCAN_INFO_T prScanInfo;
 
 	ASSERT(prAdapter);
+	kalMemZero(&rCmdPscnAddHotlist, sizeof(rCmdPscnAddHotlist));
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	memcpy(&rCmdPscnAddHotlist.aucMacAddr, &(prCmdPscnAddHotlist->aucMacAddr), sizeof(MAC_ADDR_LEN));
 
@@ -1595,6 +1597,7 @@ BOOLEAN scnFsmPSCNAddSWCBssId(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_ADD_S
 	ASSERT(prAdapter);
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 
+	kalMemZero(&rCmdPscnAddSWCBssId, sizeof(rCmdPscnAddSWCBssId));
 	memcpy(&rCmdPscnAddSWCBssId.aucMacAddr, &(prCmdPscnAddSWCBssId->aucMacAddr), sizeof(MAC_ADDR_LEN));
 
 	/* rCmdPscnAddSWCBssId.aucMacAddr = prCmdPscnAddSWCBssId->aucMacAddr; */
@@ -1633,6 +1636,7 @@ BOOLEAN scnFsmPSCNSetMacAddr(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_MAC_AD
 
 	ASSERT(prAdapter);
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+	kalMemZero(&rCmdPscnSetMacAddr, sizeof(rCmdPscnSetMacAddr));
 
 	/* rCmdPscnSetMacAddr.aucMacAddr = prCmdPscnSetMacAddr->aucMacAddr; */
 	memcpy(&rCmdPscnSetMacAddr.aucMacAddr, &(prCmdPscnSetMacAddr->aucMacAddr), sizeof(MAC_ADDR_LEN));

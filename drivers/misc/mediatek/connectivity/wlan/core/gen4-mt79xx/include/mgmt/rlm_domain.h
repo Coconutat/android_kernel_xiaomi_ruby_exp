@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -533,7 +533,7 @@
 #define BAND_2G4_UPPER_BOUND 14
 /*5G SubBand FCC spec*/
 #define UNII1_LOWER_BOUND    36
-#define UNII1_UPPER_BOUND    48
+#define UNII1_UPPER_BOUND    50
 #define UNII2A_LOWER_BOUND   52
 #define UNII2A_UPPER_BOUND   64
 #define UNII2C_LOWER_BOUND   100
@@ -544,11 +544,11 @@
 #define UNII5_LOWER_BOUND    1
 #define UNII5_UPPER_BOUND    93
 #define UNII6_LOWER_BOUND    97
-#define UNII6_UPPER_BOUND    117
-#define UNII7_LOWER_BOUND    121
+#define UNII6_UPPER_BOUND    115
+#define UNII7_LOWER_BOUND    117
 #define UNII7_UPPER_BOUND    185
-#define UNII8_LOWER_BOUND    189
-#define UNII8_UPPER_BOUND    253
+#define UNII8_LOWER_BOUND    187
+#define UNII8_UPPER_BOUND    233
 
 #define MAX_COUNTRY_CODE_LEN 4
 
@@ -1160,7 +1160,7 @@ const struct ieee80211_regdomain
 *rlmDomainSearchRegdomainFromLocalDataBase(char *alpha2);
 struct GLUE_INFO *rlmDomainGetGlueInfo(void);
 bool rlmDomainIsEfuseUsed(void);
-uint8_t rlmDomainGetChannelBw(uint8_t channelNum);
+uint8_t rlmDomainGetChannelBw(enum ENUM_BAND eBand, uint8_t channelNum);
 
 #if (CFG_SUPPORT_SINGLE_SKU_LOCAL_DB == 1)
 extern const struct mtk_regdomain *g_prRegRuleTable[];

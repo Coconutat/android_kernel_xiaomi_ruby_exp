@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -62,10 +62,8 @@ extern u_int8_t wlan_perf_monitor_force_enable;
 extern struct delayed_work oid_workq;
 #endif
 
-#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
 #if CFG_SUPPORT_CFG80211_QUEUE
 extern struct delayed_work cfg80211_workq;
-#endif
 #endif
 
 /*******************************************************************************
@@ -314,7 +312,6 @@ struct PARAM_OID_REQ {
 };
 #endif
 
-#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
 #if CFG_SUPPORT_CFG80211_QUEUE
 struct PARAM_CFG80211_REQ {
 	struct QUE_ENTRY rQueEntry;
@@ -324,13 +321,15 @@ struct PARAM_CFG80211_REQ {
 	size_t frameLen;
 	uint8_t ucFlagTx;
 	uint8_t ucFrameType; /* auth deauth disassoc assoc and so on */
+	struct wiphy *prWiphy; /* just use cfg80211 queue */
+	const struct ieee80211_regdomain *prRegdom;
 };
 
 enum ENUM_CFG80211_TX_FLAG {
 	CFG80211_RX,
-	CFG80211_TX
+	CFG80211_TX,
+	REG_SET		/* just use cfg80211 queue */
 };
-#endif
 #endif
 
 enum ENUM_PKT_PATH {
@@ -1711,12 +1710,12 @@ void kalRedirectsMainTreadOid(IN struct GLUE_INFO *prGlueInfo,
 void wlanSchedOidWorkQueue(struct work_struct *work);
 #endif
 
-#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
-#if CFG_SUPPORT_CFG80211_QUEUE
 void kalAcquireWDevMutex(IN struct net_device *pDev);
 
 void kalReleaseWDevMutex(IN struct net_device *pDev);
 
+#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
+#if CFG_SUPPORT_CFG80211_QUEUE
 void wlanSchedCfg80211WorkQueue(struct work_struct *work);
 
 void cfg80211AddToPktQueue(struct net_device *prDevHandler, void *buf,
@@ -1910,11 +1909,9 @@ void kalRemoveBss(struct GLUE_INFO *prGlueInfo,
 void kalNanHandleVendorEvent(IN struct ADAPTER *prAdapter, uint8_t *prBuffer);
 #endif
 
-#if (CFG_SUPPORT_SINGLE_SKU_LOCAL_DB == 1)
 void
 kalApplyCustomRegulatory(IN struct wiphy *pWiphy,
 			    IN const struct ieee80211_regdomain *pRegdom);
-#endif
 
 int _kalSnprintf(char *buf, size_t size, const char *fmt, ...);
 int _kalSprintf(char *buf, const char *fmt, ...);

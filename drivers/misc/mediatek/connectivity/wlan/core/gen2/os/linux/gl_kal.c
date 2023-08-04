@@ -4157,13 +4157,10 @@ VOID kalIndicateRxMgmtFrame(IN P_GLUE_INFO_T prGlueInfo, IN P_SW_RFB_T prSwRfb)
 BOOLEAN kalIndicateAgpsNotify(P_ADAPTER_T prAdapter, UINT_8 cmd, PUINT_8 data, UINT_16 dataLen)
 {
 	P_GLUE_INFO_T prGlueInfo = prAdapter->prGlueInfo;
+	struct sk_buff *skb = NULL;
 
-	struct sk_buff *skb = cfg80211_testmode_alloc_event_skb(priv_to_wiphy(prGlueInfo),
+	skb = cfg80211_testmode_alloc_event_skb(priv_to_wiphy(prGlueInfo),
 								dataLen, GFP_KERNEL);
-	if (!skb) {
-		DBGLOG(AIS, ERROR, "kalIndicateAgpsNotify: alloc skb failed\n");
-		return FALSE;
-	}
 
 	/* DBGLOG(CCX, INFO, ("WLAN_STATUS_AGPS_NOTIFY, cmd=%d\n", cmd)); */
 	if (unlikely(nla_put(skb, MTK_ATTR_AGPS_CMD, sizeof(cmd), &cmd) < 0))

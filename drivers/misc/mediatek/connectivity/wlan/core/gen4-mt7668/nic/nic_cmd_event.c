@@ -2789,9 +2789,6 @@ VOID nicEventLinkQuality(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 
 		if (ucBssIndex >= BSS_INFO_NUM)
 			ucBssIndex = 1;	/* No hit(bss1 for default ais network) */
-		/* printk("=======> rssi with bss%d ,%d\n",ucBssIndex,
-		 * ((P_EVENT_LINK_QUALITY_V2)(prEvent->aucBuffer))->rLq[ucBssIndex].cRssi);
-		 */
 		nicUpdateLinkQuality(prAdapter, ucBssIndex, (P_EVENT_LINK_QUALITY_V2) (prEvent->aucBuffer));
 	}
 
@@ -3951,6 +3948,9 @@ VOID nicCmdEventSetAddKey(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, I
 	prWifiCmd = (P_WIFI_CMD_T) (prCmdInfo->pucInfoBuffer);
 	prCmdKey = (P_CMD_802_11_KEY) (prWifiCmd->aucBuffer);
 	ucBssIndex = prCmdKey->ucBssIdx;
+
+	if (ucBssIndex > HW_BSSID_NUM)
+		return;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 	ASSERT(prBssInfo);

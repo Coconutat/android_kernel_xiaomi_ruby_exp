@@ -1060,6 +1060,7 @@ VOID halProcessSoftwareInterrupt(IN P_ADAPTER_T prAdapter);
 /* Hif power off wifi */
 WLAN_STATUS halHifPowerOffWifi(IN P_ADAPTER_T prAdapter);
 
+BOOLEAN halIsHifStateReady(IN P_ADAPTER_T prAdapter);
 
 VOID halHifSwInfoInit(IN P_ADAPTER_T prAdapter);
 VOID halRxProcessMsduReport(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb);

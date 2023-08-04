@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -2927,8 +2927,10 @@ int _mtk_cfg80211_mgmt_tx_via_data_path(
 		GLUE_SET_PKT_FLAG(prSkb, ENUM_PKT_802_11_MGMT);
 		GLUE_SET_PKT_COOKIE(prSkb, u8GlCookie);
 		ucBssIndex = wlanGetBssIdx(wdev->netdev);
-		if (!IS_BSS_INDEX_VALID(ucBssIndex))
+		if (!IS_BSS_INDEX_VALID(ucBssIndex)) {
+			kalPacketFree(prGlueInfo, prSkb);
 			return -EINVAL;
+		}
 		rStatus = kalHardStartXmit(prSkb,
 			wdev->netdev,
 			prGlueInfo,
@@ -3275,6 +3277,10 @@ int mtk_cfg80211_testmode_set_key_ext(IN struct wiphy
 
 	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
 
+	if (len < sizeof(struct NL80211_DRIVER_SET_KEY_EXTS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
 	if (data == NULL || len == 0) {
 		DBGLOG(INIT, TRACE, "%s data or len is invalid\n", __func__);
 		return -EINVAL;
@@ -3925,6 +3931,11 @@ int mtk_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 	DBGLOG(INIT, INFO, "--> %s()\n", __func__);
 #endif
 
+	if (len < sizeof(struct NL80211_DRIVER_SW_CMD_PARAMS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
+
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_SW_CMD_PARAMS *) data;
 
@@ -3953,6 +3964,10 @@ static int mtk_wlan_cfg_testmode_cmd(struct wiphy *wiphy,
 
 	ASSERT(wiphy);
 
+	if (len < sizeof(struct NL80211_DRIVER_TEST_MODE_PARAMS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
 	if (!data || !len) {
 		DBGLOG(REQ, ERROR, "mtk_cfg80211_testmode_cmd null data\n");
 		return -EINVAL;
@@ -5806,13 +5821,20 @@ int32_t mtk_cfg80211_process_str_cmd(struct GLUE_INFO
 	uint32_t u4SetInfoLen = 0;
 	uint8_t ucBssIndex = 0;
 
+	if (cmd == NULL || len == 0) {
+		DBGLOG(INIT, TRACE, "%s cmd or len is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	ucBssIndex = wlanGetBssIdx(wdev->netdev);
 	if (!IS_BSS_INDEX_VALID(ucBssIndex))
 		return -EINVAL;
 
 	DBGLOG(REQ, INFO, "ucBssIndex = %d\n", ucBssIndex);
 
-	if (strnicmp(cmd, "tdls-ps ", 8) == 0) {
+	/* data is a null-terminated string, len also count null character */
+	if (strlen(cmd) == 9 &&
+		strnicmp(cmd, "tdls-ps ", 8) == 0) {
 #if CFG_SUPPORT_TDLS
 		rStatus = kalIoctl(prGlueInfo,
 				   wlanoidDisableTdlsPs,
@@ -5826,7 +5848,8 @@ int32_t mtk_cfg80211_process_str_cmd(struct GLUE_INFO
 		uint8_t *pucSSID = NULL;
 		uint32_t u4SSIDLen = 0;
 
-		if (len > 16 && (strncasecmp(cmd+16, " SSID=", 6) == 0)) {
+		if (strlen(cmd) > 22 &&
+				(strncasecmp(cmd+16, " SSID=", 6) == 0)) {
 			pucSSID = cmd + 22;
 			u4SSIDLen = len - 22;
 			DBGLOG(REQ, INFO, "cmd=%s, ssid len %u, ssid=%s\n", cmd,
@@ -5840,10 +5863,11 @@ int32_t mtk_cfg80211_process_str_cmd(struct GLUE_INFO
 	} else if (strncasecmp(cmd, "BSS-TRANSITION-QUERY", 20) == 0) {
 		uint8_t *pucReason = NULL;
 
-		if (len > 20 && (strncasecmp(cmd+20, " reason=", 8) == 0))
+		if (strlen(cmd) > 28 &&
+				(strncasecmp(cmd+20, " reason=", 8) == 0))
 			pucReason = cmd + 28;
 		if ((pucReason == NULL) || (strlen(pucReason) > 3)) {
-			DBGLOG(REQ, ERROR, "ERR: BTM query wrong reason!\n");
+			DBGLOG(REQ, ERROR, "ERR: BTM query wrong reason!\r\n");
 			return -EFAULT;
 		}
 		rStatus = kalIoctlByBssIdx(prGlueInfo, wlanoidSendBTMQuery,
@@ -5851,7 +5875,8 @@ int32_t mtk_cfg80211_process_str_cmd(struct GLUE_INFO
 				   FALSE, FALSE, TRUE,
 				   &u4SetInfoLen,
 				   ucBssIndex);
-	} else if (strnicmp(cmd, "OSHAREMOD ", 10) == 0) {
+	} else if (strlen(cmd) == 11 &&
+				strnicmp(cmd, "OSHAREMOD ", 10) == 0) {
 #if CFG_SUPPORT_OSHARE
 		struct OSHARE_MODE_T cmdBuf;
 		struct OSHARE_MODE_T *pCmdHeader = NULL;
@@ -6693,10 +6718,17 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 	return 0;
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_add_key(struct wiphy *wiphy,
+		    struct net_device *ndev, int link_id, u8 key_index,
+		    bool pairwise, const u8 *mac_addr,
+		    struct key_params *params)
+#else
 int mtk_cfg_add_key(struct wiphy *wiphy,
 		    struct net_device *ndev, u8 key_index,
 		    bool pairwise, const u8 *mac_addr,
 		    struct key_params *params)
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -6719,10 +6751,17 @@ int mtk_cfg_add_key(struct wiphy *wiphy,
 				    mac_addr, params);
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_get_key(struct wiphy *wiphy,
+		    struct net_device *ndev, int link_id, u8 key_index,
+		    bool pairwise, const u8 *mac_addr, void *cookie,
+		    void (*callback)(void *cookie, struct key_params *))
+#else
 int mtk_cfg_get_key(struct wiphy *wiphy,
 		    struct net_device *ndev, u8 key_index,
 		    bool pairwise, const u8 *mac_addr, void *cookie,
 		    void (*callback)(void *cookie, struct key_params *))
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -6744,9 +6783,15 @@ int mtk_cfg_get_key(struct wiphy *wiphy,
 				    pairwise, mac_addr, cookie, callback);
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_del_key(struct wiphy *wiphy,
+		    struct net_device *ndev, int link_id, u8 key_index,
+		    bool pairwise, const u8 *mac_addr)
+#else
 int mtk_cfg_del_key(struct wiphy *wiphy,
 		    struct net_device *ndev, u8 key_index,
 		    bool pairwise, const u8 *mac_addr)
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -6768,9 +6813,15 @@ int mtk_cfg_del_key(struct wiphy *wiphy,
 				    pairwise, mac_addr);
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_set_default_key(struct wiphy *wiphy,
+			    struct net_device *ndev, int link_id,
+			    u8 key_index, bool unicast, bool multicast)
+#else
 int mtk_cfg_set_default_key(struct wiphy *wiphy,
 			    struct net_device *ndev,
 			    u8 key_index, bool unicast, bool multicast)
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -6792,8 +6843,13 @@ int mtk_cfg_set_default_key(struct wiphy *wiphy,
 					    key_index, unicast, multicast);
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_set_default_mgmt_key(struct wiphy *wiphy,
+		struct net_device *ndev, int link_id, u8 key_index)
+#else
 int mtk_cfg_set_default_mgmt_key(struct wiphy *wiphy,
 		struct net_device *ndev, u8 key_index)
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -7811,8 +7867,14 @@ int mtk_cfg_change_beacon(struct wiphy *wiphy,
 	return mtk_p2p_cfg80211_change_beacon(wiphy, dev, info);
 }
 
+#if (CFG_ADVANCED_80211_MLO == 1)
+int mtk_cfg_stop_ap(struct wiphy *wiphy,
+		    struct net_device *dev,
+		    unsigned int link_id)
+#else
 int mtk_cfg_stop_ap(struct wiphy *wiphy,
 		    struct net_device *dev)
+#endif
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 
@@ -7851,8 +7913,12 @@ int mtk_cfg_set_wiphy_params(struct wiphy *wiphy,
 	return mtk_p2p_cfg80211_set_wiphy_params(wiphy, changed);
 }
 
+
 int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
 			     struct net_device *dev,
+#if (CFG_ADVANCED_80211_MLO == 1)
+			     unsigned int link_id,
+#endif
 			     const u8 *peer,
 			     const struct cfg80211_bitrate_mask *mask)
 {

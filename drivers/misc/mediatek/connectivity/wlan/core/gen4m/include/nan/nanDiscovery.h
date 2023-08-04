@@ -10,6 +10,7 @@
 #if CFG_SUPPORT_NAN
 
 extern uint8_t g_u2IndPubId;
+extern uint8_t g_aucNanServiceId[6];
 
 struct NAN_DISCOVERY_EVENT {
 	uint16_t u2SubscribeID;
@@ -22,6 +23,8 @@ struct NAN_DISCOVERY_EVENT {
 	uint8_t ucFSDType;
 	uint8_t ucDataPathParm;
 	uint8_t aucSecurityInfo[32];
+	uint8_t ucSdf_match_filter_len;
+	uint8_t aucSdf_match_filter[NAN_FW_MAX_MATCH_FILTER_LEN];
 };
 
 /* Followup event
@@ -49,6 +52,15 @@ struct NAN_FOLLOW_UP_EVENT {
 	/* Sequence of values indicating the service specific info in SDEA */
 	uint16_t sdea_service_specific_info_len;
 	uint8_t sdea_service_specific_info[NAN_SDEA_SERVICE_SPECIFIC_INFO_LEN];
+};
+
+struct NAN_DE_EVENT {
+	uint8_t ucEventType;
+	uint8_t addr[MAC_ADDR_LEN];
+};
+
+struct NAN_DISABLE_EVENT {
+	uint8_t reserved[4];
 };
 
 struct NAN_REPLIED_EVENT {

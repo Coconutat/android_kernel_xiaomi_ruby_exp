@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -56,7 +56,10 @@
 #define CFG_SDIO_INT_LOG_CNT            8
 
 #define SDIO_X86_WORKAROUND_WRITE_MCR   0x00C4
+
+#ifndef HIF_NUM_OF_QM_RX_PKT_NUM
 #define HIF_NUM_OF_QM_RX_PKT_NUM        512
+#endif
 
 #define HIF_TX_INIT_CMD_PORT            TX_RING_FWDL_IDX_3
 

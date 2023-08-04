@@ -1,8 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
-
+/*
+ * IEEE 802.11 Frame type definitions
+ * Copyright (c) 2002-2015, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2007-2008 Intel Corporation
+ *
+ * This software may be distributed under the terms of the BSD license.
+ * See README for more details.
+ */
 #ifndef IEEE802_11_DEFS_H
 #define IEEE802_11_DEFS_H
 

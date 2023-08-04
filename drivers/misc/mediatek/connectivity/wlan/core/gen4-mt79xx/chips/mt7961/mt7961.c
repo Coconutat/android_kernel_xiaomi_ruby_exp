@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1277,7 +1277,7 @@ int32_t wlanBtPatchIsDownloaded(IN struct ADAPTER *prAdapter,
 
 		if (u4Count > 50) {
 			DBGLOG(INIT, WARN, "Patch status check timeout!!\n");
-			break;
+			goto out;
 		}
 	}
 
@@ -1435,6 +1435,20 @@ u_int8_t mt7961GetRxDbgInfoSrc(struct ADAPTER *prAdapter)
 		return TRUE;	/* From group3 */
 	else
 		return FALSE;	/* From group5 */
+}
+
+uint32_t mt7961GetDongleType(struct ADAPTER *prAdapter)
+{
+	uint8_t flavor_ver = 0;
+
+	flavor_ver = mt7961GetFlavorVer(prAdapter);
+
+	if (flavor_ver == MT7961_A_DIE_7921_FLAVOR)
+		return 0x7921;
+	else if (flavor_ver == MT7961_A_DIE_7920_FLAVOR)
+		return 0x7920;
+
+	return 0;
 }
 
 #if (CFG_COALESCING_INTERRUPT == 1)
@@ -1854,6 +1868,7 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7961 = {
 #endif
 	.u4ADieVer = 0xFFFFFFFF,
 	.loadCfgSetting = NULL,
+	.getDongleType = mt7961GetDongleType,
 
 #if ((CFG_SUPPORT_5G_TX_MCS_LIMIT == 1) && (CFG_SUPPORT_DBDC == 1))
 	.fgIs5gTxMcsLimited = TRUE,

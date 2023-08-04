@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -1533,7 +1533,9 @@ nan_sec_wpa_receive(struct wpa_authenticator *wpa_auth, /* AP */
 	       SMK_M3,
 	       SMK_ERROR } msg;
 	char *msgtxt;
+#if 0
 	struct wpa_eapol_ie_parse kde;
+#endif
 	/* int ft; */
 	/* const u8 *eapol_key_ie, *key_data; */
 	/* size_t eapol_key_ie_len, keyhdrlen, mic_len; */
@@ -1962,10 +1964,12 @@ continue_processing:
 			 *		4-Way Handshake");
 			 */
 			wpa_request_new_ptk(sm);
+#if 0
 		} else if (key_data_length > 0 &&
 			   wpa_parse_kde_ies(key_data, key_data_length, &kde) ==
 				   0 &&
 			   kde.mac_addr) {
+#endif
 		} else {
 			/* wpa_auth_logger(wpa_auth, sm->addr, LOGGER_INFO,
 			 *		"received EAPOL-Key Request for GTK

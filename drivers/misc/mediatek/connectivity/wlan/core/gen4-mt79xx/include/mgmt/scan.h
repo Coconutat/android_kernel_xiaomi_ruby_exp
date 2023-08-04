@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -306,6 +306,7 @@ struct BSS_DESC {
 	enum ENUM_CHANNEL_WIDTH eChannelWidth;	/* VHT, HE operation ie */
 	uint8_t ucCenterFreqS1;
 	uint8_t ucCenterFreqS2;
+	uint8_t ucCenterFreqS3;
 	enum ENUM_BAND eBand;
 
 	uint8_t ucDTIMPeriod;
@@ -553,6 +554,10 @@ struct SCAN_INFO {
 
 	/* Scan log cache */
 	struct SCAN_LOG_CACHE rScanLogCache;
+	/*record time when begin scan*/
+	OS_SYSTIME u4ScanStartTime;
+	/*record total scan time duration */
+	OS_SYSTIME u4TotalScanTime;
 };
 
 /* Incoming Mailbox Messages */
@@ -614,6 +619,7 @@ struct MSG_SCN_SCAN_CANCEL {
 	uint8_t ucSeqNum;
 	uint8_t ucBssIndex;
 	u_int8_t fgIsChannelExt;
+	u_int8_t fgIsOidRequest;
 };
 
 /* Outgoing Mailbox Messages */

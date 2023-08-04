@@ -380,8 +380,14 @@ u_int8_t p2pNetUnregister(struct GLUE_INFO *prGlueInfo,
 
 u_int8_t p2PAllocInfo(IN struct GLUE_INFO *prGlueInfo, IN uint8_t ucIdex);
 u_int8_t p2PFreeInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx);
+void p2PFreeMemSafe(struct GLUE_INFO *prGlueInfo,
+		void **pprMemInfo, uint32_t size);
 
 void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable);
+#if CFG_ENABLE_PER_STA_STATISTICS_LOG
+void p2pResumeStatisticsTimer(struct GLUE_INFO *prGlueInfo,
+	struct net_device *prNetDev);
+#endif
 u_int8_t glP2pCreateWirelessDevice(struct GLUE_INFO *prGlueInfo);
 void glP2pDestroyWirelessDevice(void);
 void p2pUpdateChannelTableByDomain(struct GLUE_INFO *prGlueInfo);

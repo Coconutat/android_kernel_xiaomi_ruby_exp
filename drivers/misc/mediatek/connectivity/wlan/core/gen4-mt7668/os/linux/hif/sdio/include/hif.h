@@ -214,6 +214,18 @@ typedef struct _SDIO_RX_COALESCING_BUF_T {
 	UINT_32 u4PktCount;
 } SDIO_RX_COALESCING_BUF_T, *P_SDIO_RX_COALESCING_BUF_T;
 
+enum sdio_state {
+	SDIO_STATE_WIFI_OFF, /* Hif power off wifi */
+	SDIO_STATE_LINK_DOWN,
+	SDIO_STATE_PRE_SUSPEND_START,
+	SDIO_STATE_PRE_SUSPEND_DONE,
+	SDIO_STATE_PRE_SUSPEND_FAIL,
+	SDIO_STATE_SUSPEND,
+	SDIO_STATE_PRE_RESUME,
+	SDIO_STATE_LINK_UP,
+	SDIO_STATE_READY
+};
+
 /* host interface's private data structure, which is attached to os glue
 ** layer info structure.
  */
@@ -225,6 +237,9 @@ typedef struct _GL_HIF_INFO_T {
 #else
 	struct sdio_func *func;
 #endif
+
+	enum sdio_state state;
+	spinlock_t rStateLock;
 
 	P_SDIO_CTRL_T prSDIOCtrl;
 
@@ -329,6 +344,7 @@ VOID halGetMailbox(IN P_ADAPTER_T prAdapter, IN UINT_32 u4MailboxNum, OUT PUINT_
 VOID halDeAggRxPkt(P_ADAPTER_T prAdapter, P_SDIO_RX_COALESCING_BUF_T prRxBuf);
 VOID halPrintMailbox(IN P_ADAPTER_T prAdapter);
 VOID halPollDbgCr(IN P_ADAPTER_T prAdapter, IN UINT_32 u4LoopCount);
+void glSdioSetState(P_GL_HIF_INFO_T prHifInfo, enum sdio_state state);
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

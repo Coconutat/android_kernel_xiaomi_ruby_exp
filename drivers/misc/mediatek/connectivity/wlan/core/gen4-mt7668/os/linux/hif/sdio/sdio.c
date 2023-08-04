@@ -326,12 +326,10 @@ static INT_32 mtk_sdio_interrupt(MTK_WCN_HIF_SDIO_CLTCTX cltCtx)
 	/* ASSERT(prGlueInfo); */
 
 	if (!prGlueInfo) {
-		/* printk(KERN_INFO DRV_NAME"No glue info in mtk_sdio_interrupt()\n"); */
 		return -HIF_SDIO_ERR_FAIL;
 	}
 
 	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
-		/* printk(KERN_INFO DRV_NAME"GLUE_FLAG_HALT skip INT\n"); */
 		ret = mtk_wcn_hif_sdio_writeb(cltCtx, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 		return ret;
 	}
@@ -356,13 +354,12 @@ static void mtk_sdio_interrupt(struct sdio_func *func)
 	/* ASSERT(prGlueInfo); */
 
 	if (!prGlueInfo) {
-		/* printk(KERN_INFO DRV_NAME"No glue info in mtk_sdio_interrupt()\n"); */
 		return;
 	}
 
 	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
 		sdio_writeb(prGlueInfo->rHifInfo.func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, &ret);
-		/* printk(KERN_INFO DRV_NAME"GLUE_FLAG_HALT skip INT\n"); */
+
 		return;
 	}
 
@@ -411,11 +408,8 @@ INT_32 mtk_sdio_probe(
 	}
 
 	if (pfWlanProbe((PVOID)&cltCtx, (PVOID) sdio_driver_data) != WLAN_STATUS_SUCCESS) {
-		/* printk(KERN_WARNING DRV_NAME"pfWlanProbe fail!call pfWlanRemove()\n"); */
 		pfWlanRemove();
 		ret = -(HIF_SDIO_ERR_FAIL);
-	} else {
-		/* printk(KERN_INFO DRV_NAME"mtk_wifi_sdio_probe() done(%d)\n", ret); */
 	}
 	return ret;
 }
@@ -431,30 +425,9 @@ int mtk_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 
 	/* int i = 0; */
 
-	/* printk(KERN_INFO DRV_NAME "mtk_sdio_probe()\n"); */
-
 	ASSERT(func);
 	ASSERT(id);
-	/*
-	*printk(KERN_INFO DRV_NAME "Basic struct size checking...\n");
-	*printk(KERN_INFO DRV_NAME "sizeof(struct device) = %d\n", sizeof(struct device));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_host) = %d\n", sizeof(struct mmc_host));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_card) = %d\n", sizeof(struct mmc_card));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_driver) = %d\n", sizeof(struct mmc_driver));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_data) = %d\n", sizeof(struct mmc_data));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_command) = %d\n", sizeof(struct mmc_command));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct mmc_request) = %d\n", sizeof(struct mmc_request));
-	*printk(KERN_INFO DRV_NAME "sizeof(struct sdio_func) = %d\n", sizeof(struct sdio_func));
-	*
-	*printk(KERN_INFO DRV_NAME "Card information checking...\n");
-	*printk(KERN_INFO DRV_NAME "func = 0x%p\n", func);
-	*printk(KERN_INFO DRV_NAME "Number of info = %d:\n", func->card->num_info);
-	*
-	*
-	*for (i = 0; i < func->card->num_info; i++)
-	*	printk(KERN_INFO DRV_NAME "info[%d]: %s\n", i, func->card->info[i]);
-	*
-	*/
+
 #ifdef MMC_FILTER
 	if (strcmp(mmc_hostname(func->card->host), MMC_FILTER) == 0) {
 		ret = -1;
@@ -467,19 +440,15 @@ int mtk_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 	sdio_release_host(func);
 
 	if (ret) {
-		/* printk(KERN_INFO DRV_NAME"sdio_enable_func failed!\n"); */
 		goto out;
 	}
-	/* printk(KERN_INFO DRV_NAME"sdio_enable_func done!\n"); */
 
 	if (pfWlanProbe((PVOID) func, (PVOID) id->driver_data) != WLAN_STATUS_SUCCESS) {
-		/* printk(KERN_WARNING DRV_NAME"pfWlanProbe fail!call pfWlanRemove()\n"); */
 		pfWlanRemove();
 		ret = -1;
 	}
 
 out:
-	/* printk(KERN_INFO DRV_NAME"mtk_sdio_probe() done(%d)\n", ret); */
 	return ret;
 }
 #endif
@@ -488,7 +457,6 @@ out:
 INT_32 mtk_sdio_remove(MTK_WCN_HIF_SDIO_CLTCTX cltCtx)
 {
 	INT_32 ret = HIF_SDIO_ERR_SUCCESS;
-	/* printk(KERN_INFO DRV_NAME"pfWlanRemove done\n"); */
 	pfWlanRemove();
 
 	return ret;
@@ -496,18 +464,12 @@ INT_32 mtk_sdio_remove(MTK_WCN_HIF_SDIO_CLTCTX cltCtx)
 #else
 void mtk_sdio_remove(struct sdio_func *func)
 {
-	/* printk(KERN_INFO DRV_NAME"mtk_sdio_remove()\n"); */
-
 	ASSERT(func);
-	/* printk(KERN_INFO DRV_NAME"pfWlanRemove done\n"); */
 	pfWlanRemove();
 
 	sdio_claim_host(func);
 	sdio_disable_func(func);
-	/* printk(KERN_INFO DRV_NAME"sdio_disable_func() done\n"); */
 	sdio_release_host(func);
-
-	/* printk(KERN_INFO DRV_NAME"mtk_sdio_remove() done\n"); */
 }
 #endif
 
@@ -526,6 +488,22 @@ static int mtk_sdio_pm_suspend(struct device *pDev)
 	func = dev_to_sdio_func(pDev);
 	prGlueInfo = sdio_get_drvdata(func);
 	prAdapter = prGlueInfo->prAdapter;
+
+	/* Stop upper layers calling the device hard_start_xmit routine. */
+	netif_tx_stop_all_queues(prGlueInfo->prDevHandler);
+	wlanWaitCfg80211SuspendDone(prGlueInfo);
+
+	/* change to non-READY state to block cfg80211 ops */
+	glSdioSetState(&prGlueInfo->rHifInfo,
+		SDIO_STATE_PRE_SUSPEND_START);
+
+#if CFG_ENABLE_WAKE_LOCK
+	/* AIS flow: disassociation if wow_en=0 */
+	/* cancel scan report done event */
+	aisPreSuspendFlow(prGlueInfo);
+
+	p2pProcessPreSuspendFlow(prGlueInfo->prAdapter);
+#endif
 
 	/* This suspend API could be triggered multiple times.
 	*  Make sure wlanSuspendPmHandle() called once only.
@@ -601,6 +579,7 @@ static int mtk_sdio_pm_suspend(struct device *pDev)
 				"%s: cannot sdio wake-irq(0x%X)\n", func_id, pm_caps);
 		}
 	}
+	glSdioSetState(&prGlueInfo->rHifInfo, SDIO_STATE_SUSPEND);
 
 	DBGLOG(HAL, STATE, "<==\n");
 	return 0;
@@ -621,6 +600,8 @@ static int mtk_sdio_pm_resume(struct device *pDev)
 
 	prGlueInfo->prAdapter->fgForceFwOwn = FALSE;
 
+	glSdioSetState(&prGlueInfo->rHifInfo, SDIO_STATE_PRE_RESUME);
+
 	wlanResumePmHandle(prGlueInfo);
 
 #if CFG_SUPPORT_WOW_EINT
@@ -640,22 +621,23 @@ static int mtk_sdio_pm_resume(struct device *pDev)
 	}
 #endif
 
+	/* change to READY state to allow cfg80211 ops */
+	glSdioSetState(&prGlueInfo->rHifInfo, SDIO_STATE_READY);
+
+	/* Allow upper layers to call the device hard_start_xmit routine. */
+	netif_tx_start_all_queues(prGlueInfo->prDevHandler);
+
 	DBGLOG(HAL, STATE, "<==\n");
 	return 0;
 }
 
 static int mtk_sdio_suspend(struct device *pDev, pm_message_t state)
 {
-	/* printk(KERN_INFO "mtk_sdio: mtk_sdio_suspend dev(0x%p)\n", pDev); */
-	/* printk(KERN_INFO "mtk_sdio: MediaTek SDIO WLAN driver\n"); */
-
 	return mtk_sdio_pm_suspend(pDev);
 }
 
 int mtk_sdio_resume(struct device *pDev)
 {
-	/* printk(KERN_INFO "mtk_sdio: mtk_sdio_resume dev(0x%p)\n", pDev); */
-
 	return mtk_sdio_pm_resume(pDev);
 }
 #if (CFG_SDIO_ASYNC_IRQ_AUTO_ENABLE == 1)
@@ -725,9 +707,6 @@ WLAN_STATUS glRegisterBus(probe_card pfProbe, remove_card pfRemove)
 
 	ASSERT(pfProbe);
 	ASSERT(pfRemove);
-
-	/* printk(KERN_INFO "mtk_sdio: MediaTek SDIO WLAN driver\n"); */
-	/* printk(KERN_INFO "mtk_sdio: Copyright MediaTek Inc.\n"); */
 
 	pfWlanProbe = pfProbe;
 	pfWlanRemove = pfRemove;
@@ -802,11 +781,6 @@ VOID glSetHifInfo(P_GLUE_INFO_T prGlueInfo, ULONG ulCookie)
 #else
 	prHif->func = (struct sdio_func *)ulCookie;
 
-	/* printk(KERN_INFO DRV_NAME"prHif->func->dev = 0x%p\n", &prHif->func->dev); */
-	/* printk(KERN_INFO DRV_NAME"prHif->func->vendor = 0x%04X\n", prHif->func->vendor); */
-	/* printk(KERN_INFO DRV_NAME"prHif->func->device = 0x%04X\n", prHif->func->device); */
-	/* printk(KERN_INFO DRV_NAME"prHif->func->func = 0x%04X\n", prHif->func->num); */
-
 	sdio_set_drvdata(prHif->func, prGlueInfo);
 
 	SET_NETDEV_DEV(prGlueInfo->prDevHandler, &prHif->func->dev);
@@ -820,10 +794,8 @@ VOID glSetHifInfo(P_GLUE_INFO_T prGlueInfo, ULONG ulCookie)
 
 	mutex_init(&prHif->rRxFreeBufQueMutex);
 	mutex_init(&prHif->rRxDeAggQueMutex);
-#if CFG_CHIP_RESET_SUPPORT
-	rst_data.func = prGlueInfo->rHifInfo.func;
-	mutex_init(&(rst_data.rst_mutex));
-#endif
+
+	glSdioSetState(prHif, SDIO_STATE_READY);
 
 }				/* end of glSetHifInfo() */
 
@@ -884,21 +856,6 @@ BOOL glBusInit(PVOID pvData)
 
 	ret = sdio_set_block_size(func, 512);
 	sdio_release_host(func);
-
-	if (ret) {
-		/* printk(KERN_INFO
-		 *  DRV_NAME"sdio_set_block_size 512 failed!\n");
-		 */
-	} else {
-		/* printk(KERN_INFO
-		 *  DRV_NAME"sdio_set_block_size 512 done!\n");
-		 */
-	}
-
-	/* printk(KERN_INFO DRV_NAME"param: func->cur_blksize(%d)\n", func->cur_blksize); */
-	/* printk(KERN_INFO DRV_NAME"param: func->max_blksize(%d)\n", func->max_blksize); */
-	/* printk(KERN_INFO DRV_NAME"param: func->card->host->max_blk_size(%d)\n", func->card->host->max_blk_size); */
-	/* printk(KERN_INFO DRV_NAME"param: func->card->host->max_blk_count(%d)\n", func->card->host->max_blk_count); */
 #endif
 	return TRUE;
 }				/* end of glBusInit() */
@@ -983,14 +940,12 @@ VOID glBusFreeIrq(PVOID pvData, PVOID pvCookie)
 
 	ASSERT(pvData);
 	if (!pvData) {
-		/* printk(KERN_INFO DRV_NAME"%s null pvData\n", __FUNCTION__); */
 		return;
 	}
 	prNetDevice = (struct net_device *)pvData;
 	prGlueInfo = (P_GLUE_INFO_T) pvCookie;
 	ASSERT(prGlueInfo);
 	if (!prGlueInfo) {
-		/* printk(KERN_INFO DRV_NAME"%s no glue info\n", __FUNCTION__); */
 		return;
 	}
 
@@ -1088,7 +1043,9 @@ BOOL kalDevRegRead(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Register, OUT PUINT
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter,
+				 RST_FLAG_DO_CORE_DUMP |
+				 RST_FLAG_PREVENT_POWER_OFF);
 #endif
 	}
 
@@ -1216,7 +1173,9 @@ BOOL kalDevRegWrite(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Register, IN UINT_
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 					prAdapter->fgIsChipNoAck);
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter,
+				 RST_FLAG_DO_CORE_DUMP |
+				 RST_FLAG_PREVENT_POWER_OFF);
 #endif
 	}
 
@@ -1319,7 +1278,6 @@ kalDevPortRead(IN P_GLUE_INFO_T prGlueInfo,
 #endif
 
 #if DBG
-	/* printk(KERN_INFO DRV_NAME"++kalDevPortRead++ buf:0x%p, port:0x%x, length:%d\n", pucBuf, u2Port, u4Len); */
 #endif
 
 	ASSERT(prGlueInfo);
@@ -1392,7 +1350,9 @@ kalDevPortRead(IN P_GLUE_INFO_T prGlueInfo,
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter,
+				 RST_FLAG_DO_CORE_DUMP |
+				 RST_FLAG_PREVENT_POWER_OFF);
 #endif
 	}
 
@@ -1425,10 +1385,6 @@ kalDevPortWrite(IN P_GLUE_INFO_T prGlueInfo,
 
 #if (MTK_WCN_HIF_SDIO == 0)
 	struct sdio_func *prSdioFunc = NULL;
-#endif
-
-#if DBG
-	/* printk(KERN_INFO DRV_NAME"++kalDevPortWrite++ buf:0x%p, port:0x%x, length:%d\n", pucBuf, u2Port, u2Len); */
 #endif
 
 	ASSERT(prGlueInfo);
@@ -1501,7 +1457,9 @@ kalDevPortWrite(IN P_GLUE_INFO_T prGlueInfo,
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter,
+				 RST_FLAG_DO_CORE_DUMP |
+				 RST_FLAG_PREVENT_POWER_OFF);
 #endif
 	}
 
@@ -1606,7 +1564,9 @@ BOOL kalDevWriteWithSdioCmd52(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Addr, IN
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 					prAdapter->fgIsChipNoAck);
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter,
+				 RST_FLAG_DO_CORE_DUMP |
+				 RST_FLAG_PREVENT_POWER_OFF);
 #endif
 	}
 
@@ -1819,6 +1779,28 @@ void glGetHifDev(P_GL_HIF_INFO_T prHif, struct device **dev)
 #endif
 }
 
+/*----------------------------------------------------------------------------*/
+/*!
+* \brief This function set SDIO state
+*
+* \param[in] prHifInfo  Pointer to the GL_HIF_INFO_T structure
+* \param[in] state      Specify TC index
+*
+* \retval TRUE          operation success
+* \retval FALSE         operation fail
+*/
+/*----------------------------------------------------------------------------*/
+void glSdioSetState(P_GL_HIF_INFO_T prHifInfo,
+	enum sdio_state state)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&prHifInfo->rStateLock, flags);
+	prHifInfo->state = state;
+	spin_unlock_irqrestore(&prHifInfo->rStateLock, flags);
+	DBGLOG(HAL, STATE, "sdio state:%d\n", state);
+}
+
 BOOLEAN glWakeupSdio(P_GLUE_INFO_T prGlueInfo)
 {
 	BOOLEAN fgSuccess = TRUE;
@@ -1830,4 +1812,24 @@ BOOLEAN glWakeupSdio(P_GLUE_INFO_T prGlueInfo)
 
 	return fgSuccess;
 }
+
+#if (CFG_CHIP_RESET_SUPPORT == 1) && (MTK_WCN_HIF_SDIO == 0)
+void kalRemoveProbe(P_GLUE_INFO_T prGlueInfo)
+{
+	struct mmc_host *host;
+
+	ASSERT(prGlueInfo);
+
+	host = prGlueInfo->rHifInfo.func->card->host;
+	host->rescan_entered = 0;
+
+	/* clear trx fifo */
+	DBGLOG(INIT, STATE, "[SER][L0] mmc_remove_host\n");
+	mmc_remove_host(prGlueInfo->rHifInfo.func->card->host);
+
+	DBGLOG(INIT, STATE, "[SER][L0] mmc_add_host\n");
+	mmc_add_host(host);
+
+}
+#endif
 

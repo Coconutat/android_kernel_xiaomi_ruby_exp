@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -351,29 +351,69 @@ void fillTxDescAppendByHostV2(IN struct ADAPTER *prAdapter,
 	IN u_int8_t fgIsLast,
 	OUT uint8_t *pucBuffer)
 {
+#if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	union HW_MAC_TX_DESC_APPEND *prHwTxDescAppend;
 	struct TXD_PTR_LEN *prPtrLen;
 	uint64_t u8Addr = (uint64_t)rDmaAddr;
+	uint16_t u2Len = 0;
+#if (CFG_SUPPORT_TX_SG == 1)
+	int i;
+	struct MSDU_TOKEN_ENTRY *prToken = prMsduInfo->prToken;
+#endif
 
 	prHwTxDescAppend = (union HW_MAC_TX_DESC_APPEND *)
 		(pucBuffer + NIC_TX_DESC_LONG_FORMAT_LENGTH);
 	prHwTxDescAppend->CONNAC_APPEND.au2MsduId[u4Idx] =
 		u4MsduId | TXD_MSDU_ID_VLD;
 	prPtrLen = &prHwTxDescAppend->CONNAC_APPEND.arPtrLen[u4Idx >> 1];
+	u2Len = prMsduInfo->u2FrameLength;
+#if (CFG_SUPPORT_TX_SG == 1)
+	if (prToken && prToken->nr_frags)
+		u2Len = prMsduInfo->u2FrameLength - prToken->len_frags;
+#endif
+	u2Len = (u2Len & TXD_LEN_MASK_V2) |
+		((u8Addr >> TXD_ADDR2_OFFSET) & TXD_ADDR2_MASK);
+	u2Len |= TXD_LEN_ML_V2;
 
 	if ((u4Idx & 1) == 0) {
 		prPtrLen->u4Ptr0 = (uint32_t)u8Addr;
-		prPtrLen->u2Len0 =
-			(prMsduInfo->u2FrameLength & TXD_LEN_MASK_V2) |
-			((u8Addr >> TXD_ADDR2_OFFSET) & TXD_ADDR2_MASK);
-		prPtrLen->u2Len0 |= TXD_LEN_ML_V2;
+		prPtrLen->u2Len0 = u2Len;
 	} else {
 		prPtrLen->u4Ptr1 = (uint32_t)u8Addr;
-		prPtrLen->u2Len1 =
-			(prMsduInfo->u2FrameLength & TXD_LEN_MASK_V2) |
-			((u8Addr >> TXD_ADDR2_OFFSET) & TXD_ADDR2_MASK);
-		prPtrLen->u2Len1 |= TXD_LEN_ML_V2;
+		prPtrLen->u2Len1 = u2Len;
 	}
+
+#if (CFG_SUPPORT_TX_SG == 1)
+	/*
+	* set multiple data section for single MPDU
+	* 1. NOT SW-AMPDU mode (u4Idx>0)
+	* 2. There are frag-memories in skb
+	*/
+	if (u4Idx || !prToken || !prToken->nr_frags)
+		return;
+	prPtrLen->u2Len0 &= ~TXD_LEN_ML_V2;
+	for (i = 0; i < prToken->nr_frags; i++) {
+		uint8_t nr_idx = i + 1;
+
+		u8Addr = (uint64_t)prToken->rPktDmaAddr_nr[i];
+		u2Len = prToken->u4PktDmaLength_nr[i];
+		u2Len = (u2Len & TXD_LEN_MASK_V2) |
+			((u8Addr >> TXD_ADDR2_OFFSET) & TXD_ADDR2_MASK);
+		if (nr_idx == prToken->nr_frags)
+			u2Len |= TXD_LEN_ML_V2;
+		prHwTxDescAppend->CONNAC_APPEND.au2MsduId[nr_idx] = 0;
+		prPtrLen = &prHwTxDescAppend->
+			CONNAC_APPEND.arPtrLen[nr_idx >> 1];
+		if ((nr_idx & 1) == 0) {
+			prPtrLen->u4Ptr0 = (uint32_t)u8Addr;
+			prPtrLen->u2Len0 = u2Len;
+		} else {
+			prPtrLen->u4Ptr1 = (uint32_t)u8Addr;
+			prPtrLen->u2Len1 = u2Len;
+		}
+	}
+#endif
+#endif /* _HIF_PCIE || _HIF_AXI */
 }
 #endif /* if (CFG_SUPPORT_CONNAC3X == 0) */
 
@@ -1681,6 +1721,10 @@ void asicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	uint8_t ucShortGI, ucGroupid, ucMu, ucNsts = 1;
 	uint32_t u4PhyRate;
 	uint8_t ucRCPI0 = 0, ucRCPI1 = 0;
+#if CFG_SUPPORT_STAT_STATISTICS
+	struct STA_RECORD *prStaRec;
+	uint8_t noise_level = 0;
+#endif
 	/* Rate
 	 * Bit Number 2
 	 * Unit 500 Kbps
@@ -1700,7 +1744,23 @@ void asicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	}
 
 	prRxStatusGroup3 = prSwRfb->prRxStatusGroup3;
+#if CFG_SUPPORT_STAT_STATISTICS
+	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	if (prStaRec == NULL)
+		return;
 
+	noise_level = ((prRxStatusGroup3->u4RxVector[5] &
+		RX_VT_NF0_MASK) >> 1);
+
+	if (noise_level == 0) {
+		DBGLOG(RX, TRACE, "Invalid noise level\n");
+	} else if (prStaRec->ucNoise_avg) {
+		prStaRec->ucNoise_avg = (((prStaRec->ucNoise_avg << 3) -
+			  prStaRec->ucNoise_avg) >> 3) + (noise_level >> 3);
+	} else {
+		prStaRec->ucNoise_avg = noise_level;
+	}
+#endif
 	ucRxMode = (((prRxStatusGroup3)->u4RxVector[0] &
 		RX_VT_RX_MODE_MASK) >> RX_VT_RX_MODE_OFFSET);
 
@@ -1739,18 +1799,25 @@ void asicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 			prRxStatusGroup3, 0) &
 			RX_VT_SHORT_GI) ? 1 : 0;	/* VHTA2 B0 */
 
-		if ((ucMcs > PHY_RATE_MCS9) ||
-			(ucFrMode > RX_VT_FR_MODE_160) ||
-			(ucShortGI > MAC_GI_SHORT))
-			return;
+		if (ucRxMode == RX_VT_MIXED_MODE)
+			ucMcs %= 8;
 
 		/* ucRate(500kbs) = u4PhyRate(100kbps) */
 		u4PhyRate = nicGetPhyRateByMcsRate(ucMcs, ucFrMode,
 					ucShortGI);
+		if (ucRxMode == RX_VT_MIXED_MODE)
+			u4PhyRate *= ucNsts;
+
+		if (u4PhyRate == 0)
+			return;
+
 		u2Rate = u4PhyRate / 5;
 
 	}
 
+#if CFG_SUPPORT_STAT_STATISTICS
+	prStaRec->u4LastPhyRate = u2Rate * 5;
+#endif
 	/* RCPI */
 	ucRCPI0 = (((prRxStatusGroup3->u4RxVector[3]) & RX_VT_RCPI0_MASK)
 			>> RX_VT_RCPI0_OFFSET);

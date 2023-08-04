@@ -1756,6 +1756,7 @@ WLAN_STATUS nicPmIndicateBssCreated(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssInd
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
+	kalMemZero(&rCmdIndicatePmBssCreated, sizeof(rCmdIndicatePmBssCreated));
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
@@ -1792,6 +1793,7 @@ WLAN_STATUS nicPmIndicateBssConnected(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssI
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
+	kalMemZero(&rCmdIndicatePmBssConnected, sizeof(rCmdIndicatePmBssConnected));
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
@@ -1858,6 +1860,7 @@ WLAN_STATUS nicPmIndicateBssAbort(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
 
+	kalMemZero(&rCmdIndicatePmBssAbort, sizeof(rCmdIndicatePmBssAbort));
 	rCmdIndicatePmBssAbort.ucBssIndex = ucBssIndex;
 
 	return wlanSendSetQueryCmd(prAdapter,
@@ -1973,6 +1976,7 @@ WLAN_STATUS nicEnterCtiaMode(IN P_ADAPTER_T prAdapter, BOOLEAN fgEnterCtia, BOOL
 	DBGLOG(NIC, INFO, "nicEnterCtiaMode: %d\n", fgEnterCtia);
 
 	ASSERT(prAdapter);
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
 	prAdapter->fgEnCtiaMode = fgEnterCtia;
@@ -2084,6 +2088,7 @@ WLAN_STATUS nicEnterCtiaModeOfRoaming(IN P_ADAPTER_T prAdapter, BOOLEAN fgEnterC
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
 	prAdapter->fgEnCtiaMode = fgEnterCtia;
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	if (fgEnterCtia) {
 		/* Disable Roaming */
@@ -2189,6 +2194,7 @@ WLAN_STATUS nicEnterCtiaModeOfAutoTxPower(IN P_ADAPTER_T prAdapter, BOOLEAN fgEn
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
 	prAdapter->fgEnCtiaMode = fgEnterCtia;
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	if (fgEnterCtia) {
 		/* Disalbe auto tx power */
@@ -2229,6 +2235,7 @@ WLAN_STATUS nicEnterCtiaModeOfFIFOFullNoAck(IN P_ADAPTER_T prAdapter, BOOLEAN fg
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
 	prAdapter->fgEnCtiaMode = fgEnterCtia;
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	if (fgEnterCtia) {
 		/* Disable FIFO FULL no ack */
@@ -2409,6 +2416,8 @@ WLAN_STATUS nicQmUpdateWmmParms(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 	ASSERT(prAdapter);
 
 	DBGLOG(QM, TRACE, "Update WMM parameters for BSS[%u]\n", ucBssIndex);
+
+	kalMemZero(&rCmdUpdateWmmParms, sizeof(rCmdUpdateWmmParms));
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 	rCmdUpdateWmmParms.ucBssIndex = (UINT_8) ucBssIndex;

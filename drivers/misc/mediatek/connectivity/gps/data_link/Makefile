@@ -14,11 +14,6 @@
 $(warning build in gps_dl)
 ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
 
-ifeq ($(AUTOCONF_H),)
-    $(error AUTOCONF_H is not defined)
-endif
-
-ccflags-y += -imacros $(AUTOCONF_H)
 ifndef TOP
     TOP := $(srctree)/..
 endif
@@ -62,11 +57,8 @@ KBUILD_MODPOST_FAIL_ON_WARNINGS := y
 ###############################################################################
 
 MODULE_NAME := gps_drv_dl_$(GPS_PLATFORM)
-ifeq ($(CONFIG_MTK_EXTRA_CONN_DRV_BUILD_IN),y)
 obj-y += $(MODULE_NAME).o
-else
-obj-m += $(MODULE_NAME).o
-endif
+
 GPS_DRV_CONTROL_LNA := n
 GPS_DL_HAS_MOCK := n
 GPS_SRC_FOLDER := $(srctree)/drivers/misc/mediatek/connectivity/gps/data_link

@@ -346,6 +346,9 @@ void aisInitializeConnectionSettings(IN struct ADAPTER
 		*prAdapter, IN struct REG_INFO *prRegInfo,
 		IN uint8_t ucBssIndex);
 
+void aisInitializeConnectionRsnInfo(IN struct ADAPTER
+		*prAdapter, IN uint8_t ucBssIndex);
+
 void aisFsmInit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
 void aisFsmUninit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex);

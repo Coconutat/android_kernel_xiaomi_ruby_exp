@@ -37,6 +37,12 @@ $(info $(LOG_TAG) srctree = $(srctree))
 
 ###############################################################################
 # To add WMT dependent Macro and header file, will be removed later
+$(info $(LOG_TAG) BT_ENABLE_LOW_POWER_DEBUG=$(BT_ENABLE_LOW_POWER_DEBUG))
+ifeq ($(BT_ENABLE_LOW_POWER_DEBUG),y)
+    ccflags-y += -D ENABLE_LOW_POWER_DEBUG=1
+else
+    ccflags-y += -D ENABLE_LOW_POWER_DEBUG=0
+endif
 
 ccflags-y += -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
@@ -63,11 +69,8 @@ ccflags-y += -I$(src)/../include/btif
 ###############################################################################
 
 MODULE_NAME := bt_drv_$(BT_PLATFORM)
-ifeq ($(CONFIG_MTK_EXTRA_CONN_DRV_BUILD_IN),y)
-obj-y += $(MODULE_NAME).o
-else
 obj-m += $(MODULE_NAME).o
-endif
+
 ccflags-y += -D CREATE_NODE_DYNAMIC=1
 
 $(MODULE_NAME)-objs += stp_chrdev_bt.o

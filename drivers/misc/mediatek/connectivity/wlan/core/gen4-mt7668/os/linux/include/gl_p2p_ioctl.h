@@ -513,6 +513,9 @@ void mtk_p2p_cfg80211_mgmt_frame_register(IN struct wiphy *wiphy,
 int
 mtk_p2p_cfg80211_set_bitrate_mask(IN struct wiphy *wiphy,
 				  IN struct net_device *dev,
+#if defined(ANDROID) && (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+				  IN unsigned int link_id,
+#endif
 				  IN const u8 *peer, IN const struct cfg80211_bitrate_mask *mask);
 
 #ifdef CONFIG_NL80211_TESTMODE

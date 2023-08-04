@@ -818,15 +818,21 @@ VOID wlanIST(IN P_ADAPTER_T prAdapter)
 
 	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
 
-	u4Status = nicProcessIST(prAdapter);
-	if (u4Status != WLAN_STATUS_SUCCESS)
-		DBGLOG(REQ, INFO, "Fail in nicProcessIST! status [%x]\n",
-		       u4Status);
+	if (prAdapter->fgIsFwOwn == FALSE) {
+		u4Status = nicProcessIST(prAdapter);
+		if (u4Status != WLAN_STATUS_SUCCESS &&
+			(u4Status != WLAN_STATUS_NOT_INDICATING))
+			DBGLOG(REQ, INFO, "Fail: nicProcessIST! status [%d]\n",
+				u4Status);
 
-#if defined(CONFIG_ANDROID) && (CFG_ENABLE_WAKE_LOCK)
-	if (KAL_WAKE_LOCK_ACTIVE(prAdapter, &prAdapter->prGlueInfo->rIntrWakeLock))
-		KAL_WAKE_UNLOCK(prAdapter, &prAdapter->prGlueInfo->rIntrWakeLock);
+#if CFG_ENABLE_WAKE_LOCK
+		if (KAL_WAKE_LOCK_ACTIVE(prAdapter,
+			&prAdapter->prGlueInfo->rIntrWakeLock))
+			KAL_WAKE_UNLOCK(prAdapter,
+				&prAdapter->prGlueInfo->rIntrWakeLock);
 #endif
+	}
+
 	nicEnableInterrupt(prAdapter);
 
 	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
@@ -1714,7 +1720,9 @@ VOID wlanReleasePendingOid(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 #if CFG_CHIP_RESET_SUPPORT
 			DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-			glResetTrigger(prAdapter);
+			glGetRstReason(RST_OID_TIMEOUT);
+			GL_RESET_TRIGGER(prAdapter,
+					 RST_FLAG_CHIP_RESET);
 #endif
 		}
 		set_bit(GLUE_FLAG_HIF_PRT_HIF_DBG_INFO_BIT, &(prAdapter->prGlueInfo->ulFlag));
@@ -2250,7 +2258,9 @@ WLAN_STATUS wlanSendNicPowerCtrlCmd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucPowerM
 #if CFG_CHIP_RESET_SUPPORT
 				DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-				glResetTrigger(prAdapter);
+				glGetRstReason(RST_OID_TIMEOUT);
+				GL_RESET_TRIGGER(prAdapter,
+						 RST_FLAG_CHIP_RESET);
 #endif
 				break;
 			}
@@ -6773,6 +6783,9 @@ VOID wlanInitFeatureOption(IN P_ADAPTER_T prAdapter)
 	prWifiVar->ucP2pGcHt = (UINT_8) wlanCfgGetUint32(prAdapter, "P2pGcHT", FEATURE_ENABLED);
 	prWifiVar->ucP2pGcVht = (UINT_8) wlanCfgGetUint32(prAdapter, "P2pGcVHT", FEATURE_ENABLED);
 
+	prWifiVar->ucDisP2pPs = (UINT_8) wlanCfgGetUint32(prAdapter,
+				"DisP2pPs", FEATURE_DISABLED);
+
 	prWifiVar->ucAmpduRx = (UINT_8) wlanCfgGetUint32(prAdapter, "AmpduRx", FEATURE_ENABLED);
 	prWifiVar->ucAmpduTx = (UINT_8) wlanCfgGetUint32(prAdapter, "AmpduTx", FEATURE_ENABLED);
 
@@ -9783,6 +9796,25 @@ int wlanSuspendRekeyOffload(P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRekeyMode)
 	kalMemFree(prGtkData, VIR_MEM_TYPE, sizeof(PARAM_GTK_REKEY_DATA));
 
 	return i4Rslt;
+}
+
+/* HIF suspend should wait for cfg80211 suspend done */
+#define HIF_SUSPEND_MAX_WAIT_TIME 50 /* unit: 5ms */
+
+void
+wlanWaitCfg80211SuspendDone(P_GLUE_INFO_T prGlueInfo)
+{
+	UINT_8 u1Count = 0;
+
+	while (!(test_bit(SUSPEND_FLAG_CLEAR_WHEN_RESUME,
+		&prGlueInfo->prAdapter->ulSuspendFlag))) {
+		if (u1Count > HIF_SUSPEND_MAX_WAIT_TIME) {
+			DBGLOG(HAL, ERROR, "cfg80211 not suspend\n");
+			break;
+		}
+		usleep_range(5000, 6000);
+		u1Count++;
+	}
 }
 
 /*----------------------------------------------------------------------------*/

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -333,6 +333,40 @@ struct CMD_RLM_AIRTIME_MON {
 	int32_t i4total_OBSS_duration_sixSec;/* duration in 60s */
 	/* int32_t i4total_nonWIFI_duration_sixSec; */
 #endif
+};
+#endif
+
+#if CONFIG_WIFI_ANTENNA_REPORT
+struct CMD_ANTENNA_REPORT{
+	uint16_t u2Type;
+	uint16_t u2Len;
+	/* parameter */
+	uint8_t ucAction;
+	uint32_t ucPeriodTime;           /* unit 50ms */
+	/* WF0 */
+	uint32_t u4WF0AntDivEn;
+	uint32_t u4WF0Ant;              /* Ant0, Ant1 */
+	uint32_t u4WF0AntCtrMode;       /* 0: Auto Mode, 1: Force Mode */
+	uint32_t u4WF0AntForceMode;     /* 0: Per-Packet(HW), 1: Period Switch(SW) */
+	uint32_t u4WF0Ant0PerPacketCount;
+	uint32_t u4WF0Ant1PerPacketCount;
+	uint32_t u4WF0Ant0PeriodSwitchCount;
+	uint32_t u4WF0Ant1PeriodSwitchCount;
+	/* WF1 */
+	uint32_t u4WF1AntDivEn;
+	uint32_t u4WF1Ant;              /* Ant0, Ant1 */
+	uint32_t u4WF1AntCtrMode;       /* 0: Auto Mode, 1: Force Mode */
+	uint32_t u4WF1AntForceMode;     /* 0: Per-Packet(HW), 1: Period Switch(SW) */
+	uint32_t u4WF1Ant0PerPacketCount;
+	uint32_t u4WF1Ant1PerPacketCount;
+	uint32_t u4WF1Ant0PeriodSwitchCount;
+	uint32_t u4WF1Ant1PeriodSwitchCount;
+};
+
+/* antenna report related */
+enum ENUM_ANTENNA_REPORT_ACTION_T {
+    CMD_ANTENNA_REPORT_GET = 1,
+    CMD_ANTENNA_REPORT_RESET
 };
 #endif
 
@@ -1857,7 +1891,8 @@ struct CMD_PERF_IND {
 	uint8_t ucCurRxRCPI0[4];
 	uint8_t ucCurRxRCPI1[4];
 	uint8_t ucCurRxNss[4];
-	uint32_t au4Reserve[63];
+	uint8_t ucCurRxNss2[4];
+	uint32_t au4Reserve[62];
 };
 
 /* EVENT_BT_OVER_WIFI */
@@ -3040,6 +3075,7 @@ struct EVENT_WLAN_INFO {
 struct EVENT_MIB_INFO {
 	struct HW_MIB_COUNTER	    rHwMibCnt;
 	struct HW_MIB2_COUNTER	    rHwMib2Cnt;
+	struct HW_MIB3_COUNTER	    rHwMib3Cnt;
 	struct HW_TX_AMPDU_METRICS	    rHwTxAmpduMts;
 
 };

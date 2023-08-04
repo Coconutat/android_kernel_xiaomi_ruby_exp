@@ -1242,7 +1242,11 @@ VOID p2pFuncDfsSwitchCh(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN 
 	 */
 	cfg80211_ch_switch_notify(
 		prGlueInfo->prP2PInfo[role_idx]->aprRoleHandler,
-		prGlueInfo->prP2PInfo[role_idx]->chandef);
+		prGlueInfo->prP2PInfo[role_idx]->chandef
+#if defined(ANDROID) && (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+		, 0
+#endif
+		);
 	DBGLOG(P2P, INFO, "p2pFuncDfsSwitchCh: Update to OS Done\n");
 
 } /* p2pFuncDfsSwitchCh */
@@ -2156,7 +2160,11 @@ p2pFuncValidateAuth(IN P_ADAPTER_T prAdapter,
 		 * exhausted case and do removal of unused STA_RECORD_T.
 		 */
 		/* Sent a message event to clean un-used STA_RECORD_T. */
-		ASSERT(prStaRec);
+		if (!prStaRec) {
+			DBGLOG(P2P, WARN,
+				"StaRec Full. (%d)\n", CFG_STA_REC_NUM);
+			return FALSE;
+		}
 
 		prSwRfb->ucStaRecIdx = prStaRec->ucIndex;
 
@@ -4415,6 +4423,9 @@ BOOLEAN p2pFuncIsBufferableMMPDU(IN P_MSDU_INFO_T prMgmtTxMsdu)
 
 	switch (u2TxFrameCtrl) {
 	case MAC_FRAME_ACTION:
+		fgIsBufferableMMPDU = FALSE;
+		DBGLOG(P2P, INFO, "send act %u\n", fgIsBufferableMMPDU);
+		break;
 	case MAC_FRAME_DISASSOC:
 	case MAC_FRAME_DEAUTH:
 		DBGLOG(P2P, TRACE, "u2TxFrameCtrl = %u\n", u2TxFrameCtrl);

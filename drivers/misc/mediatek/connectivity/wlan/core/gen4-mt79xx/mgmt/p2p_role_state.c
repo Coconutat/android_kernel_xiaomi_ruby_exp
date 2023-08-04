@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -400,9 +400,21 @@ p2pRoleStateInit_SWITCH_CHANNEL(IN struct ADAPTER *prAdapter,
 		IN uint8_t ucBssIdx,
 		IN struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
 {
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	struct BSS_INFO *prBssInfo = (struct BSS_INFO *) NULL;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
+
+	if (!prBssInfo)
+		return;
+#endif
 
 	do {
 		ASSERT_BREAK((prAdapter != NULL) && (prChnlReqInfo != NULL));
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+		prBssInfo->fgIsSwitchingChnl = TRUE;
+#endif
 
 		p2pFuncAcquireCh(prAdapter, ucBssIdx, prChnlReqInfo);
 	} while (FALSE);

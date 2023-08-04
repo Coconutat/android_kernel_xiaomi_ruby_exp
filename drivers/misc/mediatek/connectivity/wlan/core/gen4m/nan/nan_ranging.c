@@ -309,7 +309,8 @@ nanRangingInstanceSearchByMac(struct ADAPTER *prAdapter,
 
 	dl_list_for_each(prRanging, ranging_list,
 			 struct _NAN_RANGING_INSTANCE_T, list) {
-
+		if (prRanging == NULL)
+			return NULL;
 		if (prRanging) {
 			if (kalMemCmp(prRanging->ranging_ctrl.aucPeerAddr,
 				      puc_peer_mac, MAC_ADDR_LEN) == 0)
@@ -339,7 +340,8 @@ nanRangingInstanceSearchById(struct ADAPTER *prAdapter, uint16_t u2RangingId) {
 
 	dl_list_for_each(prRanging, ranging_list,
 			 struct _NAN_RANGING_INSTANCE_T, list) {
-
+		if (prRanging == NULL)
+			return NULL;
 		if (prRanging) {
 			if (prRanging->ranging_ctrl.u2RangingId == u2RangingId)
 				return prRanging;
@@ -383,6 +385,8 @@ nanGetFtmRangeReportAttr(struct ADAPTER *prAdapter, uint8_t **ppucAttr,
 	*(pucPos++) = ucRangeEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucRangeEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_OK_MAX_NUM)
+			break;
 		kalMemCopy(pucPos, &prRanging->ranging_ctrl.rNanFtmReport
 					    .arRangeEntry[u4Idx],
 			   sizeof(struct _FTM_REPORT_RANGE_ENTRY_T));
@@ -393,6 +397,8 @@ nanGetFtmRangeReportAttr(struct ADAPTER *prAdapter, uint8_t **ppucAttr,
 	*(pucPos++) = ucErrorEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucErrorEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_NG_MAX_NUM)
+			break;
 		kalMemCopy(pucPos, &prRanging->ranging_ctrl.rNanFtmReport
 					    .arErrorEntry[u4Idx],
 			   sizeof(struct _FTM_REPORT_ERROR_ENTRY_T));
@@ -1755,6 +1761,8 @@ nanRangingFtmDoneEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf) {
 	prRanging->ranging_ctrl.rNanFtmReport.ucRangeEntryCnt = ucRangeEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucRangeEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_OK_MAX_NUM)
+			break;
 		kalMemCopy(&prRanging->ranging_ctrl.rNanFtmReport
 				    .arRangeEntry[u4Idx],
 			   &prEvent->rNanFtmReport.arRangeEntry[u4Idx],
@@ -1767,6 +1775,8 @@ nanRangingFtmDoneEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf) {
 	prRanging->ranging_ctrl.rNanFtmReport.ucErrorEntryCnt = ucErrorEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucErrorEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_NG_MAX_NUM)
+			break;
 		kalMemCopy(&prRanging->ranging_ctrl.rNanFtmReport
 				    .arErrorEntry[u4Idx],
 			   &prEvent->rNanFtmReport.arErrorEntry[u4Idx],

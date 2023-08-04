@@ -100,7 +100,7 @@ struct APPEND_VAR_IE_ENTRY txAssocReqIETable[] = {
 	{(ELEM_HDR_LEN + ELEM_MAX_LEN_HT_CAP), NULL, rlmReqGenerateHtCapIE}
 	,			/* 45 */
 #if CFG_SUPPORT_802_11R
-	{(ELEM_HDR_LEN + 1), NULL, assocGenerateMDIE}, /* Element ID: 54 */
+	{(ELEM_HDR_LEN + 3), NULL, assocGenerateMDIE}, /* Element ID: 54 */
 	{0, rsnCalculateFTIELen, rsnGenerateFTIE}, /* Element ID: 55 */
 #endif
 #if CFG_SUPPORT_802_11K
@@ -1933,7 +1933,7 @@ assocComposeReAssocRespFrameHeaderAndFF(IN struct STA_RECORD *prStaRec,
  * @retval WLAN_STATUS_SUCCESS   Successfully send frame to TX Module
  */
 /*----------------------------------------------------------------------------*/
-uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
+struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
 				   IN struct STA_RECORD *prStaRec)
 {
 	struct BSS_INFO *prBssInfo;
@@ -1985,7 +1985,7 @@ uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
 	if (prMsduInfo == NULL) {
 		DBGLOG(AAA, WARN,
 		       "No PKT_INFO_T for sending (Re)Assoc Response.\n");
-		return WLAN_STATUS_RESOURCES;
+		return NULL;
 	}
 	/* 4 <2> Compose (Re)Association Request frame header and fixed fields
 	 *       in MSDU_INfO_T.
@@ -2046,6 +2046,18 @@ uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
 	 */
 
 	nicTxConfigPktControlFlag(prMsduInfo, MSDU_CONTROL_FLAG_FORCE_TX, TRUE);
+
+	return prMsduInfo;
+} /* end of assocComposeReAssocRespFrame() */
+
+uint32_t assocSendReAssocRespFrame(IN struct ADAPTER *prAdapter,
+				  IN struct STA_RECORD *prStaRec)
+{
+	struct MSDU_INFO *prMsduInfo;
+
+	prMsduInfo = assocComposeReAssocRespFrame(prAdapter, prStaRec);
+	if (!prMsduInfo)
+		return WLAN_STATUS_RESOURCES;
 
 	/* 4 <6> Enqueue the frame to send this (Re)Association request frame.
 	 */

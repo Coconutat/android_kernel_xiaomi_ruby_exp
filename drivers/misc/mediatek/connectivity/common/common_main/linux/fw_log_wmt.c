@@ -61,8 +61,6 @@ static ssize_t fw_log_wmt_write(struct file *filp, const char __user *buf,
 
 static unsigned int fw_log_wmt_poll(struct file *filp, poll_table *wait)
 {
-	pr_debug("%s\n", __func__);
-
 	poll_wait(filp, &wq, wait);
 	if (connsys_log_get_buf_size(CONNLOG_TYPE_MCU) > 0)
 		return POLLIN | POLLRDNORM;

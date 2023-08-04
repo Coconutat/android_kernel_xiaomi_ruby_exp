@@ -7483,17 +7483,29 @@ static HQA_CMD_HANDLER hqa_ext_cmd_set[] = {
 static INT_32 hqa_ext_cmds(struct net_device *prNetDev, IN union iwreq_data *prIwReqData, HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT_32 i4Ret = 0;
-	INT_32 i4Idx = 0;
+	UINT32 u4Idx = 0;
 
-	memmove((PUCHAR) & i4Idx, (PUCHAR) & HqaCmdFrame->Data, 4);
-	i4Idx = ntohl(i4Idx);
+	memmove((PUCHAR) & u4Idx, (PUCHAR) & HqaCmdFrame->Data, 4);
+	u4Idx = ntohl(u4Idx);
 
-	DBGLOG(RFTEST, INFO, " QA_AGENT hqa_ext_cmds index : %d\n", i4Idx);
+	DBGLOG(RFTEST, INFO, " QA_AGENT hqa_ext_cmds index : %d\n", u4Idx);
 
-	if (hqa_ext_cmd_set[i4Idx] != NULL)
-		i4Ret = (*hqa_ext_cmd_set[i4Idx]) (prNetDev, prIwReqData, HqaCmdFrame);
-	else
-		DBGLOG(RFTEST, INFO, " QA_AGENT hqa_ext_cmds cmd idx %d is not supported\n", i4Idx);
+	if (u4Idx < (sizeof(hqa_ext_cmd_set) / sizeof(HQA_CMD_HANDLER))) {
+		if (hqa_ext_cmd_set[u4Idx] != NULL) {
+			/* valid command */
+			i4Ret = (*hqa_ext_cmd_set[u4Idx])(prNetDev,
+				prIwReqData, HqaCmdFrame);
+		} else {
+			/* invalid command */
+			DBGLOG(RFTEST, INFO,
+				"QA_AGENT hqa_ext_cmds cmd idx is NULL: %d\n",
+				u4Idx);
+		}
+	} else {
+		/* invalid command */
+		DBGLOG(RFTEST, INFO,
+		"QA_AGENT hqa_ext_cmds cmd idx is not supported: %d\n", u4Idx);
+	}
 
 	return i4Ret;
 }

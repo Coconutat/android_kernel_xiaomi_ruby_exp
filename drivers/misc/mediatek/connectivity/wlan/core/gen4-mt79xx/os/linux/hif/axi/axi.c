@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -449,7 +449,7 @@ static void axiAllocHifMem(struct platform_device *pdev)
 			       "RxEventBuf[%u] alloc fail\n", u4Idx);
 	}
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
 		if (!axiAllocRsvMem(AXI_TX_MAX_SIZE_PER_FRAME +
 				    prChipInfo->txd_append_size,
@@ -484,7 +484,7 @@ static void axiFreeHifMem(struct platform_device *pdev)
 			iounmap(grMem.rRxEventBuf[u4Idx].va);
 	}
 
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
 		if (grMem.rMsduBuf[u4Idx].va)
 			iounmap(grMem.rMsduBuf[u4Idx].va);

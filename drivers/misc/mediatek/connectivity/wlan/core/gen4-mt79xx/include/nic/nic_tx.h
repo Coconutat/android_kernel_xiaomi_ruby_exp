@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -853,7 +853,11 @@ struct MSDU_INFO {
 #define MAX_BUF_NUM_PER_PKT	6
 
 #define NUM_OF_MSDU_ID_IN_TXD   4
+#if defined(_HIF_PCIE) || defined(_HIF_AXI)
+#define TXD_MAX_BUF_NUM         (HIF_TX_MAX_FRAG + 1)
+#else
 #define TXD_MAX_BUF_NUM         4
+#endif
 #define TXD_MSDU_ID_VLD         BIT(15)     /* MSDU valid */
 #define TXD_LEN_AL              BIT(15)     /* A-MSDU last */
 #define TXD_LEN_ML              BIT(14)     /* MSDU last */

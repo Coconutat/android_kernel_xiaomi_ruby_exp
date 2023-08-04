@@ -244,6 +244,7 @@ VOID aisInitializeConnectionSettings(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T p
 #if CFG_SUPPORT_OWE
 	kalMemSet(&prConnSettings->rOweInfo, 0, sizeof(struct OWE_INFO_T));
 #endif
+	kalMemSet(&prConnSettings->rRsnXE, 0, sizeof(struct RSNXE));
 }				/* end of aisFsmInitializeConnectionSettings() */
 
 /*----------------------------------------------------------------------------*/
@@ -4676,6 +4677,83 @@ VOID aisFuncValidateRxActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 
 }				/* aisFuncValidateRxActionFrame */
 
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Trigger when cfg80211_suspend
+*		 1. cancel scan and report scan done event
+*		 2. linkdown if wow is disable
+*
+* @param prAdapter
+*        eReqType
+*        bRemove
+*
+* @return TRUE
+*         FALSE
+*/
+/*----------------------------------------------------------------------------*/
+void aisPreSuspendFlow(P_GLUE_INFO_T prGlueInfo)
+{
+	UINT_32 rStatus = WLAN_STATUS_SUCCESS;
+	UINT_32 u4BufLen;
+	P_AIS_FSM_INFO_T prAisFsmInfo;
+	P_MSG_CANCEL_REMAIN_ON_CHANNEL_T prMsgChnlAbort;
+
+	GLUE_SPIN_LOCK_DECLARATION();
+
+	/* report scan abort */
+	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
+	if (prGlueInfo->prScanRequest) {
+		kalCfg80211ScanDone(prGlueInfo->prScanRequest, TRUE);
+		prGlueInfo->prScanRequest = NULL;
+	}
+	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
+
+	/* cancel scan */
+	aisFsmStateAbort_SCAN(prGlueInfo->prAdapter);
+
+	DBGLOG(REQ, STATE, "Wow:%d, WowEnable:%d, state:%d\n",
+		prGlueInfo->prAdapter->rWifiVar.ucWow,
+		prGlueInfo->prAdapter->rWowCtrl.fgWowEnable,
+		kalGetMediaStateIndicated(prGlueInfo));
+
+	prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
+	if ((prAisFsmInfo->eCurrentState == AIS_STATE_REMAIN_ON_CHANNEL) ||
+	    (prAisFsmInfo->eCurrentState == AIS_STATE_REQ_REMAIN_ON_CHANNEL)) {
+		prMsgChnlAbort =
+			cnmMemAlloc(prGlueInfo->prAdapter, RAM_TYPE_MSG,
+				sizeof(MSG_CANCEL_REMAIN_ON_CHANNEL_T));
+
+		if (prMsgChnlAbort == NULL)
+			DBGLOG(REQ, ERROR, "ChnlAbort Msg allocate fail!\n");
+		else {
+			prMsgChnlAbort->rMsgHdr.eMsgId =
+				MID_MNY_AIS_CANCEL_REMAIN_ON_CHANNEL;
+			prMsgChnlAbort->u8Cookie =
+				prAisFsmInfo->rChReqInfo.u8Cookie;
+
+			mboxSendMsg(prGlueInfo->prAdapter, MBOX_ID_0,
+				(P_MSG_HDR_T) prMsgChnlAbort,
+				MSG_SEND_METHOD_BUF);
+		}
+	}
+
+	/* 1) wifi cfg "Wow" must be true,
+	 * 2) wow is disable
+	 * 3) AdvPws is disable
+	 * 4) WIfI connected => execute link down flow
+	 */
+	/* link down AIS */
+	if (prGlueInfo->prAdapter->rWifiVar.ucWow &&
+		!prGlueInfo->prAdapter->rWowCtrl.fgWowEnable &&
+		!prGlueInfo->prAdapter->rWifiVar.ucAdvPws) {
+		if (kalGetMediaStateIndicated(prGlueInfo) ==
+			PARAM_MEDIA_STATE_CONNECTED) {
+			DBGLOG(REQ, STATE, "CFG80211 suspend link down\n");
+			rStatus = kalIoctl(prGlueInfo, wlanoidLinkDown, NULL, 0,
+				TRUE, FALSE, FALSE, &u4BufLen);
+		}
+	}
+}
 
 VOID aisRemoveBlacklistBySource(P_ADAPTER_T prAdapter, enum
 _BLACK_LIST_SOURCE source)

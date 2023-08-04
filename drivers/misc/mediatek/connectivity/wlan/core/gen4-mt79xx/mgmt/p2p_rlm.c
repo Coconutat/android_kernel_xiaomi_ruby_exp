@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -53,30 +53,22 @@
  *                   F U N C T I O N   D E C L A R A T I O N S
  ******************************************************************************
  */
-
+static enum ENUM_CHNL_EXT rlmGetSco(struct ADAPTER *prAdapter,
+		struct BSS_INFO *prBssInfo);
 /******************************************************************************
  *                              F U N C T I O N S
  ******************************************************************************
  */
 
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief  Init AP Bss
- *
- * \param[in]
- *
- * \return none
- */
-/*----------------------------------------------------------------------------*/
-void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
+void rlmBssUpdateChannelParams(struct ADAPTER *prAdapter,
+		struct BSS_INFO *prBssInfo)
 {
 	uint8_t i;
 	uint8_t ucMaxBw = 0;
 
-	ASSERT(prAdapter);
-	ASSERT(prBssInfo);
-
-	if (prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
+	if (!prAdapter)
+		return;
+	if (!prBssInfo)
 		return;
 
 	/* Operation band, channel shall be ready before invoking this function.
@@ -85,6 +77,7 @@ void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
 	prBssInfo->fg40mBwAllowed = FALSE;
 	prBssInfo->fgAssoc40mBwAllowed = FALSE;
 	prBssInfo->eBssSCO = CHNL_EXT_SCN;
+	prBssInfo->ucHtOpInfo1 = 0;
 
 	/* Check if AP can set its bw to 40MHz
 	 * But if any of BSS is setup in 40MHz,
@@ -93,7 +86,12 @@ void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
 	 */
 	if (cnmBss40mBwPermitted(prAdapter, prBssInfo->ucBssIndex)) {
 
-		prBssInfo->eBssSCO = rlmGetScoForAP(prAdapter, prBssInfo);
+		if (prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT)
+			prBssInfo->eBssSCO =
+				rlmGetScoForAP(prAdapter, prBssInfo);
+		else
+			prBssInfo->eBssSCO =
+				rlmGetSco(prAdapter, prBssInfo);
 
 		if (prBssInfo->eBssSCO != CHNL_EXT_SCN) {
 			prBssInfo->fg40mBwAllowed = TRUE;
@@ -102,8 +100,6 @@ void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
 			prBssInfo->ucHtOpInfo1 = (uint8_t)
 				(((uint32_t) prBssInfo->eBssSCO)
 				| HT_OP_INFO1_STA_CHNL_WIDTH);
-
-			rlmUpdateBwByChListForAP(prAdapter, prBssInfo);
 		}
 	}
 
@@ -124,49 +120,91 @@ void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
 		rlmFillVhtOpInfoByBssOpBw(prBssInfo, ucMaxBw);
 
 		/* If the S1 is invalid, force to change bandwidth */
-		if (prBssInfo->ucVhtChannelFrequencyS1 == 0)
-			prBssInfo->ucVhtChannelWidth =
-				VHT_OP_CHANNEL_WIDTH_20_40;
-	} else {
-		prBssInfo->ucVhtChannelWidth = VHT_OP_CHANNEL_WIDTH_20_40;
-		prBssInfo->ucVhtChannelFrequencyS1 = 0;
-		prBssInfo->ucVhtChannelFrequencyS2 = 0;
+		if (prBssInfo->ucVhtChannelFrequencyS1 == 0) {
+			/* Give GO/AP another chance to use BW80
+			 * if failed to get S1 for BW160.
+			 */
+			if (prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT &&
+				ucMaxBw == MAX_BW_160MHZ) {
+				rlmFillVhtOpInfoByBssOpBw(prBssInfo,
+					MAX_BW_80MHZ);
+			}
+
+			/* fallback to BW20/40 */
+			if (prBssInfo->ucVhtChannelFrequencyS1 == 0) {
+				prBssInfo->ucVhtChannelWidth =
+					VHT_OP_CHANNEL_WIDTH_20_40;
+			}
+		}
 	}
 
 #if (CFG_SUPPORT_802_11AX == 1)
 	/* Filled the HE Operation IE */
 	if (prBssInfo->ucPhyTypeSet & PHY_TYPE_BIT_HE) {
-		memset(prBssInfo->ucHeOpParams, 0, HE_OP_BYTE_NUM);
+		kalMemZero(prBssInfo->ucHeOpParams,
+			HE_OP_BYTE_NUM * sizeof(uint8_t));
 
 		/* Disable BSS color support*/
-		prBssInfo->ucBssColorInfo |= BIT(HE_OP_BSSCOLOR_BSS_COLOR_DISABLE_SHFT);
+		prBssInfo->ucBssColorInfo |=
+			BIT(HE_OP_BSSCOLOR_BSS_COLOR_DISABLE_SHFT);
 
-		prBssInfo->u2HeBasicMcsSet |= (HE_CAP_INFO_MCS_MAP_MCS11 << 0);
+		prBssInfo->ucBssColorInfo |=
+			BIT(HE_OP_BSSCOLOR_BSS_COLOR_SHFT);
+
+		prBssInfo->u2HeBasicMcsSet |= (HE_CAP_INFO_MCS_MAP_MCS7 << 0);
 		for (i = 1; i < 8; i++)
-			prBssInfo->u2HeBasicMcsSet |= (HE_CAP_INFO_MCS_NOT_SUPPORTED << 2 * i);
+			prBssInfo->u2HeBasicMcsSet |=
+				(HE_CAP_INFO_MCS_NOT_SUPPORTED << 2 * i);
 	} else {
-		memset(prBssInfo->ucHeOpParams, 0, HE_OP_BYTE_NUM);
+		kalMemZero(prBssInfo->ucHeOpParams,
+			HE_OP_BYTE_NUM * sizeof(uint8_t));
 		prBssInfo->ucBssColorInfo = 0;
 		prBssInfo->u2HeBasicMcsSet = 0;
 	}
 #endif
 
 	/*ERROR HANDLE*/
-	if ((prBssInfo->ucVhtChannelWidth == VHT_OP_CHANNEL_WIDTH_80)
-		|| (prBssInfo->ucVhtChannelWidth
-			== VHT_OP_CHANNEL_WIDTH_160)
-		|| (prBssInfo->ucVhtChannelWidth
-			== VHT_OP_CHANNEL_WIDTH_80P80)) {
+	if ((prBssInfo->ucVhtChannelWidth >= VHT_OP_CHANNEL_WIDTH_80) &&
+	    (prBssInfo->ucVhtChannelFrequencyS1 == 0)) {
+		DBGLOG(RLM, INFO,
+			"Wrong AP S1 parameter setting, back to BW20!!!\n");
 
-		if (prBssInfo->ucVhtChannelFrequencyS1 == 0) {
-			DBGLOG(RLM, INFO,
-				"Wrong AP S1 parameter setting, back to BW20!!!\n");
+		prBssInfo->ucVhtChannelWidth = VHT_OP_CHANNEL_WIDTH_20_40;
+		prBssInfo->ucVhtChannelFrequencyS1 = 0;
+		prBssInfo->ucVhtChannelFrequencyS2 = 0;
+	}
+}
 
-			prBssInfo->ucVhtChannelWidth =
-				VHT_OP_CHANNEL_WIDTH_20_40;
-			prBssInfo->ucVhtChannelFrequencyS1 = 0;
-			prBssInfo->ucVhtChannelFrequencyS2 = 0;
-		}
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief  Init AP Bss
+ *
+ * \param[in]
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
+void rlmBssInitForAP(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo)
+{
+	if (!prAdapter)
+		return;
+	if (!prBssInfo)
+		return;
+
+	if (prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
+		return;
+
+	/* Check if AP can set its bw to 40MHz
+	 * But if any of BSS is setup in 40MHz,
+	 * the second BSS would prefer to use 20MHz
+	 * in order to remain in SCC case
+	 */
+
+	rlmBssUpdateChannelParams(prAdapter, prBssInfo);
+
+	if (cnmBss40mBwPermitted(prAdapter, prBssInfo->ucBssIndex)) {
+		if (prBssInfo->eBssSCO != CHNL_EXT_SCN)
+			rlmUpdateBwByChListForAP(prAdapter, prBssInfo);
 	}
 
 	/* We may limit AP/GO Nss by RfBand in some case, ex CoAnt.
@@ -495,7 +533,7 @@ void rlmHandleObssStatusEventPkt(struct ADAPTER *prAdapter,
  * \return none
  */
 /*----------------------------------------------------------------------------*/
-void rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
+u_int8_t rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prBssInfo,
 		u_int8_t fgUpdateBeacon)
 {
@@ -512,7 +550,7 @@ void rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
 
 	if (!IS_BSS_ACTIVE(prBssInfo)
 		|| prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
-		return;
+		return FALSE;
 
 	fgErpProtectMode = FALSE;
 	eHtProtectMode = HT_PROTECT_MODE_NONE;
@@ -618,6 +656,8 @@ void rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
 	/* Update Beacon content if related IE content is changed */
 	if (fgUpdateBeacon)
 		bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
+
+	return fgUpdateBeacon;
 }
 #if 0
 /*----------------------------------------------------------------------------*/
@@ -1253,21 +1293,52 @@ enum ENUM_CHNL_EXT rlmDecideScoForAP(struct ADAPTER *prAdapter,
 	return eSCO;
 }
 
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief: Get AP secondary channel offset from cfg80211 or wifi.cfg
- *
- * \param[in] prAdapter  Pointer of ADAPTER_T, prBssInfo Pointer of BSS_INFO_T,
- *
- * \return ENUM_CHNL_EXT_T AP secondary channel offset
- */
-/*----------------------------------------------------------------------------*/
-enum ENUM_CHNL_EXT rlmGetScoForAP(struct ADAPTER *prAdapter,
+enum ENUM_CHNL_EXT rlmGetScoByChnInfo(struct ADAPTER *prAdapter,
+		struct RF_CHANNEL_INFO *prChannelInfo)
+{
+	enum ENUM_CHNL_EXT eSCO = CHNL_EXT_SCN;
+	int32_t i4DeltaBw;
+	uint32_t u4AndOneSCO;
+
+	if (prChannelInfo->ucChnlBw == MAX_BW_40MHZ) {
+		/* If BW 40, compare S0 and primary channel freq */
+		if (prChannelInfo->u4CenterFreq1
+			> prChannelInfo->u2PriChnlFreq)
+			eSCO = CHNL_EXT_SCA;
+		else
+			eSCO = CHNL_EXT_SCB;
+	} else if (prChannelInfo->ucChnlBw > MAX_BW_40MHZ) {
+		/* P: PriChnlFreq,
+		 * A: CHNL_EXT_SCA,
+		 * B: CHNL_EXT_SCB, -:BW SPAN 5M
+		 */
+		/* --|----|--CenterFreq1--|----|-- */
+		/* --|----|--CenterFreq1--B----P-- */
+		/* --|----|--CenterFreq1--P----A-- */
+		i4DeltaBw = prChannelInfo->u2PriChnlFreq
+			- prChannelInfo->u4CenterFreq1;
+		u4AndOneSCO = CHNL_EXT_SCB;
+		eSCO = CHNL_EXT_SCA;
+		if (i4DeltaBw < 0) {
+			/* --|----|--CenterFreq1--|----|-- */
+			/* --P----A--CenterFreq1--|----|-- */
+			/* --B----P--CenterFreq1--|----|-- */
+			u4AndOneSCO = CHNL_EXT_SCA;
+			eSCO = CHNL_EXT_SCB;
+			i4DeltaBw = -i4DeltaBw;
+		}
+		i4DeltaBw = i4DeltaBw - (CHANNEL_SPAN_20 >> 1);
+		if ((i4DeltaBw/CHANNEL_SPAN_20) & 1)
+			eSCO = u4AndOneSCO;
+	}
+
+	return eSCO;
+}
+
+static enum ENUM_CHNL_EXT rlmGetSco(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prBssInfo)
 {
-	enum ENUM_BAND eBand;
-	uint8_t ucChannel;
-	enum ENUM_CHNL_EXT eSCO;
+	enum ENUM_CHNL_EXT eSCO = CHNL_EXT_SCN;
 	int32_t i4DeltaBw;
 	uint32_t u4AndOneSCO;
 	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
@@ -1278,8 +1349,7 @@ enum ENUM_CHNL_EXT rlmGetScoForAP(struct ADAPTER *prAdapter,
 	prP2pRoleFsmInfo = p2pFuncGetRoleByBssIdx(prAdapter,
 		prBssInfo->ucBssIndex);
 
-	if (!prAdapter->rWifiVar.ucApChnlDefFromCfg
-		&& prP2pRoleFsmInfo) {
+	if (prP2pRoleFsmInfo) {
 
 		prP2pConnReqInfo = &(prP2pRoleFsmInfo->rConnReqInfo);
 		eSCO = CHNL_EXT_SCN;
@@ -1317,6 +1387,35 @@ enum ENUM_CHNL_EXT rlmGetScoForAP(struct ADAPTER *prAdapter,
 			if ((i4DeltaBw/CHANNEL_SPAN_20) & 1)
 				eSCO = u4AndOneSCO;
 		}
+	}
+
+	return eSCO;
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief: Get AP secondary channel offset from cfg80211 or wifi.cfg
+ *
+ * \param[in] prAdapter  Pointer of ADAPTER_T, prBssInfo Pointer of BSS_INFO_T,
+ *
+ * \return ENUM_CHNL_EXT_T AP secondary channel offset
+ */
+/*----------------------------------------------------------------------------*/
+enum ENUM_CHNL_EXT rlmGetScoForAP(struct ADAPTER *prAdapter,
+		struct BSS_INFO *prBssInfo)
+{
+	enum ENUM_BAND eBand;
+	uint8_t ucChannel;
+	enum ENUM_CHNL_EXT eSCO;
+	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
+		(struct P2P_ROLE_FSM_INFO *) NULL;
+
+	prP2pRoleFsmInfo = p2pFuncGetRoleByBssIdx(prAdapter,
+		prBssInfo->ucBssIndex);
+
+	if (!prAdapter->rWifiVar.ucApChnlDefFromCfg
+		&& prP2pRoleFsmInfo) {
+		eSCO = rlmGetSco(prAdapter, prBssInfo);
 	} else {
 		/* In this case, the first BSS's SCO is 40MHz
 		 * and known, so AP can apply 40MHz bandwidth,
@@ -1372,3 +1471,73 @@ uint8_t rlmGetVhtS1ForAP(struct ADAPTER *prAdapter,
 	return ucFreq1Channel;
 }
 
+void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
+	IN enum ENUM_BAND eBandCsa,
+	IN uint8_t ucCh,
+	IN uint8_t ucBssIdx,
+	OUT struct RF_CHANNEL_INFO *prRfChnlInfo)
+{
+	struct BSS_INFO *prBssInfo = NULL;
+	enum ENUM_BAND eBandOrig;
+	uint8_t ucPrimaryChnlOrig;
+	uint8_t ucCsaChnlS1 = 0;
+	uint8_t fgDomainValid;
+
+	prBssInfo = prAdapter->aprBssInfo[ucBssIdx];
+
+	if (!prBssInfo)
+		return;
+
+	eBandOrig = prBssInfo->eBand;
+	ucPrimaryChnlOrig = prBssInfo->ucPrimaryChannel;
+
+	prRfChnlInfo->ucChannelNum = ucCh;
+	prRfChnlInfo->eBand = eBandCsa;
+
+	/* temp replace BSS eBand/channel
+	* to get BW of CSA band
+	*/
+	prBssInfo->eBand = eBandCsa;
+	prBssInfo->ucPrimaryChannel = ucCh;
+	prRfChnlInfo->ucChannelNum = ucCh;
+	prRfChnlInfo->ucChnlBw =
+		cnmGetBssMaxBw(prAdapter, ucBssIdx);
+
+	/* restore */
+	prBssInfo->eBand = eBandOrig;
+	prBssInfo->ucPrimaryChannel = ucPrimaryChnlOrig;
+
+	prRfChnlInfo->u2PriChnlFreq =
+		nicChannelNum2Freq(
+				ucCh, eBandCsa) / 1000;
+	ucCsaChnlS1 = nicGetVhtS1(ucCh,
+			rlmGetVhtOpBwByBssOpBw(prRfChnlInfo->ucChnlBw));
+	prRfChnlInfo->u4CenterFreq1 = (ucCsaChnlS1 != 0)
+		? (nicChannelNum2Freq(
+				ucCsaChnlS1, eBandCsa) / 1000) :
+				prRfChnlInfo->u2PriChnlFreq;
+	prRfChnlInfo->u4CenterFreq2 = 0;
+
+	/* check domain info valid */
+	fgDomainValid = rlmDomainIsValidRfSetting(
+		prAdapter,
+		eBandCsa,
+		ucCh,
+		rlmGetScoByChnInfo(prAdapter, prRfChnlInfo),
+		(prRfChnlInfo->ucChnlBw == CW_20_40MHZ) ?
+			CW_20_40MHZ :
+			(prRfChnlInfo->ucChnlBw - 1),
+		nicFreq2ChannelNum(
+				prRfChnlInfo->u4CenterFreq1 * 1000),
+		nicFreq2ChannelNum(
+				prRfChnlInfo->u4CenterFreq2 * 1000));
+
+	if (fgDomainValid == FALSE) {
+		DBGLOG(P2P, WARN,
+			"fgDomainValid: FALSE, set to default\n");
+		/*Error Handling - Fixed to set 20MHz */
+		prRfChnlInfo->ucChnlBw = CW_20_40MHZ;
+		prRfChnlInfo->u4CenterFreq1 = 0;
+		prRfChnlInfo->u4CenterFreq2 = 0;
+	}
+}

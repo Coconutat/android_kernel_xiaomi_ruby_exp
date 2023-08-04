@@ -1471,7 +1471,6 @@ SKIP_COOL_DOWN:
 	cnmIdcSwitchSapChannel(prAdapter);
 }
 
-
 void cnmIdcSwitchSapChannel(IN struct ADAPTER *prAdapter)
 {
 	struct BSS_INFO *prBssInfo;
@@ -2014,20 +2013,6 @@ uint8_t cnmGetBssMaxBw(struct ADAPTER *prAdapter,
 			ucMaxBandwidth = prAdapter->rWifiVar.ucSta6gBandwidth;
 #endif
 
-		if (prAdapter->rWifiVar.u2CountryCode == COUNTRY_CODE_ID) {
-			if (eBand == BAND_2G4 &&
-					ucMaxBandwidth > MAX_BW_20MHZ) {
-				ucMaxBandwidth = MAX_BW_20MHZ;
-				log_dbg(CNM, INFO,
-					"Apply customized bandwidth for Indonesia: 2.4G MaxBW20\n");
-			} else if (eBand == BAND_5G &&
-					ucMaxBandwidth > MAX_BW_80MHZ) {
-				ucMaxBandwidth = MAX_BW_80MHZ;
-				log_dbg(CNM, INFO,
-					"Apply customized bandwidth for Indonesia: 5G MaxBW80\n");
-			}
-		}
-
 		if (ucMaxBandwidth > prAdapter->rWifiVar.ucStaBandwidth)
 			ucMaxBandwidth = prAdapter->rWifiVar.ucStaBandwidth;
 	} else if (IS_BSS_P2P(prBssInfo)) {
@@ -2122,10 +2107,13 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 				      enum ENUM_NETWORK_TYPE eNetworkType,
 				      u_int8_t fgIsP2pDevice)
 {
+	struct WIFI_VAR *prWifiVar;
 	struct BSS_INFO *prBssInfo;
 	uint8_t i, ucBssIndex, ucOwnMacIdx;
 
 	ASSERT(prAdapter);
+
+	prWifiVar = &prAdapter->rWifiVar;
 
 	/*specific case for p2p device scan*/
 	if (eNetworkType == NETWORK_TYPE_P2P && fgIsP2pDevice) {
@@ -2136,6 +2124,8 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 		prBssInfo->ucBssIndex = prAdapter->ucP2PDevBssIdx;
 		prBssInfo->eNetworkType = eNetworkType;
 		prBssInfo->ucOwnMacIndex = prAdapter->ucHwBssIdNum;
+		prBssInfo->u4NetifStopTh = prWifiVar->u4NetifStopTh;
+		prBssInfo->u4NetifStartTh = prWifiVar->u4NetifStartTh;
 
 		/* initialize wlan id and status for keys */
 		prBssInfo->ucBMCWlanIndex = WTBL_RESERVED_ENTRY;
@@ -2227,6 +2217,8 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 		/* initialize wlan id and status for keys */
 		prBssInfo->ucBMCWlanIndex = WTBL_RESERVED_ENTRY;
 		prBssInfo->wepkeyWlanIdx = WTBL_RESERVED_ENTRY;
+		prBssInfo->u4NetifStopTh = prWifiVar->u4NetifStopTh;
+		prBssInfo->u4NetifStartTh = prWifiVar->u4NetifStartTh;
 		for (i = 0; i < MAX_KEY_NUM; i++) {
 			prBssInfo->ucBMCWlanIndexSUsed[i] = FALSE;
 			prBssInfo->ucBMCWlanIndexS[i] = WTBL_RESERVED_ENTRY;
@@ -2365,7 +2357,7 @@ static u_int8_t cnmDbdcIsAGConcurrent(
 {
 	struct BSS_INFO *prBssInfo;
 	uint8_t ucBssIndex;
-	enum ENUM_BAND eBandCompare = eRfBand_Connecting;
+	uint8_t ucBandCount[BAND_NUM] = {0};
 	u_int8_t fgShouldDbdcEnabled = FALSE;
 	enum ENUM_BAND eBssBand[BSSID_NUM] = {BAND_NULL};
 #if (CFG_SUPPORT_POWER_THROTTLING == 1 && CFG_SUPPORT_CNM_POWER_CTRL == 1)
@@ -2374,6 +2366,10 @@ static u_int8_t cnmDbdcIsAGConcurrent(
 		return FALSE;
 	}
 #endif
+
+	if (eRfBand_Connecting > 0 && eRfBand_Connecting < BAND_NUM)
+		ucBandCount[eRfBand_Connecting]++;
+
 	for (ucBssIndex = 0;
 		ucBssIndex < prAdapter->ucHwBssIdNum; ucBssIndex++) {
 
@@ -2386,29 +2382,34 @@ static u_int8_t cnmDbdcIsAGConcurrent(
 			continue;
 
 		eBssBand[ucBssIndex] = prBssInfo->eBand;
-
-		if (eBandCompare == BAND_NULL)
-			eBandCompare = prBssInfo->eBand;
-
-		if (eBandCompare != prBssInfo->eBand) {
-#if (CFG_SUPPORT_WIFI_6G == 1)
-			if ((eBandCompare == BAND_5G &&
-				prBssInfo->eBand == BAND_6G) ||
-			    (eBandCompare == BAND_6G &&
-				prBssInfo->eBand == BAND_5G))
-				fgShouldDbdcEnabled = FALSE; /* A+A */
-			else
-#endif
-				fgShouldDbdcEnabled = TRUE; /* A+G */
-		}
+		ucBandCount[prBssInfo->eBand]++;
 	}
 
-	log_dbg(CNM, INFO, "[DBDC] BSS AG[%u.%u.%u.%u][%u]\n",
+	/* DBDC decision */
+	if (ucBandCount[BAND_2G4] > 0) {
+		/* 2.4G + 5G / 6G => enable DBDC */
+		/* 2.4G + 5G + 6G => enable DBDC */
+		if (ucBandCount[BAND_5G] > 0
+#if (CFG_SUPPORT_WIFI_6G == 1)
+			|| ucBandCount[BAND_6G] > 0
+#endif
+		   )
+			fgShouldDbdcEnabled = TRUE;
+		else /* 2.4G only */
+			fgShouldDbdcEnabled = FALSE;
+	} else {
+		/* 5G / 6G => disable DBDC */
+		/* 5G + 6G => Do not supportf A+A, disable DBDC, */
+		fgShouldDbdcEnabled = FALSE;
+	}
+
+	log_dbg(CNM, INFO, "[DBDC] BSS AG[%u.%u.%u.%u][%u], DBDC = %u\n",
 	       eBssBand[BSSID_0],
 	       eBssBand[BSSID_1],
 	       eBssBand[BSSID_2],
 	       eBssBand[BSSID_3],
-	       eRfBand_Connecting);
+	       eRfBand_Connecting,
+	       fgShouldDbdcEnabled);
 
 	return fgShouldDbdcEnabled;
 }
@@ -3476,7 +3477,6 @@ uint8_t cnmGetDbdcBwCapability(IN struct ADAPTER
 			       IN uint8_t ucBssIndex)
 {
 	uint8_t ucMaxBw = MAX_BW_20MHZ;
-	struct BSS_INFO *prBssInfo;
 
 	ucMaxBw = cnmGetBssMaxBw(prAdapter, ucBssIndex);
 
@@ -3487,11 +3487,6 @@ uint8_t cnmGetDbdcBwCapability(IN struct ADAPTER
 	/* TODO: BW80+80 support */
 	if (ucMaxBw == MAX_BW_80_80_MHZ)
 		ucMaxBw = MAX_BW_80MHZ; /* VHT should default support BW80 */
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	if (prBssInfo->ucVhtChannelWidthBackup) {
-		DBGLOG(CNM, INFO, "Limit BW to 20MHz due to COEX\n");
-		ucMaxBw = MAX_BW_20MHZ;
-	}
 
 	return ucMaxBw;
 }
@@ -4862,10 +4857,11 @@ void cnmPowerControlErrorHandling(
 		break;
 	case NETWORK_TYPE_P2P:
 		p2pFuncDisconnect(prAdapter,
-					prBssInfo,
-					prBssInfo->prStaRecOfAP,
-					FALSE,
-					REASON_CODE_OP_MODE_CHANGE_FAIL);
+			prBssInfo,
+			prBssInfo->prStaRecOfAP,
+			TRUE,
+			REASON_CODE_OP_MODE_CHANGE_FAIL,
+			TRUE);
 		break;
 	default:
 		break;

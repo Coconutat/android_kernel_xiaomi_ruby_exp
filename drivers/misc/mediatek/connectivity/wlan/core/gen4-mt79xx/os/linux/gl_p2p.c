@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -247,6 +247,7 @@ mtk_cfg80211_default_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 #endif
 #endif
 
+#if 0
 static const struct iw_priv_args rP2PIwPrivTable[] = {
 	{
 	 .cmd = IOC_P2P_CFG_DEVICE,
@@ -323,7 +324,6 @@ static const struct iw_priv_args rP2PIwPrivTable[] = {
 	 .name = "get_oid"}
 };
 
-#if 0
 const struct iw_handler_def mtk_p2p_wext_handler_def = {
 	.num_standard = (__u16) sizeof(rP2PIwStandardHandler)
 					/ sizeof(iw_handler),
@@ -342,9 +342,11 @@ const struct iw_handler_def mtk_p2p_wext_handler_def = {
 #endif
 
 #ifdef CONFIG_PM
+#if KERNEL_VERSION(3, 9, 0) > CFG80211_VERSION_CODE
 static const struct wiphy_wowlan_support mtk_p2p_wowlan_support = {
 	.flags = WIPHY_WOWLAN_DISCONNECT | WIPHY_WOWLAN_ANY,
 };
+#endif
 #endif
 
 static const struct ieee80211_iface_limit mtk_p2p_sta_go_limits[] = {

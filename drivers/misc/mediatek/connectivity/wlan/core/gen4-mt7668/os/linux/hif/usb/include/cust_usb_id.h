@@ -90,6 +90,17 @@
 *                                 M A C R O S
 ********************************************************************************
 */
+#if CFG_CHIP_RESET_SUPPORT
+	/**
+	* For chip reset pin set low time
+	*/
+#define RESET_PIN_SET_LOW_TIME		500
+	
+	/**
+	 * For chip reset pin number configureation
+	 */
+#define WIFI_DONGLE_RESET_GPIO_PIN	220
+#endif
 
 /*!
  * \brief Additional USB vid/pid tables for customers.

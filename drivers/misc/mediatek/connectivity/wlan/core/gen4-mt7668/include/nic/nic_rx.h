@@ -784,6 +784,11 @@ typedef struct _EMU_MAC_RATE_INFO_T {
 	UINT_32 u4PhyRate[4][2];
 } EMU_MAC_RATE_INFO_T, *P_EMU_MAC_RATE_INFO_T;
 
+struct ACTION_FRAME_SIZE_MAP {
+	uint16_t u2Index; /* High byte for Action, low byte for Category */
+	size_t len;
+};
+
 /*******************************************************************************
 *                           P R I V A T E   D A T A
 ********************************************************************************

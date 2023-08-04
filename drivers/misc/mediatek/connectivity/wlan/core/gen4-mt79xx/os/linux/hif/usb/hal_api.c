@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -547,6 +547,9 @@ uint32_t halTxUSBSendData(IN struct GLUE_INFO *prGlueInfo, IN struct MSDU_INFO *
 #else
 	int ret;
 #endif
+#if (CFG_SUPPORT_TX_SG == 1)
+	int i;
+#endif /* CFG_SUPPORT_TX_SG */
 
 	prChipInfo = prGlueInfo->prAdapter->chip_info;
 	skb = (struct sk_buff *)prMsduInfo->prPacket;
@@ -608,8 +611,19 @@ uint32_t halTxUSBSendData(IN struct GLUE_INFO *prGlueInfo, IN struct MSDU_INFO *
 	HAL_WRITE_HIF_TXD(prChipInfo, prBufCtrl->pucBuf + prBufCtrl->u4WrIdx,
 				u4Length, TXD_PKT_FORMAT_TXD_PAYLOAD);
 	prBufCtrl->u4WrIdx += prChipInfo->u2HifTxdSize;
-	memcpy(prBufCtrl->pucBuf + prBufCtrl->u4WrIdx, pucBuf, u4Length);
-	prBufCtrl->u4WrIdx += u4Length;
+	memcpy(prBufCtrl->pucBuf + prBufCtrl->u4WrIdx, pucBuf,
+		u4Length - skb->data_len);
+	prBufCtrl->u4WrIdx += (u4Length - skb->data_len);
+#if (CFG_SUPPORT_TX_SG == 1)
+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+
+		memcpy(prBufCtrl->pucBuf + prBufCtrl->u4WrIdx,
+			skb_frag_address(frag),
+			skb_frag_size(frag));
+		prBufCtrl->u4WrIdx += skb_frag_size(frag);
+	}
+#endif /* CFG_SUPPORT_TX_SG */
 
 	u4PaddingLength = (ALIGN_4(u4TotalLen) - u4TotalLen);
 	if (u4PaddingLength) {

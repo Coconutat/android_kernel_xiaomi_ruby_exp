@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -220,6 +220,17 @@
 #define HE_CAP_INFO_MCS_MAP_MCS9                       1
 #define HE_CAP_INFO_MCS_MAP_MCS11                      2
 #define HE_CAP_INFO_MCS_NOT_SUPPORTED                  3
+
+#define HE_CAP_INFO_MCS_1SS_MASK                       BITS(0, 1)
+#define HE_CAP_INFO_MCS_2SS_MASK                       BITS(2, 3)
+#define HE_CAP_INFO_MCS_3SS_MASK                       BITS(4, 5)
+#define HE_CAP_INFO_MCS_4SS_MASK                       BITS(6, 7)
+#define HE_CAP_INFO_MCS_5SS_MASK                       BITS(8, 9)
+#define HE_CAP_INFO_MCS_6SS_MASK                       BITS(10, 11)
+#define HE_CAP_INFO_MCS_7SS_MASK                       BITS(12, 13)
+#define HE_CAP_INFO_MCS_8SS_MASK                       BITS(14, 15)
+
+#define HE_CAP_MAX_AMPDU_LEN_EXP                       3
 
 /* PPE Threshold Field */
 #define HE_CAP_PPE_NSS                                 BITS(0, 2)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2017 MediaTek Inc.
  */
@@ -586,8 +586,8 @@ void twtProcessS1GAction(
 				*/
 				prTWTHotspotParam->ucSetupCmd =
 					(ucTWTHotspotRejectSetupReq) ?
-						TWT_SETUP_CMD_REJECT :
-						TWT_SETUP_CMD_ACCEPT;
+						TWT_SETUP_CMD_TWT_REJECT :
+						TWT_SETUP_CMD_TWT_ACCEPT;
 
 				prTWTHotspotParam->ucMinWakeDur =
 					prRxSetupFrame->rTWT.ucMinWakeDur;

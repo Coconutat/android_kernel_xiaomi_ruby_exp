@@ -2616,10 +2616,7 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 	}
 	,
 	{	{'U', 'S'}
-		, 102, {48, 48, 48, 48, 48, 48, 40, 40, 48, 48, 48, 48}
-#ifdef SP_UPLOAD
 		, 102, {48, 48, 48, 48, 48, 48, 29, 29, 48, 48, 48, 48}
-#endif
 	}
 	,
 	{	{'U', 'S'}
@@ -2647,11 +2644,8 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 	}
 	,
 	{	{'U', 'S'}
-		, 106, {48, 48, 48, 48, 48, 48, 48, 48, 40, 40, 48, 48}
-#ifdef SP_UPLOAD
 		, 106, {48, 48, 48, 48, 48, 48, 48, 48, 25, 25, 48, 48}
-#endif	
-    }
+	}
 	,
 	{	{'U', 'S'}
 		, 122, {48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48}
@@ -2923,7 +2917,7 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 	}
 	,
 	{	{'U', 'S'}
-		, 102, {48, 48, 48, 40, 40, 48, 48, 48, 48}
+		, 102, {48, 48, 48, 29, 29, 48, 48, 48, 48}
 	}
 	,
 	{	{'U', 'S'}
@@ -2951,7 +2945,7 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 	}
 	,
 	{	{'U', 'S'}
-		, 106, {48, 48, 48, 48, 48, 40, 40, 48, 48}
+		, 106, {48, 48, 48, 48, 48, 25, 25, 48, 48}
 	}
 	,
 	{	{'U', 'S'}
@@ -3109,6 +3103,45 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 	}
 };
 #endif
+
+static struct COUNTRY_POWER_LIMIT_COUNTRY_CODE g_u2CountryLimitGrp0[] = {};
+
+static struct COUNTRY_POWER_LIMIT_COUNTRY_CODE g_u2CountryLimitGrp1[] = {};
+
+static struct COUNTRY_POWER_LIMIT_COUNTRY_CODE g_u2CountryLimitGrp2[] = {};
+
+static struct COUNTRY_POWER_LIMIT_COUNTRY_CODE g_u2CountryLimitGrp3[] = {};
+
+struct COUNTRY_POWER_LIMIT_GROUP_TABLE arSupportCountryPowerLmtGrps[] = {
+	{
+		{'G', '0'},
+		sizeof(g_u2CountryLimitGrp0) /
+			sizeof(struct COUNTRY_POWER_LIMIT_COUNTRY_CODE),
+		g_u2CountryLimitGrp0
+	},
+	{
+		{'G', '1'},
+		sizeof(g_u2CountryLimitGrp1) /
+			sizeof(struct COUNTRY_POWER_LIMIT_COUNTRY_CODE),
+		g_u2CountryLimitGrp1
+	},
+	{
+		{'G', '2'},
+		sizeof(g_u2CountryLimitGrp2) /
+			sizeof(struct COUNTRY_POWER_LIMIT_COUNTRY_CODE),
+		g_u2CountryLimitGrp2
+	},
+	{
+		{'G', '3'},
+		sizeof(g_u2CountryLimitGrp3) /
+			sizeof(struct COUNTRY_POWER_LIMIT_COUNTRY_CODE),
+		g_u2CountryLimitGrp3
+	}
+
+#define COUNTRY_LIMIT_GROUP_NUM \
+		(sizeof(arSupportCountryPowerLmtGrps) \
+			/ sizeof(struct COUNTRY_POWER_LIMIT_GROUP_TABLE))
+};
 #endif
 
 /*******************************************************************************

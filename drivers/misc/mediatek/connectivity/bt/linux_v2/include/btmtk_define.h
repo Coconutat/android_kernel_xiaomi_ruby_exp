@@ -34,8 +34,12 @@
 #include <linux/vmalloc.h>
 #include <linux/rtc.h>
 
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+#include "reset.h"
+#endif
+
 /** Driver version */
-#define VERSION "7.0.2022031401"
+#define VERSION "7.0.2022053101"
 #define SUBVER ":turnkey"
 
 #ifdef CFG_SUPPORT_WAKEUP_IRQ
@@ -129,7 +133,7 @@ extern uint8_t btmtk_log_lvl;
 #define BTMTK_WARN_LIMITTED(fmt, ...)	\
 	do { \
 		if (btmtk_log_lvl >= BTMTK_LOG_LVL_WARN)	\
-			pr_info("[btmtk_warn_limit] "fmt"\n", ##__VA_ARGS__);	\
+			pr_info(KERN_WARNING "[btmtk_warn_limit] "fmt"\n", ##__VA_ARGS__);	\
 	} while (0)
 
 #define BTMTK_INFO_RAW(p, l, fmt, ...)						\
@@ -300,15 +304,6 @@ struct bt_cfg_struct {
 	struct fw_cfg_struct audio_pinmux_mode;	/* support on set audio pinmux mode command customization */
 };
 
-struct bt_utc_struct {
-	struct rtc_time tm;
-	u32 usec;
-};
-
-#define BT_DOWNLOAD	1
-#define WIFI_DOWNLOAD	2
-#define ZB_DOWNLOAD	3
-
 enum debug_reg_index_len {
 	DEBUG_REG_INX_LEN_NONE = 0,
 	DEBUG_REG_INX_LEN_2 = 2,
@@ -327,6 +322,15 @@ struct debug_reg_struct {
 	struct debug_reg	*reg;
 	u32	num;
 };
+
+struct bt_utc_struct {
+	struct rtc_time tm;
+	u32 usec;
+};
+
+#define BT_DOWNLOAD	1
+#define WIFI_DOWNLOAD	2
+#define ZB_DOWNLOAD	3
 
 #define SWAP32(x) \
 	((u32) (\
@@ -352,6 +356,7 @@ struct debug_reg_struct {
 #define CHIP_ID	0x70010200
 #define FLAVOR	0x70010020
 
+#define ZB_ENABLE	0x7C00114C
 
 #ifndef DEBUG_LD_PATCH_TIME
 #define DEBUG_LD_PATCH_TIME 0
@@ -376,6 +381,15 @@ void btmtk_getUTCtime(struct bt_utc_struct *utc);
 	} while (0)
 #else
 #define DUMP_TIME_STAMP(__str)
+#endif
+
+#if CFG_SUPPORT_BMR_RX_CLK
+#define ENABLE_DEINT_IRQ 1
+#include <mt-plat/mtk_secure_api.h>
+extern int mtk_deint_enable(unsigned int eint_num, unsigned int spi_num, unsigned long type);
+extern int mtk_deint_ack(unsigned int irq);
+#define MTK_SIP_BT_FIQ_REG (0x82000523 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_BT_GET_CLK (0x82000524 | MTK_SIP_SMC_AARCH_BIT)
 #endif
 
 #endif /* __BTMTK_DEFINE_H__ */

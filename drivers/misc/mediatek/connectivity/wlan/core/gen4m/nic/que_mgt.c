@@ -146,9 +146,7 @@ const uint8_t aucWmmAC2TcResourceSet2[WMM_AC_INDEX_NUM] = {
 static uint16_t arpMoniter;
 static uint8_t apIp[4];
 static uint8_t gatewayIp[4];
-uint8_t aucGatewayMacAddr[MAC_ADDR_LEN];
 static uint32_t last_rx_packets, latest_rx_packets;
-static uint32_t last_rx_unicast_packet_time, lastest_rx_unicast_packet_time;
 #endif
 /*******************************************************************************
  *                                 M A C R O S
@@ -1387,6 +1385,7 @@ void qmDetermineStaRecIndex(IN struct ADAPTER *prAdapter,
 	switch (prBssInfo->eCurrentOPMode) {
 	case OP_MODE_IBSS:
 	case OP_MODE_ACCESS_POINT:
+	case OP_MODE_NAN:
 		/* 4 <1> DA = BMCAST */
 		if (IS_BMCAST_MAC_ADDR(prMsduInfo->aucEthDestAddr)) {
 			prMsduInfo->ucStaRecIndex = STA_REC_INDEX_BMCAST;
@@ -3377,8 +3376,8 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 		if (prCurrSwRfb->fgDataFrame && prCurrSwRfb->prStaRec &&
 			qmAmsduAttackDetection(prAdapter, prCurrSwRfb)) {
 			prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
-			DBGLOG(QM, INFO,
-				"drop AMSDU attack packet\n");
+			DBGLOG(QM, INFO, "drop AMSDU attack packet SN:%d\n",
+					prCurrSwRfb->u2SSN);
 		}
 
 		if (prCurrSwRfb->fgDataFrame && prCurrSwRfb->prStaRec &&
@@ -3673,6 +3672,9 @@ u_int8_t qmAmsduAttackDetection(IN struct ADAPTER *prAdapter,
 		pucPaylod = prSwRfb->pvHeader + prSwRfb->u2HeaderLen;
 	}
 
+	/* record SSN */
+	prSwRfb->u2SSN = u2SSN;
+
 	/* 802.11 header RA */
 	ucBssIndex = prSwRfb->prStaRec->ucBssIndex;
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
@@ -3951,18 +3953,24 @@ static void qmLogDropFallBehind(IN struct ADAPTER *prAdapter,
 {
 	uint16_t u2LastDrop = prReorderQueParm->u2LastFallBehindDropSN;
 	uint16_t u2DropGap = (u4SeqNo - u2LastDrop) & MAX_SEQ_NO;
+	uint64_t u8Count;
 
 	prReorderQueParm->u2LastFallBehindDropSN = u4SeqNo;
 
 	if (u2DropGap <= 1)
 		return;
 
-	DBGLOG(RX, INFO,
-	       "QM:(D)[%u](~%u)(%u~){%u,%u} BAR SSN:%u/%u total:%lu",
-	       ucTid, u2LastDrop, u4SeqNo,
-	       u4WinStart, u4WinEnd,
-	       IS_BAR_SSN_VALID(prReorderQueParm->u2BarSSN) ? 1 : 0, u4BarSSN,
-	       RX_GET_CNT(&prAdapter->rRxCtrl, RX_REORDER_BEHIND_DROP_COUNT));
+	u8Count = RX_GET_CNT(&prAdapter->rRxCtrl, RX_REORDER_BEHIND_DROP_COUNT);
+	if (IS_BAR_SSN_VALID(prReorderQueParm->u2BarSSN))
+		DBGLOG(RX, INFO,
+		       "QM:(D)[%u](~%u)(%u~){%u,%u} BAR SSN:%u/%u total:%lu",
+		       ucTid, u2LastDrop, u4SeqNo, u4WinStart, u4WinEnd, 1,
+		       u4BarSSN, u8Count);
+	else
+		DBGLOG(RX, TRACE,
+		       "QM:(D)[%u](~%u)(%u~){%u,%u} BAR SSN:%u/%u total:%lu",
+		       ucTid, u2LastDrop, u4SeqNo, u4WinStart, u4WinEnd, 0,
+		       u4BarSSN, u8Count);
 }
 
 void qmInsertReorderPkt(IN struct ADAPTER *prAdapter,
@@ -5538,6 +5546,9 @@ void mqmProcessAssocRsp(IN struct ADAPTER *prAdapter,
 			/*TODO */
 #endif
 
+#if ARP_MONITER_ENABLE
+			qmResetArpDetect();
+#endif
 		}
 		DBGLOG(QM, TRACE,
 			"MQM: Assoc_Rsp Parsing (QoS Enabled=%d)\n",
@@ -6614,7 +6625,8 @@ enum ENUM_FRAME_ACTION qmGetFrameAction(IN struct ADAPTER *prAdapter,
 	DEBUGFUNC("qmGetFrameAction");
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, ucStaRecIdx);
+	prStaRec = cnmGetStaRecByIndexWithoutInUseCheck(prAdapter,
+			ucStaRecIdx);
 
 	do {
 		/* 4 <1> Tx, if FORCE_TX is set */
@@ -6624,14 +6636,14 @@ enum ENUM_FRAME_ACTION qmGetFrameAction(IN struct ADAPTER *prAdapter,
 				eFrameAction = FRAME_ACTION_TX_PKT;
 				break;
 			}
-		}
-#if CFG_SUPPORT_NAN
-		if (prMsduInfo->ucTxToNafQueFlag == TRUE) {
-			eFrameAction = FRAME_ACTION_TX_PKT;
-			break;
-		}
-#endif
 
+#if CFG_SUPPORT_NAN
+			if (prMsduInfo->ucTxToNafQueFlag == TRUE) {
+				eFrameAction = FRAME_ACTION_TX_PKT;
+				break;
+			}
+#endif
+		}
 		/* 4 <2> Drop, if BSS is inactive */
 		if (!IS_BSS_ACTIVE(prBssInfo)) {
 			DBGLOG(QM, TRACE,
@@ -6690,7 +6702,6 @@ enum ENUM_FRAME_ACTION qmGetFrameAction(IN struct ADAPTER *prAdapter,
 				}
 			}
 		}
-
 	} while (FALSE);
 
 	/* <5> Resource CHECK! */
@@ -8152,10 +8163,8 @@ void qmDetectArpNoResponse(struct ADAPTER *prAdapter,
 	struct WIFI_VAR *prWifiVar = NULL;
 	uint32_t uArpMonitorNumber;
 	uint32_t uArpMonitorRxPktNum;
-	uint8_t ucArpMonitorUseRule;
 	struct net_device *prNetDev = NULL;
 	struct GLUE_INFO *prGlueInfo = NULL;
-	struct RX_CTRL	*prRxCtrl = NULL;
 
 	if (!prAdapter ||
 		!prAdapter->prGlueInfo ||
@@ -8168,8 +8177,6 @@ void qmDetectArpNoResponse(struct ADAPTER *prAdapter,
 	prWifiVar = &prAdapter->rWifiVar;
 	uArpMonitorNumber = prWifiVar->uArpMonitorNumber;
 	uArpMonitorRxPktNum = prWifiVar->uArpMonitorRxPktNum;
-	ucArpMonitorUseRule = prWifiVar->ucArpMonitorUseRule;
-	prRxCtrl = &prAdapter->rRxCtrl;
 
 	if (uArpMonitorNumber == 0)
 		return;
@@ -8203,102 +8210,42 @@ void qmDetectArpNoResponse(struct ADAPTER *prAdapter,
 	if (u2EtherType != ETH_P_ARP)
 		return;
 
-  DBGLOG(INIT, LOUD, "apIp:" IPV4STR " gatewayIp:" IPV4STR
-  	"(MAC:" MACSTR ") arprspip:" IPV4STR "\n",
-  	IPV4TOSTR(&apIp[0]),
-  	IPV4TOSTR(&gatewayIp[0]),
-  	MAC2STR(&aucGatewayMacAddr[0]),
-  	IPV4TOSTR(&pucData[ETH_TYPE_LEN_OFFSET + 26]));
-
 	/* If ARP req is neither to apIp nor to gatewayIp, ignore detection */
-	if (kalMemCmp(apIp, &pucData[ETH_TYPE_LEN_OFFSET + 26],	sizeof(apIp))
-		&& kalMemCmp(gatewayIp, &pucData[ETH_TYPE_LEN_OFFSET + 26], sizeof(gatewayIp))) {
-		DBGLOG_LIMITED(INIT, INFO, "Ignore Arp detection\n");
+	if (kalMemCmp(apIp, &pucData[ETH_TYPE_LEN_OFFSET + 26],
+		sizeof(apIp)) &&
+		kalMemCmp(gatewayIp, &pucData[ETH_TYPE_LEN_OFFSET + 26],
+		sizeof(gatewayIp)))
 		return;
-	}
 
 	arpOpCode = (pucData[ETH_TYPE_LEN_OFFSET + 8] << 8) |
 		(pucData[ETH_TYPE_LEN_OFFSET + 8 + 1]);
 
 	if (arpOpCode == ARP_PRO_REQ) {
 		arpMoniter++;
-
-		if (ucArpMonitorUseRule == 0) {
-			/* Record counts of RX Packets when Tx 1st ARP Req */
-			if (!last_rx_packets) {
-				last_rx_packets = prNetDev->stats.rx_packets;
-				latest_rx_packets = 0;
-				DBGLOG(INIT, LOUD, "1st ARP Req: last_rx_packets=%u\n", last_rx_packets);
-			}
-			/* Record counts of RX Packets when TX ARP Req recently */
-			latest_rx_packets = prNetDev->stats.rx_packets;
-			
-			DBGLOG(INIT, LOUD, "config[%d/%d/%d] arp#%d/%d pkt-diff(%u-%u=%d)\n",
-				uArpMonitorNumber,
-				uArpMonitorRxPktNum,
-				ucArpMonitorUseRule,
-				arpMoniter,
-				uArpMonitorNumber,
-				latest_rx_packets,
-				last_rx_packets,
-				latest_rx_packets - last_rx_packets);
-				
-			if (arpMoniter > uArpMonitorNumber) {
-				if ((latest_rx_packets - last_rx_packets) <=
-					uArpMonitorRxPktNum) {
-					DBGLOG(INIT, WARN, "IOT issue, arp no resp!\n");
-					if (prAisBssInfo)
-						prAisBssInfo->u2DeauthReason =
-					BEACON_TIMEOUT_DUE_2_APR_NO_RESPONSE;
-					prAdapter->cArpNoResponseIdx =
-					prStaRec->ucBssIndex;
-				} else
-					DBGLOG(INIT, WARN, "ARP, still have %d pkts\n",
-						latest_rx_packets - last_rx_packets);
-				arpMoniter = 0;
-				last_rx_packets = 0;
-				latest_rx_packets = 0;
-				kalMemZero(apIp, sizeof(apIp));
-			}
+		/* Record counts of RX Packets when Tx 1st ARP Req */
+		if (!last_rx_packets) {
+			last_rx_packets = prNetDev->stats.rx_packets;
+			latest_rx_packets = 0;
 		}
-		else if (ucArpMonitorUseRule == 1) {
-			if (!last_rx_unicast_packet_time) {
-				last_rx_unicast_packet_time = prRxCtrl->u4LastUnicastRxTime[prStaRec->ucBssIndex];
-				lastest_rx_unicast_packet_time = 0;
-				DBGLOG(INIT, INFO, "1st ARP Req: last_rx_unicast_packet_time=%u\n",
-					last_rx_unicast_packet_time);
-			}
-			lastest_rx_unicast_packet_time = prRxCtrl->u4LastUnicastRxTime[prStaRec->ucBssIndex];
-
-			DBGLOG(INIT, LOUD, "[new rule] config[%d/%d/%d] arp#%d/%d time-diff(%u-%u=%d)\n",
-				uArpMonitorNumber,
-				uArpMonitorRxPktNum,
-				ucArpMonitorUseRule,
-				arpMoniter,
-				uArpMonitorNumber,
-				lastest_rx_unicast_packet_time,
-				last_rx_unicast_packet_time,
-				lastest_rx_unicast_packet_time - last_rx_unicast_packet_time);
-
-			if (arpMoniter > uArpMonitorNumber) {
-				if ((lastest_rx_unicast_packet_time - last_rx_unicast_packet_time) ==
-					0) {
-					DBGLOG(INIT, WARN, "[new rule] IOT issue, arp no resp!\n");
-					if (prAisBssInfo)
-						prAisBssInfo->u2DeauthReason =
-					BEACON_TIMEOUT_DUE_2_APR_NO_RESPONSE;
-					prAdapter->cArpNoResponseIdx =
-					prStaRec->ucBssIndex;
-				} else
-					DBGLOG(INIT, WARN, "[new rule] ARP, still have pkts. update time{lastest %u last %u}\n",
-						lastest_rx_unicast_packet_time, last_rx_unicast_packet_time);
-				arpMoniter = 0;
-				last_rx_unicast_packet_time = 0;
-				lastest_rx_unicast_packet_time = 0;
-				kalMemZero(apIp, sizeof(apIp));
-			}
-		} else
-				DBGLOG(INIT, WARN, "ARP monitor rule mismatch!\n");
+		/* Record counts of RX Packets when TX ARP Req recently */
+		latest_rx_packets = prNetDev->stats.rx_packets;
+		if (arpMoniter > uArpMonitorNumber) {
+			if ((latest_rx_packets - last_rx_packets) <=
+				uArpMonitorRxPktNum) {
+				DBGLOG(INIT, WARN, "IOT issue, arp no resp!\n");
+				if (prAisBssInfo)
+					prAisBssInfo->u2DeauthReason =
+				BEACON_TIMEOUT_DUE_2_APR_NO_RESPONSE;
+				prAdapter->cArpNoResponseIdx =
+				prStaRec->ucBssIndex;
+			} else
+				DBGLOG(INIT, WARN, "ARP, still have %d pkts\n",
+					latest_rx_packets - last_rx_packets);
+			arpMoniter = 0;
+			last_rx_packets = 0;
+			latest_rx_packets = 0;
+			kalMemZero(apIp, sizeof(apIp));
+		}
 	}
 }
 
@@ -8342,9 +8289,6 @@ void qmHandleRxArpPackets(struct ADAPTER *prAdapter,
 				DBGLOG(INIT, TRACE,
 					"get arp response from AP %d.%d.%d.%d\n",
 					apIp[0], apIp[1], apIp[2], apIp[3]);
-			#if ARP_BRUST_OPTIMIZE
-					kalMemCopy((uint8_t *)&(prAdapter->arp_b_stat.apIp), apIp, sizeof(apIp));
-			#endif
 			}
 		}
 	}
@@ -8435,13 +8379,8 @@ void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
 
 				DBGLOG(INIT, TRACE, "Gateway ip: " IPV4STR "\n",
 					IPV4TOSTR(&gatewayIp[0]));
-			#if ARP_BRUST_OPTIMIZE
-				kalMemCopy((uint8_t *) &(prAdapter->arp_b_stat.gatewayIp), gatewayIp, sizeof(gatewayIp));
-			#endif
 			};
 			dhcpGatewayGot = 1;
-			/* Record the MAC address of gateway */
-			qmGetRxSrcMac(prAdapter, prSwRfb, &aucGatewayMacAddr[0]);
 			break;
 		case 53:
 			if (prBootp->aucOptions[i + 6] != 0x02
@@ -8449,12 +8388,9 @@ void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
 				DBGLOG(INIT, WARN,
 					"wrong dhcp message type, type: %d\n",
 				  prBootp->aucOptions[i + 6]);
-				if (dhcpGatewayGot) {
+				if (dhcpGatewayGot)
 					kalMemZero(gatewayIp,
 						sizeof(gatewayIp));
-					kalMemZero(aucGatewayMacAddr,
-						sizeof(aucGatewayMacAddr));
-				}
 				return;
 			} else if (prBootp->aucOptions[i + 6] == 0x05) {
 				uint8_t ucBssIndex =
@@ -8483,64 +8419,13 @@ void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
 	       "can't find the dhcp option 255?, need to check the net log\n");
 }
 
-void qmResetArpDetect(struct ADAPTER *prAdapter,
-				uint8_t ucBssIndex)
+void qmResetArpDetect(void)
 {
-	struct ROAMING_INFO *prRoamingFsmInfo;
-
-	if (!prAdapter)
-		return;
-
-	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);	
-	DBGLOG(INIT, INFO, "ucBssIndex[%d] RoamingState[%d] aisFsmIsInProcessPostpone[%d]\n",
-		ucBssIndex,
-		prRoamingFsmInfo->eCurrentState,
-		aisFsmIsInProcessPostpone(prAdapter, ucBssIndex));
-
 	arpMoniter = 0;
 	last_rx_packets = 0;
 	latest_rx_packets = 0;
-	lastest_rx_unicast_packet_time = 0;
-	last_rx_unicast_packet_time = 0;
 	kalMemZero(apIp, sizeof(apIp));
-	
-	//Don't reset the gatewayip while roaming or processing BTO
-	if (!(prRoamingFsmInfo->eCurrentState == ROAMING_STATE_ROAM
-			|| (prRoamingFsmInfo->eCurrentState == ROAMING_STATE_IDLE
-					&& aisFsmIsInProcessPostpone(prAdapter, ucBssIndex)))) {
-		kalMemZero(gatewayIp, sizeof(gatewayIp));
-		kalMemZero(aucGatewayMacAddr, sizeof(aucGatewayMacAddr));
-		DBGLOG(INIT, INFO, "Reset gatewayIp and gatewayMac\n");
-	}
-}
-
-void qmGetRxSrcMac(IN struct ADAPTER *prAdapter,
-	IN struct SW_RFB *prSwRfb, OUT uint8_t *prMacAddr)
-{
-	uint8_t *pucSaAddr = NULL;
-	uint8_t *pucPaylod = NULL;
-
-	if (!prAdapter)
-		return;
-
-	if (!prSwRfb)
-		return;
-
-	if (prSwRfb->u2PacketLen <= ETHER_HEADER_LEN + IP_HEADER_LEN)
-		return;
-		
-	if (!prSwRfb->pvHeader)
-		return;
-	
-	if (prSwRfb->fgHdrTran)
-		pucPaylod = prSwRfb->pvHeader;
-	else
-		pucPaylod = prSwRfb->pvHeader + prSwRfb->u2HeaderLen;
-
-	/* SA */
-	pucSaAddr = pucPaylod + MAC_ADDR_LEN;	
-
-	COPY_MAC_ADDR(prMacAddr, pucSaAddr);
+	kalMemZero(gatewayIp, sizeof(gatewayIp));
 }
 #endif
 

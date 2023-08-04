@@ -2489,7 +2489,7 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 #define CMD_RM_IT		"RM-IT"
 #define CMD_DUMP_UAPSD		"dumpuapsd"
 #define CMD_FW_EVENT		"FW-EVENT "
-#define CMD_O_SAR		"O-SAR-ENABLE"
+#define CMD_O_SAR		"O-SAR-ENABLE "
 #define CMD_FW_PARAM            "set_fw_param "
 #define CMD_RSSI_DISCONNECT	"DISCONRSSI"
 #define PRIV_CMD_SIZE 512
@@ -3353,6 +3353,7 @@ static int priv_driver_get_wifi_type(IN struct net_device *prNetDev,
 		return -1;
 	}
 
+	kalMemZero(&rParamGetWifiType, sizeof(rParamGetWifiType));
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
 
 	rParamGetWifiType.prNetDev = prNetDev;

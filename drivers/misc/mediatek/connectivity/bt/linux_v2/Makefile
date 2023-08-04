@@ -1,12 +1,37 @@
-export KERNEL_SRC := /lib/modules/$(shell uname -r)/build
+ifeq ($(LINUX_SRC), )
+	export KERNEL_SRC := /lib/modules/$(shell uname -r)/build
+else
+	export KERNEL_SRC := $(LINUX_SRC)
+endif
 #################### Configurations ####################
 # Compile Options for bt driver configuration.
 CONFIG_SUPPORT_BT_DL_WIFI_PATCH=y
-CONFIG_SUPPORT_BT_DL_ZB_PATCH=y
+CONFIG_SUPPORT_BT_DL_ZB_PATCH=n
 CONFIG_SUPPORT_BLUEZ=n
 CONFIG_SUPPORT_DVT=n
 CONFIG_SUPPORT_HW_DVT=n
 CONFIG_SUPPORT_MULTI_DEV_NODE=n
+CONFIG_GKI_SUPPORT=y
+CONFIG_SUPPORT_WAKEUP_SER=y
+CONFIG_DISABLE_SYMBOL_GET_SET=y
+
+ifeq ($(CONFIG_MP_WAKEUP_SOURCE_SYSFS_STAT), y)
+    ccflags-y += -DCONFIG_MP_WAKEUP_SOURCE_SYSFS_STAT
+endif
+
+ifeq ($(CONFIG_GKI_SUPPORT), y)
+ccflags-y += -DCFG_CHIP_RESET_KO_SUPPORT
+ccflags-y += -I$(src)/../../wlan_sdio_reset.ko_intermediates/LINKED/reset/include/
+ccflags-y += -I$(src)/../../wlan/core/gen4-mt79xx/reset/include/
+
+RESET_DIR = $(shell pwd)/../../ETC/wlan_sdio_reset.ko_intermediates/LINKED/Module.symvers
+$(info 'RESET_DIR=' $(RESET_DIR))
+KBUILD_EXTRA_SYMBOLS += $(RESET_DIR)
+endif
+
+ifeq ($(CONFIG_DISABLE_SYMBOL_GET_SET), y)
+    ccflags-y += -DCONFIG_DISABLE_SYMBOL_GET_SET
+endif
 
 ifneq ($(TARGET_BUILD_VARIANT), user)
     ccflags-y += -DBUILD_QA_DBG=1
@@ -38,8 +63,10 @@ else
     ccflags-y += -DCFG_SUPPORT_HW_DVT=0
 endif
 
-ifeq ($(SUPPORT_WAKEUP_IRQ), yes)
-    ccflags-y += -DCFG_SUPPORT_WAKEUP_IRQ
+ifeq ($(CONFIG_SUPPORT_WAKEUP_SER), y)
+    ccflags-y += -DCFG_SUPPORT_WAKEUP_IRQ=1
+else
+    ccflags-y += -DCFG_SUPPORT_WAKEUP_IRQ=0
 endif
 
 ifeq ($(CONFIG_SUPPORT_DVT), y)
@@ -52,6 +79,13 @@ ifeq ($(CONFIG_SUPPORT_MULTI_DEV_NODE), y)
     ccflags-y += -DCFG_SUPPORT_MULTI_DEV_NODE=1
 else
     ccflags-y += -DCFG_SUPPORT_MULTI_DEV_NODE=0
+endif
+
+ifeq ($(CONFIG_SUPPORT_BMR_RX_CLK), y)
+    ccflags-y += -DCFG_SUPPORT_BMR_RX_CLK=1
+    ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+else
+    ccflags-y += -DCFG_SUPPORT_BMR_RX_CLK=0
 endif
 
 #################### Configurations ####################
@@ -90,7 +124,7 @@ CFILES += btmtk_main.c btmtk_fw_log.c
 
 ccflags-y += -I$(src)/include/ -I$(KERNEL_SRC)/include/ -I$(KERNEL_SRC)/drivers/bluetooth
 
-ccflags-y += -DLINUX_OS
+ccflags-y += -DANDROID_OS
 ccflags-y += -Werror
 
 $(MOD_NAME)-objs := $(CFILES:.c=.o)

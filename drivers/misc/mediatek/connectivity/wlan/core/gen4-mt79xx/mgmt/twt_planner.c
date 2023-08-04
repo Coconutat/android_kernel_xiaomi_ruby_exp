@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2017 MediaTek Inc.
  */
@@ -796,11 +796,9 @@ uint64_t twtPlannerAdjustNextTWT(struct ADAPTER *prAdapter,
 	uint64_t u8NextTWTOrig)
 {
 	uint8_t ucAgrtTblIdx;
-	struct _TWT_PARAMS_T rTWTParams;
+	struct _TWT_PARAMS_T rTWTParams = {0};
 	uint64_t u8Diff;
 	uint32_t u4WakeIntvl;
-
-	memset(&rTWTParams, 0, sizeof(rTWTParams));
 
 	twtPlannerDrvAgrtGet(prAdapter, ucBssIdx, ucFlowId,
 		&ucAgrtTblIdx, &rTWTParams);
@@ -1228,7 +1226,7 @@ void twtPlannerRxNegoResult(
 	prTWTResult = &(prTWTFlow->rTWTPeerParams);
 
 	switch (prTWTResult->ucSetupCmd) {
-	case TWT_SETUP_CMD_ACCEPT:
+	case TWT_SETUP_CMD_TWT_ACCEPT:
 		/* Update agreement table */
 		twtPlannerAddAgrtTbl(prAdapter, prBssInfo, prStaRec,
 			prTWTResult, ucTWTFlowId, FALSE,
@@ -1241,18 +1239,18 @@ void twtPlannerRxNegoResult(
 
 		break;
 
-	case TWT_SETUP_CMD_ALTERNATE:
-	case TWT_SETUP_CMD_DICTATE:
+	case TWT_SETUP_CMD_TWT_ALTERNATE:
+	case TWT_SETUP_CMD_TWT_DICTATE:
 		/* Use AP's suggestions */
 		prTWTParams = &(prTWTFlow->rTWTParams);
 		kalMemCopy(prTWTParams,
 			prTWTResult, sizeof(struct _TWT_PARAMS_T));
-		prTWTParams->ucSetupCmd = TWT_SETUP_CMD_SUGGEST;
+		prTWTParams->ucSetupCmd = TWT_SETUP_CMD_TWT_SUGGEST;
 		prTWTParams->fgReq = 1;
 		twtPlannerSendReqStart(prAdapter, prStaRec, ucTWTFlowId);
 		break;
 
-	case TWT_SETUP_CMD_REJECT:
+	case TWT_SETUP_CMD_TWT_REJECT:
 		/* Clear TWT flow in StaRec */
 		break;
 

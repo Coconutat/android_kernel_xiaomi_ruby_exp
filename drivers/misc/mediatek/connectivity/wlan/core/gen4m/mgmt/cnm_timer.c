@@ -490,7 +490,7 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 
 	if (gDoTimeOut) {
 		/* monitor the timer start in callback */
-		log_dbg(CNM, INFO,
+		log_dbg(CNM, TRACE,
 			"In DoTimeOut, timer %p func %ps %d ms timercount %d\n",
 			prTimer, prTimer->pfMgmtTimeOutFunc,
 			u4TimeoutMs, prTimerList->u4NumElem);

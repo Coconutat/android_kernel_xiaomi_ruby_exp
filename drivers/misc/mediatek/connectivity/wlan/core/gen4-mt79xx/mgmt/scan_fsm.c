@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -162,6 +162,9 @@ void scnFsmSteps(IN struct ADAPTER *prAdapter,
 				scnSendScanReq(prAdapter);
 			else
 				scnSendScanReqV2(prAdapter);
+
+			/*record timestamp when scan start*/
+			GET_CURRENT_SYSTIME(&prScanInfo->u4ScanStartTime);
 			break;
 
 		default:
@@ -308,7 +311,7 @@ void scnSendScanReqV2(IN struct ADAPTER *prAdapter)
 				prScanParam->ucChannelListNum;
 			prCmdScanReq->ucChannelListExtNum = 0;
 		} else if (prScanParam->ucChannelListNum <=
-				MAXIMUM_OPERATION_CHANNEL_LIST) {
+				SCAN_CMD_CHNL_NUM + SCAN_CMD_EXT_CHNL_NUM) {
 			prCmdScanReq->ucChannelListNum =
 				SCAN_CMD_CHNL_NUM;
 			prCmdScanReq->ucChannelListExtNum =
@@ -486,7 +489,11 @@ void scnFsmMsgAbort(IN struct ADAPTER *prAdapter, IN struct MSG_HDR *prMsgHdr)
 					prScanParam->ucSeqNum);
 			}
 
-			eStatus = SCAN_STATUS_CANCELLED;
+			/* generate scan-done event for caller */
+			if (prScanCancel->fgIsOidRequest)
+				eStatus = SCAN_STATUS_CANCELLED;
+			else
+				eStatus = SCAN_STATUS_DONE;
 			scnFsmGenerateScanDoneMsg(prAdapter,
 				prScanParam->ucSeqNum,
 				prScanParam->ucBssIndex,
@@ -787,6 +794,7 @@ void scnEventScanDone(IN struct ADAPTER *prAdapter,
 	struct SCAN_INFO *prScanInfo;
 	struct SCAN_PARAM *prScanParam;
 	uint32_t u4ChCnt = 0;
+	OS_SYSTIME currentTime;
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prScanParam = &prScanInfo->rScanParam;
@@ -915,6 +923,10 @@ void scnEventScanDone(IN struct ADAPTER *prAdapter,
 		scanRemoveBssDescsByPolicy(prAdapter,
 		       SCN_RM_POLICY_EXCLUDE_CONNECTED | SCN_RM_POLICY_TIMEOUT);
 
+		/*record total scan time duration*/
+		GET_CURRENT_SYSTIME(&currentTime);
+		prScanInfo->u4TotalScanTime +=
+			(currentTime - prScanInfo->u4ScanStartTime);
 		/* generate scan-done event for caller */
 		scnFsmGenerateScanDoneMsg(prAdapter, prScanParam->ucSeqNum,
 			prScanParam->ucBssIndex, SCAN_STATUS_DONE);

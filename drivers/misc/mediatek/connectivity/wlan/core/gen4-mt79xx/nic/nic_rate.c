@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -123,7 +123,9 @@ const uint16_t au2RateVHT[VHT_RATE_NUM] = {
 	RATE_VHT_MCS_6,		/* RATE_MCS6_INDEX, */
 	RATE_VHT_MCS_7,		/* RATE_MCS7_INDEX, */
 	RATE_VHT_MCS_8,		/* RATE_MCS8_INDEX, */
-	RATE_VHT_MCS_9		/* RATE_MCS9_INDEX, */
+	RATE_VHT_MCS_9,		/* RATE_MCS9_INDEX, */
+	RATE_VHT_MCS_10,	/* RATE_MCS10_INDEX, */
+	RATE_VHT_MCS_11,	/* RATE_MCS11_INDEX, */
 };
 
 /* in unit of 100kb/s */
@@ -141,6 +143,10 @@ const struct EMU_MAC_RATE_INFO arMcsRate2PhyRate[] = {
 	RATE_INFO(PHY_RATE_MCS7, 650, 722, 1350, 1500, 2925, 3250, 5850, 6500),
 	RATE_INFO(PHY_RATE_MCS8, 780, 867, 1620, 1800, 3510, 3900, 7020, 7800),
 	RATE_INFO(PHY_RATE_MCS9, 867, 963, 1800, 2000, 3900, 4333, 7800, 8667),
+	RATE_INFO(PHY_RATE_MCS10,
+		975, 1083, 2025, 2250, 4388, 4875, 8775, 9750),
+	RATE_INFO(PHY_RATE_MCS11,
+		1083, 1204, 2250, 2500, 4875, 5417, 9750, 10833),
 	RATE_INFO(PHY_RATE_MCS32, 0, 0, 60, 67, 0, 0, 0, 0)
 };
 
@@ -208,6 +214,14 @@ nicGetPhyRateByMcsRate(
 	IN uint8_t ucBw,
 	IN uint8_t ucGI)
 {
+	if (ARRAY_SIZE(arMcsRate2PhyRate) <= ucIdx ||
+				ucBw > RX_VT_FR_MODE_160 ||
+				ucGI > MAC_GI_SHORT) {
+		DBGLOG(RX, WARN, "Invalid McsRate: ucIdx=%u, ucBw=%u, ucGI=%u",
+				ucIdx, ucBw, ucGI);
+		return 0;
+	}
+
 	return	arMcsRate2PhyRate[ucIdx].u4PhyRate[ucBw][ucGI];
 }
 
@@ -304,7 +318,7 @@ nicRateCode2PhyRate(
 	    || (u2TxMode == TX_MODE_HT_MM)) {
 
 		if (ucPhyRate > PHY_RATE_MCS7)
-			u2RateCode = u2RateCode - HT_RATE_MCS7_INDEX;
+			u2RateCode %= 8;
 		else
 			ucRateNss = AR_SS_1;
 

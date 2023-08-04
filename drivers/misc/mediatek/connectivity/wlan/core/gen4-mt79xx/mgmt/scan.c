@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -1415,9 +1415,9 @@ uint8_t scanGetRnrChannel(IN struct ADAPTER *prAdapter,
 	uint8_t ucRnrChNum;
 	struct ieee80211_channel *prChannel;
 #if KERNEL_VERSION(4, 7, 0) <= CFG80211_VERSION_CODE
-	enum nl80211_band band = KAL_NUM_BANDS;
+	enum nl80211_band band = NL80211_BAND_2GHZ;
 #else
-	enum ieee80211_band band = KAL_NUM_BANDS;
+	enum ieee80211_band band = IEEE80211_BAND_2GHZ;
 #endif
 
 	/* get channel number for this neighborAPInfo */
@@ -1447,9 +1447,9 @@ void scanProcessRnrChannel(IN uint8_t ucRnrChNum,
 {
 	uint8_t i, ucHasSameCh = FALSE;
 #if KERNEL_VERSION(4, 7, 0) <= CFG80211_VERSION_CODE
-	enum nl80211_band band = KAL_NUM_BANDS;
+	enum nl80211_band band = 0;
 #else
-	enum ieee80211_band band = KAL_NUM_BANDS;
+	enum ieee80211_band band = 0;
 #endif
 
 	/* get channel number for this neighborAPInfo */
@@ -1610,6 +1610,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 #endif
 		}
 
+		ucNewLink = FALSE;
 		/* peek tail NeighborAPInfo from list to save information */
 		prNeighborAPInfo = LINK_PEEK_TAIL(
 		    &prAdapter->rNeighborAPInfoList, struct NEIGHBOR_AP_INFO,
@@ -1693,7 +1694,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 		if (ucRnrChNum == 0) {
 			DBGLOG(SCN, INFO, "Not handle RNR channel(%d)!\n",
 					ucRnrChNum);
-			if (LINK_IS_EMPTY(&prAdapter->rNeighborAPInfoList))
+			if (ucNewLink)
 				cnmMemFree(prAdapter, prNeighborAPInfo);
 			/* Calculate next NeighborAPInfo's index if exists */
 			ucCurrentLength += 4 +
@@ -1849,7 +1850,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 				    prAdapter->rNeighborAPInfoList.u4NumElem);
 			ucHasBssid = FALSE;
 		}
-		if (LINK_IS_EMPTY(&prAdapter->rNeighborAPInfoList))
+		if (ucNewLink)
 			cnmMemFree(prAdapter, prNeighborAPInfo);
 	}
 }
@@ -2340,6 +2341,7 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 
 	prBssDesc->ucCenterFreqS1 = 0;
 	prBssDesc->ucCenterFreqS2 = 0;
+	prBssDesc->ucCenterFreqS3 = 0;
 
 	/* Support AP Selection */
 	prBssDesc->fgExsitBssLoadIE = FALSE;
@@ -2555,6 +2557,14 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 				    (((struct IE_HT_OP *) pucIE)->ucInfo1
 				    & HT_OP_INFO1_SCO);
 			}
+
+			prBssDesc->ucCenterFreqS3 = (uint8_t)
+				HT_GET_OP_INFO2_CH_CENTER_FREQ_SEG2(
+				((struct IE_HT_OP *) pucIE)->u2Info2);
+			if (prBssDesc->ucCenterFreqS3 != 0)
+				DBGLOG(SCN, LOUD, "Find valid HT S2 %d\n",
+					prBssDesc->ucCenterFreqS3);
+
 			break;
 		case ELEM_ID_VHT_CAP:
 #if (CFG_SUPPORT_WIFI_6G == 1)
@@ -2912,7 +2922,7 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 			&prCountryIE->arCountryStr[0];
 		const uint8_t ucSubBandSize =
 			(uint8_t)sizeof(struct COUNTRY_INFO_SUBBAND_TRIPLET);
-		int8_t cNewPwrLimit = RLM_INVALID_POWER_LIMIT;
+		int8_t cNewPwrLimit;
 
 		DBGLOG(SCN, LOUD,
 			   "LM: Country IE of BSSID[" MACSTR "] is present\n",
@@ -5019,6 +5029,7 @@ void scanParseVHTOpIE(IN uint8_t *pucIE, IN struct BSS_DESC *prBssDesc)
 	/*add IEEE BW160 patch*/
 	rlmModifyVhtBwPara(&prBssDesc->ucCenterFreqS1,
 			   &prBssDesc->ucCenterFreqS2,
+			   prBssDesc->ucCenterFreqS3,
 			   (uint8_t *)&prBssDesc->eChannelWidth);
 }
 

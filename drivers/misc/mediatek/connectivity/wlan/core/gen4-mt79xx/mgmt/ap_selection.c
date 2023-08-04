@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -39,6 +39,8 @@
 #define STICK_TIMEOUT_SEC			30 /* seconds */
 #define RCPI_DIFF_DRIVER_ROAM			40 /* 20 dbm */
 #define RSSI_BAD_NEED_ROAM			-80 /* dbm */
+
+#define MAX_CHAN_NUM                            233
 
 #define WEIGHT_IDX_CHNL_UTIL                    0
 #define WEIGHT_IDX_RSSI                         2
@@ -1057,8 +1059,8 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 	struct LINK *prCurEssLink;
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
 	uint8_t aucChnlBitMap[30] = {0,};
-	uint8_t aucChnlApNum[215] = {0,};
-	uint8_t aucChnlUtil[215] = {0,};
+	uint8_t aucChnlApNum[MAX_CHAN_NUM+1] = {0,};
+	uint8_t aucChnlUtil[MAX_CHAN_NUM+1] = {0,};
 	uint8_t ucByteNum = 0;
 	uint8_t ucBitNum = 0;
 	uint8_t ucChnlCount = 0;
@@ -1104,7 +1106,7 @@ void scanGetCurrentEssChnlList(struct ADAPTER *prAdapter,
 	}
 	LINK_FOR_EACH_ENTRY(prBssDesc, prBSSDescList, rLinkEntry,
 		struct BSS_DESC) {
-		if (prBssDesc->ucChannelNum > 214)
+		if (prBssDesc->ucChannelNum > MAX_CHAN_NUM)
 			continue;
 		/* Statistic AP num for each channel */
 		if (aucChnlApNum[prBssDesc->ucChannelNum] < 255)

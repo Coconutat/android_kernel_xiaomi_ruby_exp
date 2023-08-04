@@ -1485,6 +1485,7 @@ wlanShiftCSI(
 #endif
 
 int wlanSuspendRekeyOffload(P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRekeyMode);
+void wlanWaitCfg80211SuspendDone(P_GLUE_INFO_T prGlueInfo);
 VOID wlanSuspendPmHandle(P_GLUE_INFO_T prGlueInfo);
 VOID wlanResumePmHandle(P_GLUE_INFO_T prGlueInfo);
 VOID setRekeyOffloadEnterWow(P_GLUE_INFO_T prGlueInfo);

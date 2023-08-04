@@ -680,7 +680,8 @@ VOID nicProcessAbnormalInterrupt(IN P_ADAPTER_T prAdapter)
 	HAL_MCR_RD(prAdapter, MCR_WASR, &u4Value);
 	DBGLOG(REQ, WARN, "MCR_WASR: 0x%x\n", u4Value);
 #if CFG_CHIP_RESET_SUPPORT
-	glResetTrigger(prAdapter);
+	glGetRstReason(RST_PROCESS_ABNORMAL_INT);
+	GL_RESET_TRIGGER(prAdapter, RST_FLAG_DO_CORE_DUMP);
 #endif
 }
 

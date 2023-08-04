@@ -1028,6 +1028,7 @@ static INT32 wmt_parser_data(PUINT8 buffer, UINT32 length, UINT8 type)
 				osal_buffer_dump(buffer, "coex_packet_print", length, 128);
 #else
 			STP_WARN_FUNC("BT/WIFI & LTE coex in non-LTE projects,drop it...\n");
+			fgRxOk = 0;
 #endif
 		} else {
 			fgRxOk = stp_add_to_rx_queue(buffer + parser_length, packet_length + 4, type);
@@ -3385,8 +3386,9 @@ INT32 mtk_wcn_stp_wakeup_consys(VOID)
 *****************************************************************************/
 INT32 mtk_wcn_stp_dpidle_ctrl(UINT32 en_flag)
 {
+#ifdef CONFIG_MTK_BTIF
 	mtk_wcn_consys_stp_btif_dpidle_ctrl(en_flag);
-
+#endif
 	return 0;
 }
 

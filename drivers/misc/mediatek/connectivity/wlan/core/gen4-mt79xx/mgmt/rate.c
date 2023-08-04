@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -48,23 +48,6 @@ const uint8_t aucDataRate[] = {
 	RATE_VHT_PHY,		/* RATE_VHT_PHY_INDEX */
 	RATE_HT_PHY,		/* RATE_HT_PHY_INDEX */
 	RATE_H2E_ONLY		/* RATE_H2E_ONLY_INDEX */
-};
-
-static const uint8_t aucDefaultAckCtsRateIndex[RATE_NUM_SW] = {
-	RATE_1M_SW_INDEX,	/* RATE_1M_SW_INDEX = 0 */
-	RATE_2M_SW_INDEX,	/* RATE_2M_SW_INDEX */
-	RATE_5_5M_SW_INDEX,	/* RATE_5_5M_SW_INDEX */
-	RATE_11M_SW_INDEX,	/* RATE_11M_SW_INDEX */
-	RATE_1M_SW_INDEX,	/* RATE_22M_SW_INDEX - Not supported */
-	RATE_1M_SW_INDEX,	/* RATE_33M_SW_INDEX - Not supported */
-	RATE_6M_SW_INDEX,	/* RATE_6M_SW_INDEX */
-	RATE_6M_SW_INDEX,	/* RATE_9M_SW_INDEX */
-	RATE_12M_SW_INDEX,	/* RATE_12M_SW_INDEX */
-	RATE_12M_SW_INDEX,	/* RATE_18M_SW_INDEX */
-	RATE_24M_SW_INDEX,	/* RATE_24M_SW_INDEX */
-	RATE_24M_SW_INDEX,	/* RATE_36M_SW_INDEX */
-	RATE_24M_SW_INDEX,	/* RATE_48M_SW_INDEX */
-	RATE_24M_SW_INDEX	/* RATE_54M_SW_INDEX */
 };
 
 const u_int8_t afgIsOFDMRate[RATE_NUM_SW] = {

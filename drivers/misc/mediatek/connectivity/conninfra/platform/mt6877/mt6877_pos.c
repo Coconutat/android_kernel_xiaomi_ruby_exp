@@ -1541,10 +1541,6 @@ int connsys_low_power_setting_mt6877(unsigned int curr_status, unsigned int next
 		CONSYS_SET_BIT(CONN_CLKGEN_ON_TOP_CKGEN_BUS_ADDR, (0x1 << 26));
 		CONSYS_SET_BIT(CONN_CLKGEN_ON_TOP_CKGEN_BUS_ADDR, (0x1 << 27));
 
-		/* 0x1800_1200[9]=1b'1
-		 */
-		CONSYS_SET_BIT(CONN_CFG_CONN_INFRA_CFG_PWRCTRL0_ADDR, (0x1 << 9));
-
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 		/* !!!!!!!!!!!!!!!!!!!!!! CANNOT add code after HERE!!!!!!!!!!!!!!!!!!!!!!!!!! */
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */

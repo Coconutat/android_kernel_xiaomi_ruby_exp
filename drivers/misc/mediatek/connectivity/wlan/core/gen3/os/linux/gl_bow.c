@@ -290,7 +290,7 @@ static ssize_t bow_ampc_write(IN struct file *filp, OUT const char __user *buf, 
 {
 	UINT_8 i;
 
-	UINT_8 aucBuffer[MAX_BUFFER_SIZE];
+	UINT_8 aucBuffer[MAX_BUFFER_SIZE] = {0};
 	P_AMPC_COMMAND prCmd;
 	P_GLUE_INFO_T prGlueInfo;
 

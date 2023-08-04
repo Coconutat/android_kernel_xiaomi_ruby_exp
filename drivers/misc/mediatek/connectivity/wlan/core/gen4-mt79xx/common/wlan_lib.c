@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -4510,7 +4510,7 @@ uint32_t wlanQueryNicCapability(IN struct ADAPTER
 	struct mt66xx_chip_info *prChipInfo;
 	uint8_t aucZeroMacAddr[] = NULL_MAC_ADDR;
 	struct CMD_INFO *prCmdInfo;
-	uint32_t u4RxPktLength;
+	uint32_t u4RxPktLength = 0;
 	uint8_t *aucBuffer;
 	uint32_t u4EventSize;
 	struct WIFI_EVENT *prEvent;
@@ -4984,15 +4984,14 @@ uint32_t wlanGetMiniTxPower(IN struct ADAPTER *prAdapter,
 			eBand);
 		return WLAN_STATUS_NOT_ACCEPTED;
 	}
-	if (ePhyMode < 0 ||
-	    ePhyMode >= PHY_MODE_TYPE_NUM) {
+	if ((uint32_t)ePhyMode >= PHY_MODE_TYPE_NUM) {
 		DBGLOG(INIT, WARN, "check phy mode fail(%d)\n",
 			ePhyMode);
 		return WLAN_STATUS_NOT_ACCEPTED;
 	}
 
-	startOfs = arRange[bandIdx][ePhyMode].startOfs;
-	endOfs = arRange[bandIdx][ePhyMode].endOfs;
+	startOfs = arRange[bandIdx][(uint32_t)ePhyMode].startOfs;
+	endOfs = arRange[bandIdx][(uint32_t)ePhyMode].endOfs;
 
 
 	/*NVRAM start addreess :0*/
@@ -5207,6 +5206,12 @@ uint32_t wlanLoadManufactureData(IN struct ADAPTER
 		prCmdNvramSettings = (struct CMD_NVRAM_SETTING *)kalMemAlloc(
 				      sizeof(struct CMD_NVRAM_SETTING),
 				      VIR_MEM_TYPE);
+
+		if (prCmdNvramSettings == NULL) {
+			DBGLOG(INIT, ERROR,
+				"prCmdNvramSettings allocate fail\n");
+			return WLAN_STATUS_FAILURE;
+		}
 
 		kalMemCopy(&prCmdNvramSettings->rNvramSettings,
 			   &prRegInfo->prNvramSettings->u2Part1OwnVersion,
@@ -6452,7 +6457,7 @@ void wlanQueryNicResourceInformation(IN struct ADAPTER *prAdapter)
 uint32_t wlanQueryNicCapabilityV2(IN struct ADAPTER *prAdapter)
 {
 	struct CMD_INFO *prCmdInfo;
-	uint32_t u4RxPktLength;
+	uint32_t u4RxPktLength = 0;
 	uint8_t *prEventBuff;
 	struct WIFI_EVENT *prEvent;
 	struct mt66xx_chip_info *prChipInfo;
@@ -6945,7 +6950,6 @@ void wlanBindBssIdxToNetInterface(IN struct GLUE_INFO *prGlueInfo,
 	/* prGlueInfo->aprBssIdxToNetInterfaceInfo[ucBssIndex] = prNetIfInfo; */
 }
 
-#if CFG_SUPPORT_NAN
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief This function is to GET BSS index for a network interface.
@@ -6970,7 +6974,6 @@ uint8_t wlanGetBssIdxByNetInterface(IN struct GLUE_INFO *prGlueInfo,
 
 	return ucIdx;
 }
-#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -7110,6 +7113,22 @@ void wlanInitFeatureOption(IN struct ADAPTER *prAdapter)
 					FEATURE_ENABLED);
 	prWifiVar->ucRxGf = (uint8_t) wlanCfgGetUint32(prAdapter, "GfRx",
 					FEATURE_ENABLED);
+	/*
+	* Format of WmmParams
+	* Bits[0]     - Enable
+	* Bits[7:4]   - AIFS
+	* Bits[11:8]  - CWmin
+	* Bits[15:12] - CWmax
+	* Bits[31:16] - TXOP
+	*/
+	prWifiVar->u4P2pGoWmmParamAC0 = wlanCfgGetUint32(prAdapter,
+					"P2pGoWmmParamAC0", 0);
+	prWifiVar->u4P2pGoWmmParamAC1 = wlanCfgGetUint32(prAdapter,
+					"P2pGoWmmParamAC1", 0);
+	prWifiVar->u4P2pGoWmmParamAC2 = wlanCfgGetUint32(prAdapter,
+					"P2pGoWmmParamAC2", 0);
+	prWifiVar->u4P2pGoWmmParamAC3 = wlanCfgGetUint32(prAdapter,
+					"P2pGoWmmParamAC3", 0);
 
 #if CFG_SUPPORT_ONE_TIME_CAL
 	/* Enable/Disable the One Time Cal */
@@ -7825,6 +7844,12 @@ void wlanInitFeatureOption(IN struct ADAPTER *prAdapter)
 	prWifiVar->fgErRx = (uint32_t) wlanCfgGetUint32(
 			prAdapter, "ErRx",
 			FEATURE_ENABLED);
+#endif
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	prWifiVar->ucP2pCsaCount = (uint32_t) wlanCfgGetUint32(
+			prAdapter, "P2pCsaCount",
+			3);
 #endif
 
 #if (CFG_SUPPORT_P2PGO_ACS == 1)
@@ -10427,6 +10452,7 @@ uint32_t
 wlanQueryLteSafeChannel(IN struct ADAPTER *prAdapter,
 		IN uint8_t ucRoleIndex)
 {
+#if (CFG_SUPPORT_CONNINFRA == 1)
 	uint32_t rResult = WLAN_STATUS_FAILURE;
 	struct CMD_GET_LTE_SAFE_CHN rQuery_LTE_SAFE_CHN;
 	struct PARAM_GET_CHN_INFO *prQueryLteChn;
@@ -10465,6 +10491,10 @@ wlanQueryLteSafeChannel(IN struct ADAPTER *prAdapter,
 	} while (FALSE);
 
 	return rResult;
+#else
+	DBGLOG(P2P, TRACE, "[ACS] Not Support Get safe LTE Channels\n");
+	return WLAN_STATUS_NOT_SUPPORTED;
+#endif
 }				/* wlanoidQueryLteSafeChannel */
 
 /*----------------------------------------------------------------------------*/
@@ -11019,7 +11049,7 @@ wlanSortChannel(IN struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_P2PGO_ACS == 1)
 void wlanGetChannelListUnsortedPerBand(
 			IN struct ADAPTER *prAdapter) {
-	int8_t ucIdx = 0;
+	uint8_t ucIdx = 0;
 	uint8_t i = 0, ucBandIdx = 0, ucNumOfChannel = 0, uc2gChNum = 0;
 	struct RF_CHANNEL_INFO aucChannelList[MAX_PER_BAND_CHN_NUM] = { { 0 } };
 	struct PARAM_GET_CHN_INFO *prChnLoadInfo = &
@@ -11649,6 +11679,14 @@ uint64_t wlanGetSupportedFeatureSet(IN struct GLUE_INFO *prGlueInfo)
 {
 	uint64_t u8FeatureSet = WIFI_HAL_FEATURE_SET;
 	struct REG_INFO *prRegInfo;
+
+#if CFG_SUPPORT_LINK_LAYER_STAT
+	u8FeatureSet |= WIFI_FEATURE_LINK_LAYER_STATS;
+#endif
+
+#if CFG_SUPPORT_LOWLATENCY_MODE
+	u8FeatureSet |= WIFI_FEATURE_LOW_LATENCY;
+#endif
 
 	prRegInfo = &(prGlueInfo->rRegInfo);
 	if ((prRegInfo != NULL) && (prRegInfo->ucSupport5GBand))

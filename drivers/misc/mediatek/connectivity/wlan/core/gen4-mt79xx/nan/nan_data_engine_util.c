@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -2453,11 +2453,13 @@ nanDataEngineElemContainerAttrAppend(struct ADAPTER *prAdapter,
 	DBGLOG(NAN, INFO, "[%s] Enter\n", __func__);
 #endif
 
-	if (nanDataEngineElemContainerAttrLength(prAdapter, prNDL, prNDP) == 0)
+	if (nanDataEngineElemContainerAttrLength(
+				prAdapter, prNDL, prNDP) == 0) {
 		return;
+	}
 
-		prBssInfo = prAdapter->aprBssInfo[nanGetSpecificBssInfo(
-			prAdapter, NAN_BSS_INDEX_BAND0)->ucBssIndex];
+	prBssInfo = prAdapter->aprBssInfo[nanGetSpecificBssInfo(
+		prAdapter, NAN_BSS_INDEX_BAND0)->ucBssIndex];
 	if (prNDP->eCurrentNDPProtocolState == NDP_INITIATOR_TX_DP_REQUEST)
 		nanDataEngineGetECAttrImpl(prAdapter, &pucECAttr,
 					   &u2ECAttrLength, prBssInfo, NULL);

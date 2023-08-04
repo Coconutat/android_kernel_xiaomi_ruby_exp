@@ -640,6 +640,19 @@ void kalP2PTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
 	}
 }
 
+uint8_t kalP2PIsTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
+		IN struct BSS_INFO *prBssInfo)
+{
+	struct net_device *prDevHandler = NULL;
+	uint8_t ucBssIndex = (uint8_t)prBssInfo->ucBssIndex;
+
+	prDevHandler = wlanGetNetDev(prGlueInfo, ucBssIndex);
+	if (prDevHandler == NULL)
+		return FALSE;
+
+	return netif_carrier_ok(prDevHandler);
+}
+
 void kalP2PEnableNetDev(IN struct GLUE_INFO *prGlueInfo,
 		IN struct BSS_INFO *prBssInfo)
 {
@@ -1512,7 +1525,6 @@ kalP2PIndicateRxMgmtFrame(IN struct ADAPTER *prAdapter,
 
 }				/* kalP2PIndicateRxMgmtFrame */
 
-#if CFG_WPS_DISCONNECT || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
 void
 kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 		IN uint8_t ucRoleIndex,
@@ -1561,77 +1573,25 @@ kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 
 			prP2pConnInfo->eConnRequest = P2P_CONNECTION_TYPE_IDLE;
 		} else {
+			DBGLOG(INIT, INFO,
+				"indicate disconnection event to kernel, reason=%d, locally_generated=%d\n",
+				u2StatusReason,
+				eStatus == WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY
+				);
 			/* Disconnect, what if u2StatusReason == 0? */
 			cfg80211_disconnected(prGlueP2pInfo->aprRoleHandler,
 				/* struct net_device * dev, */
 				u2StatusReason,
 				pucRxIEBuf, u2RxIELen,
+#if CFG_WPS_DISCONNECT || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
 				eStatus == WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY,
-				GFP_KERNEL);
-		}
-
-	} while (FALSE);
-
-}				/* kalP2PGCIndicateConnectionStatus */
-
-#else
-void
-kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
-		IN uint8_t ucRoleIndex,
-		IN struct P2P_CONNECTION_REQ_INFO *prP2pConnInfo,
-		IN uint8_t *pucRxIEBuf,
-		IN uint16_t u2RxIELen,
-		IN uint16_t u2StatusReason)
-{
-	struct GL_P2P_INFO *prGlueP2pInfo = (struct GL_P2P_INFO *) NULL;
-	struct ADAPTER *prAdapter = NULL;
-
-	do {
-		if (prGlueInfo == NULL) {
-			ASSERT(FALSE);
-			break;
-		}
-
-		prAdapter = prGlueInfo->prAdapter;
-		prGlueP2pInfo = prGlueInfo->prP2PInfo[ucRoleIndex];
-
-		/* FIXME: This exception occurs at wlanRemove. */
-		if ((prGlueP2pInfo == NULL) ||
-		    (prGlueP2pInfo->aprRoleHandler == NULL) ||
-		    (prAdapter->rP2PNetRegState !=
-				ENUM_NET_REG_STATE_REGISTERED) ||
-		    (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag) == 1)) {
-			break;
-		}
-
-		if (prP2pConnInfo) {
-			/* switch netif on */
-			netif_carrier_on(prGlueP2pInfo->aprRoleHandler);
-
-			cfg80211_connect_result(prGlueP2pInfo->aprRoleHandler,
-				/* struct net_device * dev, */
-				prP2pConnInfo->aucBssid,
-				prP2pConnInfo->aucIEBuf,
-				prP2pConnInfo->u4BufLength,
-				pucRxIEBuf, u2RxIELen,
-				u2StatusReason,
-				/* gfp_t gfp *//* allocation flags */
-				GFP_KERNEL);
-
-			prP2pConnInfo->eConnRequest = P2P_CONNECTION_TYPE_IDLE;
-		} else {
-			/* Disconnect, what if u2StatusReason == 0? */
-			cfg80211_disconnected(prGlueP2pInfo->aprRoleHandler,
-				/* struct net_device * dev, */
-				u2StatusReason, pucRxIEBuf,
-				u2RxIELen, GFP_KERNEL);
-		}
-
-	} while (FALSE);
-
-}				/* kalP2PGCIndicateConnectionStatus */
-
 #endif
+				GFP_KERNEL);
+		}
+
+	} while (FALSE);
+
+}				/* kalP2PGCIndicateConnectionStatus */
 
 void
 kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
@@ -1866,12 +1826,12 @@ struct ieee80211_channel *kalP2pFuncGetChannelEntry(
 	struct ieee80211_channel *prTargetChannelEntry =
 		(struct ieee80211_channel *)NULL;
 	uint32_t u4TblSize = 0, u4Idx = 0;
-	struct wiphy *wiphy = NULL;
+	struct wiphy *wiphy = wlanGetWiphy();
 
-	if ((prP2pInfo == NULL) || (prChannelInfo == NULL))
+	if ((prP2pInfo == NULL) ||
+		(prChannelInfo == NULL) ||
+		(wiphy == NULL))
 		return NULL;
-
-	wiphy = prP2pInfo->prWdev->wiphy;
 
 	do {
 
@@ -2261,6 +2221,14 @@ void kalP2pPreStartRdd(
 	chan = ieee80211_get_channel(
 		prGlueP2pInfo->prWdev->wiphy,
 		freq);
+	if (!chan) {
+		DBGLOG(P2P, ERROR, "chan info null.\n");
+		return;
+	}
+	chandef.center_freq1 = 0;
+	chandef.center_freq2 = 0;
+	chandef.chan = chan;
+	chandef.width = 0;
 	cfg80211_chandef_create(&chandef,
 		chan, NL80211_CHAN_NO_HT);
 

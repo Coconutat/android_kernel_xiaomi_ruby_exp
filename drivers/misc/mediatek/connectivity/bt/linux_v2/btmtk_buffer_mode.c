@@ -229,30 +229,77 @@ void btmtk_buffer_mode_initialize(struct btmtk_dev *bdev, struct btmtk_buffer_mo
 		return;
 	}
 
-	memcpy(btmtk_buffer_mode.bt0_mac, &bdev->setting_file[BT0_MAC_OFFSET],
-			BUFFER_MODE_MAC_LENGTH);
-	memcpy(btmtk_buffer_mode.bt1_mac, &bdev->setting_file[BT1_MAC_OFFSET],
-			BUFFER_MODE_MAC_LENGTH);
-	memcpy(&btmtk_buffer_mode.bt0_radio, &bdev->setting_file[BT0_RADIO_OFFSET],
-			BUFFER_MODE_RADIO_LENGTH);
-	memcpy(&btmtk_buffer_mode.bt1_radio, &bdev->setting_file[BT1_RADIO_OFFSET],
-			BUFFER_MODE_RADIO_LENGTH);
-	memcpy(btmtk_buffer_mode.bt0_ant0_grp_boundary, &bdev->setting_file[BT0_GROUP_ANT0_OFFSET],
-			BUFFER_MODE_GROUP_LENGTH);
-	memcpy(btmtk_buffer_mode.bt0_ant1_grp_boundary, &bdev->setting_file[BT0_GROUP_ANT1_OFFSET],
-			BUFFER_MODE_GROUP_LENGTH);
-	memcpy(btmtk_buffer_mode.bt1_ant0_grp_boundary, &bdev->setting_file[BT1_GROUP_ANT0_OFFSET],
-			BUFFER_MODE_GROUP_LENGTH);
-	memcpy(btmtk_buffer_mode.bt1_ant1_grp_boundary, &bdev->setting_file[BT1_GROUP_ANT1_OFFSET],
-			BUFFER_MODE_GROUP_LENGTH);
-	memcpy(btmtk_buffer_mode.bt0_ant0_pwr_offset, &bdev->setting_file[BT0_CAL_ANT0_OFFSET],
-			BUFFER_MODE_CAL_LENGTH);
-	memcpy(btmtk_buffer_mode.bt0_ant1_pwr_offset, &bdev->setting_file[BT0_CAL_ANT1_OFFSET],
-			BUFFER_MODE_CAL_LENGTH);
-	memcpy(btmtk_buffer_mode.bt1_ant0_pwr_offset, &bdev->setting_file[BT1_CAL_ANT0_OFFSET],
-			BUFFER_MODE_CAL_LENGTH);
-	memcpy(btmtk_buffer_mode.bt1_ant1_pwr_offset, &bdev->setting_file[BT1_CAL_ANT1_OFFSET],
-			BUFFER_MODE_CAL_LENGTH);
+	if(BT0_MAC_OFFSET + BUFFER_MODE_MAC_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt0_mac, &bdev->setting_file[BT0_MAC_OFFSET],
+				BUFFER_MODE_MAC_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_MAC_OFFSET);
+
+	if(BT1_MAC_OFFSET + BUFFER_MODE_MAC_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt1_mac, &bdev->setting_file[BT1_MAC_OFFSET],
+				BUFFER_MODE_MAC_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_MAC_OFFSET);
+
+	if(BT0_RADIO_OFFSET + BUFFER_MODE_RADIO_LENGTH <= code_len)
+		memcpy(&btmtk_buffer_mode.bt0_radio, &bdev->setting_file[BT0_RADIO_OFFSET],
+				BUFFER_MODE_RADIO_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_RADIO_OFFSET);
+
+	if(BT1_RADIO_OFFSET + BUFFER_MODE_RADIO_LENGTH <= code_len)
+		memcpy(&btmtk_buffer_mode.bt1_radio, &bdev->setting_file[BT1_RADIO_OFFSET],
+				BUFFER_MODE_RADIO_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_RADIO_OFFSET);
+
+	if(BT0_GROUP_ANT0_OFFSET + BUFFER_MODE_GROUP_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt0_ant0_grp_boundary, &bdev->setting_file[BT0_GROUP_ANT0_OFFSET],
+				BUFFER_MODE_GROUP_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_GROUP_ANT0_OFFSET);
+
+	if(BT0_GROUP_ANT1_OFFSET + BUFFER_MODE_GROUP_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt0_ant1_grp_boundary, &bdev->setting_file[BT0_GROUP_ANT1_OFFSET],
+				BUFFER_MODE_GROUP_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_GROUP_ANT1_OFFSET);
+
+	if(BT1_GROUP_ANT0_OFFSET + BUFFER_MODE_GROUP_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt1_ant0_grp_boundary, &bdev->setting_file[BT1_GROUP_ANT0_OFFSET],
+				BUFFER_MODE_GROUP_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_GROUP_ANT0_OFFSET);
+
+	if(BT1_GROUP_ANT1_OFFSET + BUFFER_MODE_GROUP_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt1_ant1_grp_boundary, &bdev->setting_file[BT1_GROUP_ANT1_OFFSET],
+				BUFFER_MODE_GROUP_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_GROUP_ANT1_OFFSET);
+
+	if(BT0_CAL_ANT0_OFFSET + BUFFER_MODE_CAL_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt0_ant0_pwr_offset, &bdev->setting_file[BT0_CAL_ANT0_OFFSET],
+				BUFFER_MODE_CAL_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_CAL_ANT0_OFFSET);
+
+	if(BT0_CAL_ANT1_OFFSET + BUFFER_MODE_CAL_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt0_ant1_pwr_offset, &bdev->setting_file[BT0_CAL_ANT1_OFFSET],
+				BUFFER_MODE_CAL_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT0_CAL_ANT1_OFFSET);
+
+	if(BT1_CAL_ANT0_OFFSET + BUFFER_MODE_CAL_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt1_ant0_pwr_offset, &bdev->setting_file[BT1_CAL_ANT0_OFFSET],
+				BUFFER_MODE_CAL_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_CAL_ANT0_OFFSET);
+
+	if(BT1_CAL_ANT1_OFFSET + BUFFER_MODE_CAL_LENGTH <= code_len)
+		memcpy(btmtk_buffer_mode.bt1_ant1_pwr_offset, &bdev->setting_file[BT1_CAL_ANT1_OFFSET],
+				BUFFER_MODE_CAL_LENGTH);
+	else
+		BTMTK_ERR("%s: error address, %x", __func__, BT1_CAL_ANT1_OFFSET);
 
 	*buffer_mode = &btmtk_buffer_mode;
 }

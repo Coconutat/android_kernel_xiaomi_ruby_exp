@@ -313,7 +313,9 @@ WLAN_STATUS halTxUSBSendCmd(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucTc, IN P_CM
 			&& wlanIsChipNoAck(prGlueInfo->prAdapter)) {
 		wlanChipRstPreAct(prGlueInfo->prAdapter);
 #if CFG_CHIP_RESET_SUPPORT
-		glResetTrigger(prGlueInfo->prAdapter);
+		glGetRstReason(RST_OID_TIMEOUT);
+		GL_RESET_TRIGGER(prGlueInfo->prAdapter,
+				 RST_FLAG_CHIP_RESET);
 #else
 		DBGLOG(HAL, ERROR, "usb trigger whole reset\n");
 		HAL_WIFI_FUNC_CHIP_RESET(prGlueInfo->prAdapter);
@@ -586,7 +588,9 @@ WLAN_STATUS halTxUSBSendData(IN P_GLUE_INFO_T prGlueInfo, IN P_MSDU_INFO_T prMsd
 			&& wlanIsChipNoAck(prGlueInfo->prAdapter)) {
 		wlanChipRstPreAct(prGlueInfo->prAdapter);
 #if CFG_CHIP_RESET_SUPPORT
-		glResetTrigger(prGlueInfo->prAdapter);
+		glGetRstReason(RST_OID_TIMEOUT);
+		GL_RESET_TRIGGER(prGlueInfo->prAdapter,
+				 RST_FLAG_CHIP_RESET);
 #else
 		DBGLOG(HAL, ERROR, "usb trigger whole reset\n");
 		HAL_WIFI_FUNC_CHIP_RESET(prGlueInfo->prAdapter);
@@ -1580,6 +1584,29 @@ WLAN_STATUS halHifPowerOffWifi(IN P_ADAPTER_T prAdapter)
 VOID halPrintHifDbgInfo(IN P_ADAPTER_T prAdapter)
 {
 
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Check if HIF state is READY for upper layer cfg80211
+*
+* @param prAdapter      Pointer to the Adapter structure.
+*
+* @return (TRUE: ready, FALSE: not ready)
+*/
+/*----------------------------------------------------------------------------*/
+BOOLEAN halIsHifStateReady(IN P_ADAPTER_T prAdapter)
+{
+	if (!prAdapter)
+		return FALSE;
+
+	if (!prAdapter->prGlueInfo)
+		return FALSE;
+
+	if (prAdapter->prGlueInfo->rHifInfo.state != USB_STATE_LINK_UP)
+		return FALSE;
+
+	return TRUE;
 }
 
 BOOLEAN halIsTxResourceControlEn(IN P_ADAPTER_T prAdapter)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -365,6 +365,10 @@ void nic_rxd_v1_check_wakeup_reason(
 	case RX_PKT_TYPE_RX_DATA:
 	{
 		uint16_t u2Temp = 0;
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+		nicUpdateWakeupStatistics(prAdapter, RX_DATA_INT);
+#endif /* fos_change end */
 
 		u2PktLen = HAL_RX_STATUS_GET_RX_BYTE_CNT(prRxStatus);
 		u4HeaderOffset = (uint32_t)
@@ -448,7 +452,10 @@ void nic_rxd_v1_check_wakeup_reason(
 
 			prEvent = (struct WIFI_EVENT *)
 				(prSwRfb->pucRecvBuff + prChipInfo->rxd_size);
-
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+			nicUpdateWakeupStatistics(prAdapter, RX_EVENT_INT);
+			g_wake_event_count[prEvent->ucEID]++;
+#endif
 			DBGLOG(RX, INFO, "Event 0x%02x wakeup host\n",
 				prEvent->ucEID);
 			break;
@@ -461,6 +468,10 @@ void nic_rxd_v1_check_wakeup_reason(
 			uint8_t ucSubtype;
 			struct WLAN_MAC_MGMT_HEADER *prWlanMgmtHeader;
 			uint16_t u2Temp = prChipInfo->rxd_size;
+/* fos_change begin */
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+			nicUpdateWakeupStatistics(prAdapter, RX_MGMT_INT);
+#endif /* fos_change end */
 
 			u4HeaderOffset = (uint32_t)
 				(HAL_RX_STATUS_GET_HEADER_OFFSET(prRxStatus));
@@ -497,6 +508,9 @@ void nic_rxd_v1_check_wakeup_reason(
 		}
 		break;
 	default:
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+		nicUpdateWakeupStatistics(prAdapter, RX_OTHERS_INT);
+#endif
 		DBGLOG(RX, WARN, "Unknown Packet %d wakeup host\n",
 			prSwRfb->ucPacketType);
 		break;

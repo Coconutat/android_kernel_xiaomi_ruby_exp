@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -94,7 +94,7 @@ struct HIF_MEM_OPS {
 			  struct RTMP_DMABUF *prDmaBuf,
 			  uint8_t *pucDst, uint32_t u4Len);
 	bool (*copyTxData)(struct MSDU_TOKEN_ENTRY *prToken,
-			   void *pucSrc, uint32_t u4Len);
+			   void *pucSrc, uint32_t u4Len, uint32_t u4offset);
 	bool (*copyRxData)(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
@@ -302,7 +302,7 @@ struct HIF_PREALLOC_MEM {
 	struct HIF_MEM rTxCmdBuf[TX_RING_SIZE];
 	struct HIF_MEM rRxDataBuf[RX_RING0_SIZE];
 	struct HIF_MEM rRxEventBuf[RX_RING1_SIZE];
-#if HIF_TX_PREALLOC_DATA_BUFFER
+#if CFG_HIF_TX_PREALLOC_DATA_BUFFER
 	struct HIF_MEM rMsduBuf[HIF_TX_MSDU_TOKEN_NUM];
 #endif
 	phys_addr_t pucRsvMemBase;

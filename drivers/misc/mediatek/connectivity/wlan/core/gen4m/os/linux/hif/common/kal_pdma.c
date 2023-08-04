@@ -306,6 +306,7 @@ static bool kalWaitRxDmaDone(struct GLUE_INFO *prGlueInfo,
 			     uint16_t u2Port)
 {
 	uint32_t u4Count = 0;
+	uint32_t u4CpuIdx = 0;
 
 	for (u4Count = 0; pRxD->DMADONE == 0; u4Count++) {
 		if (u4Count > DMA_DONE_WAITING_COUNT) {
@@ -314,6 +315,16 @@ static bool kalWaitRxDmaDone(struct GLUE_INFO *prGlueInfo,
 			DBGLOG(HAL, INFO,
 			       "Rx DMA done P[%u] DMA[%u] CPU[%u]\n",
 			       u2Port, prRxRing->RxDmaIdx, prRxRing->RxCpuIdx);
+
+			u4CpuIdx = prRxRing->RxCpuIdx;
+			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
+						  true, 64);
+			INC_RING_INDEX(u4CpuIdx, prRxRing->u4RingSize);
+			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
+						  true, 64);
+			INC_RING_INDEX(u4CpuIdx, prRxRing->u4RingSize);
+			kalDumpRxRing(prGlueInfo, prRxRing, u4CpuIdx,
+						  true, 64);
 
 			return false;
 		}
@@ -944,11 +955,17 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 
 	if (pRxD->LastSec0 == 0 || prRxRing->fgRxSegPkt) {
 		/* Rx segmented packet */
+#define __TEMP_STR__ \
+	"Skip Rx segmented data packet, SDL0[%u] LS0[%u] Mo[%u]\n"
 		DBGLOG(HAL, WARN,
-			"Skip Rx segmented data packet, SDL0[%u] LS0[%u]\n",
-			pRxD->SDLen0, pRxD->LastSec0);
+			__TEMP_STR__,
+			pRxD->SDLen0, pRxD->LastSec0,
+			prGlueInfo->fgIsEnableMon);
+
+		/* should not do pdma scatter when sniffer mode is disabled */
 #ifdef CFG_SUPPORT_PDMA_SCATTER
-		if (prRxRing->fgRxSegPkt == FALSE) {
+		if (prGlueInfo->fgIsEnableMon &&
+			prRxRing->fgRxSegPkt == FALSE) {
 			u4CpuIdxScatter = u4CpuIdx;
 			do {
 				pRxCellScatter =
@@ -1013,7 +1030,7 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 #endif
 
 #ifdef CFG_SUPPORT_PDMA_SCATTER
-	if (fgRet == FALSE) {
+	if (prGlueInfo->fgIsEnableMon && fgRet == FALSE) {
 		pucRecvBuff = ((struct sk_buff *)prRxRing->pvPacket)->data;
 		pucRecvBuff += prRxRing->u4PacketLen;
 		kalMemCopy(pucRecvBuff, prSwRfb->pucRecvBuff, pRxD->SDLen0);

@@ -443,15 +443,15 @@ procCfgReadLabel:
 static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
 {
-
-	/*      uint32_t u4DriverCmd, u4DriverValue;
-	 *uint8_t *temp = &g_aucProcBuf[0];
-	 */
 	uint32_t u4CopySize = sizeof(g_aucProcBuf)-8;
 	struct GLUE_INFO *prGlueInfo;
 	uint8_t *pucTmp;
-	/* PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P; */
 	uint32_t i = 0;
+
+	if (count <= 0) {
+		DBGLOG(INIT, ERROR, "wrong copy size\n");
+		return -EFAULT;
+	}
 
 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
 	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
@@ -465,7 +465,7 @@ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
 	}
 	g_aucProcBuf[u4CopySize + 8] = '\0';
 
-	for (i = 8 ; i < u4CopySize+8; i++) {
+	for (i = 8 ; i < u4CopySize + 8; i++) {
 		if (!isalnum(g_aucProcBuf[i]) && /* alphanumeric */
 			g_aucProcBuf[i] != 0x20 && /* space */
 			g_aucProcBuf[i] != 0x0a && /* control char */
@@ -680,7 +680,7 @@ static ssize_t procMCRRead(struct file *filp, char __user *buf,
 	 size_t count, loff_t *f_pos)
 {
 	struct GLUE_INFO *prGlueInfo;
-	struct PARAM_CUSTOM_MCR_RW_STRUCT rMcrInfo;
+	struct PARAM_CUSTOM_MCR_RW_STRUCT rMcrInfo = {0};
 	uint32_t u4BufLen;
 	uint32_t u4Count;
 	uint8_t *temp = &g_aucProcBuf[0];
@@ -1365,6 +1365,7 @@ static const struct file_operations auto_twt_smart_ops = {
 static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	size_t count, loff_t *f_pos)
 {
+#if 0
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct ADAPTER *prAdapter = NULL;
 	struct mt66xx_chip_info *prChipInfo = NULL;
@@ -1382,6 +1383,11 @@ static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	prAdapter = prGlueInfo->prAdapter;
 	if (!prAdapter)
 		return 0;
+
+	if ((!prGlueInfo) || (prGlueInfo->u4ReadyFlag == 0)) {
+		DBGLOG(REQ, WARN, "driver is not ready\n");
+		return -EFAULT;
+	}
 
 	prChipInfo = prAdapter->chip_info;
 	if (!prChipInfo)
@@ -1403,13 +1409,14 @@ static ssize_t procCalResultRead(struct file *filp, char __user *buf,
 	}
 
 	*f_pos += u4CalSize;
-
-	return (int32_t)u4CalSize;
+#endif
+	return 0;
 }
 
 static ssize_t procCalResultWrite(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
 {
+#if 0
 	uint32_t u4CopySize = sizeof(g_aucProcBuf);
 
 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
@@ -1421,8 +1428,8 @@ static ssize_t procCalResultWrite(struct file *file, const char __user *buffer,
 	}
 
 	g_aucProcBuf[u4CopySize] = '\0';
-
-	return count;
+#endif
+	return 0;
 }
 #if KERNEL_VERSION(5, 6, 0) <= CFG80211_VERSION_CODE
 static const struct proc_ops cal_result_ops = {
@@ -1983,6 +1990,11 @@ static ssize_t cfgWrite(struct file *filp, const char __user *buf,
 	uint32_t u4CopySize = sizeof(aucCfgBuf);
 	uint8_t token_num = 1;
 
+	if (count <= 0) {
+		DBGLOG(INIT, ERROR, "wrong copy size\n");
+		return -EFAULT;
+	}
+
 	kalMemSet(aucCfgBuf, 0, u4CopySize);
 	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
 
@@ -1991,7 +2003,7 @@ static ssize_t cfgWrite(struct file *filp, const char __user *buf,
 		return -EFAULT;
 	}
 	aucCfgBuf[u4CopySize] = '\0';
-	for (; i < u4CopySize; i++) {
+	for (i = 0; i < u4CopySize; i++) {
 		if (aucCfgBuf[i] == ' ') {
 			token_num++;
 			break;
@@ -2000,13 +2012,15 @@ static ssize_t cfgWrite(struct file *filp, const char __user *buf,
 
 	if (token_num == 1) {
 		kalMemSet(aucCfgQueryKey, 0, sizeof(aucCfgQueryKey));
+		u4CopySize = (u4CopySize < sizeof(aucCfgQueryKey)) ?
+			u4CopySize : sizeof(aucCfgQueryKey);
+
 		/* remove the 0x0a */
 		memcpy(aucCfgQueryKey, aucCfgBuf, u4CopySize);
 		if (aucCfgQueryKey[u4CopySize - 1] == 0x0a)
 			aucCfgQueryKey[u4CopySize - 1] = '\0';
 	} else {
-		if (u4CopySize)
-			wlanFwCfgParse(gprGlueInfo->prAdapter, aucCfgBuf);
+		wlanFwCfgParse(gprGlueInfo->prAdapter, aucCfgBuf);
 	}
 
 	return count;

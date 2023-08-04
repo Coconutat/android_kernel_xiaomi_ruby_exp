@@ -171,6 +171,18 @@ struct ROAMING_EVENT_INFO {
 	uint8_t ucSupportStbc;
 };
 
+#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
+struct ROAMING_SKIP_BTM {
+	uint8_t ucConsecutiveBtmCount;
+	OS_SYSTIME rFrstReqTime;
+};
+
+struct ROAMING_SKIP_PER {
+	uint8_t ucConsecutivePerCount;
+	OS_SYSTIME rFrstPerTime;
+};
+#endif
+
 struct ROAMING_INFO {
 	u_int8_t fgIsEnableRoaming;
 
@@ -187,7 +199,12 @@ struct ROAMING_INFO {
 	uint8_t ucRcpi;
 	uint8_t ucThreshold;
 	struct ROAMING_EVENT_INFO rEventInfo;
-	uint8_t fgFwTxPerEnabled;
+#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
+	struct ROAMING_SKIP_BTM rSkipBtmInfo;
+	struct ROAMING_SKIP_PER rSkipPerInfo;
+	uint8_t fgDisallowBtmRoaming;
+	uint8_t fgDisallowPERRoaming;
+#endif
 };
 
 /*******************************************************************************

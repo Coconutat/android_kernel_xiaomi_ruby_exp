@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -632,6 +632,14 @@ struct BSS_INFO {
 	struct _DL_LIST twt_sch_link; /* twt sch-link */
 	struct _TWT_HOTSPOT_STA_NODE arTWTSta[TWT_MAX_FLOW_NUM];
 #endif
+
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	struct TIMER rCsaTimer;
+	struct SWITCH_CH_AND_BAND_PARAMS CSAParams;
+	uint8_t ucVhtChannelWidthBeforeCsa;
+	uint8_t fgHasStopTx;
+	u_int8_t fgIsSwitchingChnl;
+#endif
 };
 
 /* Support AP Selection */
@@ -1058,6 +1066,10 @@ struct WIFI_VAR {
 	uint8_t ucChannelSwitchMode;
 	uint8_t ucNewChannelNumber;
 	uint8_t ucChannelSwitchCount;
+	uint8_t ucSecondaryOffset;
+	uint8_t ucNewChannelWidth;
+	uint8_t ucNewChannelS1;
+	uint8_t ucNewChannelS2;
 
 	uint32_t u4HifIstLoopCount;
 	uint32_t u4Rx2OsLoopCount;
@@ -1211,6 +1223,10 @@ struct WIFI_VAR {
 	u_int8_t fgErRx;
 #endif
 
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	uint8_t ucP2pCsaCount;
+#endif
+
 #if (CFG_SUPPORT_P2PGO_ACS == 1)
 	uint8_t ucP2pGoACS;
 #endif
@@ -1267,6 +1283,10 @@ struct WIFI_VAR {
 #if CFG_SUPPORT_ONE_TIME_CAL
 	uint8_t fgOneTimeCalEnable;
 #endif
+	uint32_t u4P2pGoWmmParamAC0;
+	uint32_t u4P2pGoWmmParamAC1;
+	uint32_t u4P2pGoWmmParamAC2;
+	uint32_t u4P2pGoWmmParamAC3;
 };
 
 /* cnm_timer module */
@@ -2044,6 +2064,17 @@ struct ADAPTER {
 #if (CFG_WIFI_GET_MCS_INFO == 1)
 	struct TIMER rRxMcsInfoTimer;
 	u_int8_t fgIsMcsInfoValid;
+#endif
+#if CFG_SUPPORT_EXCEPTION_STATISTICS
+	uint32_t total_beacon_timeout_count;
+	uint32_t beacon_timeout_count[BEACON_TIMEOUT_DUE_2_NUM];
+	uint32_t total_tx_done_fail_count;
+	uint32_t tx_done_fail_count[TX_RESULT_NUM];
+	uint32_t total_deauth_rx_count;
+	uint32_t deauth_rx_count[REASON_CODE_BEACON_TIMEOUT + 1];
+	uint32_t total_scandone_timeout_count;
+	uint32_t total_mgmtTX_timeout_count;
+	uint32_t total_mgmtRX_timeout_count;
 #endif
 };				/* end of _ADAPTER_T */
 

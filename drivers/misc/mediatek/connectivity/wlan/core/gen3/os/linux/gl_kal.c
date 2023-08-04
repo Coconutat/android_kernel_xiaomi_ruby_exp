@@ -884,7 +884,7 @@ WLAN_STATUS kalRxIndicatePkts(IN P_GLUE_INFO_T prGlueInfo, IN PVOID apvPkts[], I
 	if (netif_carrier_ok(prNetDev))
 		kalPerMonStart(prGlueInfo);
 
-	KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, &prGlueInfo->rTimeoutWakeLock,
+	KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, prGlueInfo->rTimeoutWakeLock,
 			      MSEC_TO_JIFFIES(WAKE_LOCK_RX_TIMEOUT));
 
 	return WLAN_STATUS_SUCCESS;
@@ -2323,7 +2323,7 @@ kalIoctl(IN P_GLUE_INFO_T prGlueInfo,
 	set_bit(GLUE_FLAG_OID_BIT, &prGlueInfo->ulFlag);
 
 	/* <7.1> Hold wakelock to ensure OS won't be suspended */
-	KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, &prGlueInfo->rTimeoutWakeLock,
+	KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, prGlueInfo->rTimeoutWakeLock,
 			      MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
 
 	/* <8> Wake up tx thread to handle kick start the I/O request */
@@ -2784,18 +2784,17 @@ int hif_thread(void *data)
 	int ret = 0;
 	KAL_WAKE_LOCK_T *prHifThreadWakeLock;
 
-	prHifThreadWakeLock = kalMemAlloc(sizeof(KAL_WAKE_LOCK_T), VIR_MEM_TYPE);
-	if (!prHifThreadWakeLock) {
-		DBGLOG(INIT, ERROR, "%s MemAlloc Fail\n", KAL_GET_CURRENT_THREAD_NAME());
-		return FALSE;
-	}
-
 	KAL_WAKE_LOCK_INIT(prGlueInfo->prAdapter, prHifThreadWakeLock, "WLAN hif_thread");
 	KAL_WAKE_LOCK(prGlueInfo->prAdapter, prHifThreadWakeLock);
 
 	DBGLOG(INIT, INFO, "%s:%u starts running...\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
 
 	prGlueInfo->u4HifThreadPid = KAL_GET_CURRENT_THREAD_ID();
+
+	if (!prGlueInfo->prAdapter) {
+		DBGLOG(INIT, WARN, "%s:%u ADAPTER NULL\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
+		return 0;
+	}
 
 	set_user_nice(current, prGlueInfo->prAdapter->rWifiVar.cThreadNice);
 
@@ -2891,7 +2890,6 @@ int hif_thread(void *data)
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, prHifThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, prHifThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, prHifThreadWakeLock);
-	kalMemFree(prHifThreadWakeLock, VIR_MEM_TYPE, sizeof(KAL_WAKE_LOCK_T));
 
 	DBGLOG(INIT, TRACE, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
 
@@ -2912,11 +2910,7 @@ int rx_thread(void *data)
 
 	/* for spin lock acquire and release */
 	KAL_SPIN_LOCK_DECLARATION();
-	prRxThreadWakeLock = kalMemAlloc(sizeof(KAL_WAKE_LOCK_T), VIR_MEM_TYPE);
-	if (!prRxThreadWakeLock) {
-		DBGLOG(INIT, ERROR, "%s MemAlloc Fail\n", KAL_GET_CURRENT_THREAD_NAME());
-		return FALSE;
-	}
+
 	KAL_WAKE_LOCK_INIT(prGlueInfo->prAdapter, prRxThreadWakeLock, "WLAN rx_thread");
 	KAL_WAKE_LOCK(prGlueInfo->prAdapter, prRxThreadWakeLock);
 
@@ -2967,7 +2961,7 @@ int rx_thread(void *data)
 								    (PVOID) GLUE_GET_PKT_DESCRIPTOR(prQueueEntry));
 					}
 
-					KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, &prGlueInfo->rTimeoutWakeLock,
+					KAL_WAKE_LOCK_TIMEOUT(prGlueInfo->prAdapter, prGlueInfo->rTimeoutWakeLock,
 							      MSEC_TO_JIFFIES(WAKE_LOCK_RX_TIMEOUT));
 				}
 			}
@@ -2979,7 +2973,6 @@ int rx_thread(void *data)
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, prRxThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, prRxThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, prRxThreadWakeLock);
-	kalMemFree(prRxThreadWakeLock, VIR_MEM_TYPE, sizeof(KAL_WAKE_LOCK_T));
 	DBGLOG(INIT, TRACE, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
 
 	return 0;
@@ -3008,11 +3001,6 @@ int tx_thread(void *data)
 	BOOLEAN fgNeedHwAccess = FALSE;
 	KAL_WAKE_LOCK_T *prTxThreadWakeLock;
 
-	prTxThreadWakeLock = kalMemAlloc(sizeof(KAL_WAKE_LOCK_T), VIR_MEM_TYPE);
-	if (!prTxThreadWakeLock) {
-		DBGLOG(INIT, ERROR, "%s MemAlloc Fail\n", KAL_GET_CURRENT_THREAD_NAME());
-		return FALSE;
-	}
 #if CFG_SUPPORT_MULTITHREAD
 	prGlueInfo->u4TxThreadPid = KAL_GET_CURRENT_THREAD_ID();
 #endif
@@ -3245,7 +3233,6 @@ int tx_thread(void *data)
 	if (KAL_WAKE_LOCK_ACTIVE(prGlueInfo->prAdapter, prTxThreadWakeLock))
 		KAL_WAKE_UNLOCK(prGlueInfo->prAdapter, prTxThreadWakeLock);
 	KAL_WAKE_LOCK_DESTROY(prGlueInfo->prAdapter, prTxThreadWakeLock);
-	kalMemFree(prTxThreadWakeLock, VIR_MEM_TYPE, sizeof(KAL_WAKE_LOCK_T));
 	DBGLOG(INIT, TRACE, "%s:%u stopped!\n", KAL_GET_CURRENT_THREAD_NAME(), KAL_GET_CURRENT_THREAD_ID());
 
 	return 0;
@@ -3602,9 +3589,13 @@ VOID kalOsTimerInitialize(IN P_GLUE_INFO_T prGlueInfo, IN PVOID prTimerHandler)
 
 	ASSERT(prGlueInfo);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
+	timer_setup(&(prGlueInfo->tickfn), prTimerHandler, 0);
+#else
 	init_timer(&(prGlueInfo->tickfn));
 	prGlueInfo->tickfn.function = prTimerHandler;
 	prGlueInfo->tickfn.data = (unsigned long)prGlueInfo;
+#endif
 }
 
 /* Todo */
@@ -3703,17 +3694,24 @@ UINT_32 kalRandomNumber(VOID)
  * \retval (none)
  */
 /*----------------------------------------------------------------------------*/
-VOID kalTimeoutHandler(unsigned long arg)
+#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
+void kalTimeoutHandler(struct timer_list *timer)
+#else
+void kalTimeoutHandler(unsigned long arg)
+#endif
 {
-
-	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T) arg;
+#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
+	P_GLUE_INFO_T prGlueInfo =
+		from_timer(prGlueInfo, timer, tickfn);
+#else
+	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T)arg;
+#endif
 
 	ASSERT(prGlueInfo);
 
 	/* Notify tx thread  for timeout event */
 	set_bit(GLUE_FLAG_TIMEOUT_BIT, &prGlueInfo->ulFlag);
 	wake_up_interruptible(&prGlueInfo->waitq);
-
 }
 
 VOID kalSetEvent(P_GLUE_INFO_T pr)
@@ -3742,7 +3740,7 @@ VOID kalSetTxEvent2Hif(P_GLUE_INFO_T pr)
 	if (!pr->hif_thread)
 		return;
 
-	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, &pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
+	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
 
 	set_bit(GLUE_FLAG_HIF_TX_BIT, &pr->ulFlag);
 	wake_up_interruptible(&pr->waitq_hif);
@@ -3753,7 +3751,7 @@ VOID kalSetFwOwnEvent2Hif(P_GLUE_INFO_T pr)
 	if (!pr->hif_thread)
 		return;
 
-	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, &pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
+	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
 
 	set_bit(GLUE_FLAG_HIF_FW_OWN_BIT, &pr->ulFlag);
 	wake_up_interruptible(&pr->waitq_hif);
@@ -3764,7 +3762,7 @@ VOID kalSetTxEvent2Rx(P_GLUE_INFO_T pr)
 	if (!pr->rx_thread)
 		return;
 
-	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, &pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
+	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
 
 	set_bit(GLUE_FLAG_RX_TO_OS_BIT, &pr->ulFlag);
 	wake_up_interruptible(&pr->waitq_rx);
@@ -3775,7 +3773,7 @@ VOID kalSetTxCmdEvent2Hif(P_GLUE_INFO_T pr)
 	if (!pr->hif_thread)
 		return;
 
-	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, &pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
+	KAL_WAKE_LOCK_TIMEOUT(pr->prAdapter, pr->rTimeoutWakeLock, MSEC_TO_JIFFIES(WAKE_LOCK_THREAD_WAKEUP_TIMEOUT));
 
 	set_bit(GLUE_FLAG_HIF_TX_CMD_BIT, &pr->ulFlag);
 	wake_up_interruptible(&pr->waitq_hif);
@@ -4327,6 +4325,10 @@ INT_32 kalRequestFirmware(const PUINT_8 pucPath, PUINT_8 pucData, UINT_32 u4Size
 		DBGLOG(INIT, INFO, "kalRequestFirmware %s Fail, errno[%d]!!\n", pucPath, ret);
 		pucData = NULL;
 		*pu4ReadSize = 0;
+		if (fw) {
+			release_firmware(fw);
+			fw = NULL;
+		}
 		return ret;
 	}
 
@@ -4917,7 +4919,8 @@ kalSetNetAddress(IN P_GLUE_INFO_T prGlueInfo,
 VOID kalSetNetAddressFromInterface(IN P_GLUE_INFO_T prGlueInfo, IN struct net_device *prDev, IN BOOLEAN fgSet)
 {
 	UINT_32 u4NumIPv4, u4NumIPv6;
-	UINT_8 pucIPv4Addr[IPV4_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM], pucIPv6Addr[IPV6_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM];
+	UINT_8 pucIPv4Addr[IPV4_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM] = {0};
+	UINT_8 pucIPv6Addr[IPV6_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM] = {0};
 	P_NETDEV_PRIVATE_GLUE_INFO prNetDevPrivate = (P_NETDEV_PRIVATE_GLUE_INFO) NULL;
 
 	prNetDevPrivate = (P_NETDEV_PRIVATE_GLUE_INFO) netdev_priv(prDev);
@@ -5037,11 +5040,15 @@ BOOLEAN kalMetCheckProfilingPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACK
 	return FALSE;
 }
 
+#if 0
 static unsigned long __read_mostly tracing_mark_write_addr;
+#endif
 static inline void __mt_update_tracing_mark_write_addr(void)
 {
+#if 0
 	if (unlikely(tracing_mark_write_addr == 0))
 		tracing_mark_write_addr = kallsyms_lookup_name("tracing_mark_write");
+#endif
 }
 
 VOID kalMetTagPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACKET prPacket, IN ENUM_TX_PROFILING_TAG_T eTag)
@@ -5052,6 +5059,7 @@ VOID kalMetTagPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACKET prPacket, I
 	switch (eTag) {
 	case TX_PROF_TAG_OS_TO_DRV:
 		if (kalMetCheckProfilingPacket(prGlueInfo, prPacket)) {
+#if 0
 			__mt_update_tracing_mark_write_addr();
 #ifdef CONFIG_TRACING		/* #if CFG_MET_PACKET_TRACE_SUPPORT */
 #ifndef MTK_WCN_BUILT_IN_DRIVER
@@ -5062,11 +5070,13 @@ VOID kalMetTagPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACKET prPacket, I
 					   GLUE_GET_PKT_IP_ID(prPacket));
 #endif
 #endif
+#endif
 			GLUE_SET_PKT_FLAG_PROF_MET(prPacket);
 		}
 		break;
 
 	case TX_PROF_TAG_DRV_TX_DONE:
+#if 0
 		if (GLUE_GET_PKT_IS_PROF_MET(prPacket)) {
 			__mt_update_tracing_mark_write_addr();
 #ifdef CONFIG_TRACING		/* #if CFG_MET_PACKET_TRACE_SUPPORT */
@@ -5079,6 +5089,7 @@ VOID kalMetTagPacket(IN P_GLUE_INFO_T prGlueInfo, IN P_NATIVE_PACKET prPacket, I
 #endif
 #endif
 		}
+#endif
 		break;
 
 	case TX_PROF_TAG_MAC_TX_DONE:

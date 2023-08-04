@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -202,6 +202,8 @@ nanUpdatePublishRequest(struct ADAPTER *prAdapter,
 	kalMemCopy(prPublishReq->service_name, msg->service_name,
 		   msg->service_name_len);
 
+	DBGLOG(INIT, INFO, "nan: service_specific_info_len = %d\n",
+	       prPublishReq->service_specific_info_len);
 	prPublishReq->service_specific_info_len =
 		msg->service_specific_info_len;
 	if (prPublishReq->service_specific_info_len >

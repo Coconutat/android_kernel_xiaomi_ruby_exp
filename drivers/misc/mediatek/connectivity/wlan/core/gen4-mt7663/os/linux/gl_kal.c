@@ -6556,7 +6556,7 @@ u_int8_t kalMetCheckProfilingPacket(IN struct GLUE_INFO
 }
 
 #if	(CFG_ENABLE_GKI_SUPPORT != 1) && \
-	KERNEL_VERSION(5, 7, 0) > LINUX_VERSION_CODE
+	KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE
 static unsigned long __read_mostly tracing_mark_write_addr;
 
 static int __mt_find_tracing_mark_write_symbol_fn(
@@ -9074,11 +9074,10 @@ void kal_Set_Thread_SchPolicy_Priority(IN struct GLUE_INFO *prGlueInfo)
 
 unsigned long kal_kallsyms_lookup_name(const char *name)
 {
+	void *pvAddr = NULL;
+#if	(CFG_ENABLE_GKI_SUPPORT != 1)
+#if	KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE
 	unsigned long ret = 0;
-
-	/* TODO: need to inplement >= v5.4 */
-#if	(CFG_ENABLE_GKI_SUPPORT != 1) && \
-		KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	ret = kallsyms_lookup_name(name);
 	if (ret) {
 #ifdef CONFIG_ARM
@@ -9088,8 +9087,14 @@ unsigned long kal_kallsyms_lookup_name(const char *name)
 #endif
 #endif
 	}
-#endif
 	return ret;
+#else /* KERNEL_VERSION(4, 19, 0) < LINUX_VERSION_CODE */
+	pvAddr = __symbol_get(name);
+	if (pvAddr)
+		__symbol_put(name);
+#endif /* KERNEL_VERSION(4, 19, 0) < LINUX_VERSION_CODE */
+#endif /* CFG_ENABLE_GKI_SUPPORT != 1 */
+	return (unsigned long)pvAddr;
 }
 void kal_sched_set(struct task_struct *p, int policy,
 		const struct sched_param *param,

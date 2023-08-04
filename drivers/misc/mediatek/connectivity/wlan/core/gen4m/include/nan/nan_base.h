@@ -408,7 +408,7 @@ struct _NAN_SDF_FRAME_T {
 struct _NAN_ATTR_HDR_T {
 	uint8_t ucAttrId;
 	uint16_t u2Length;
-	uint8_t aucAttrBody[1];
+	uint8_t aucAttrBody[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* NAN attribute definitions */
@@ -462,7 +462,7 @@ struct _NAN_ATTR_NDPE_WFA_SVC_INFO_TLV_T {
 	uint16_t u2Length;
 	uint8_t aucOui[VENDOR_OUI_LEN]; /* than NAN_OUI */
 	uint8_t ucServiceProtocolType;  /* NAN_SERVICE_PROTOCOL_TYPE_* */
-	uint8_t aucBody[1];
+	uint8_t aucBody[2];
 } __KAL_ATTRIB_PACKED__;
 
 struct _NAN_ATTR_NDPE_T {

@@ -806,14 +806,12 @@ P_SW_RFB_T qmFlushRxQueues(IN P_ADAPTER_T prAdapter)
 P_SW_RFB_T qmFlushStaRxQueue(IN P_ADAPTER_T prAdapter, IN UINT_32 u4StaRecIdx, IN UINT_32 u4Tid)
 {
 	/* UINT_32 i; */
-	P_SW_RFB_T prSwRfbListHead;
-	P_SW_RFB_T prSwRfbListTail;
-	P_RX_BA_ENTRY_T prReorderQueParm;
-	P_STA_RECORD_T prStaRec;
+	P_SW_RFB_T prSwRfbListHead = NULL;
+	P_SW_RFB_T prSwRfbListTail = NULL;
+	P_RX_BA_ENTRY_T prReorderQueParm = NULL;
+	P_STA_RECORD_T prStaRec = NULL;
 
 	DBGLOG(QM, TRACE, "QM: Enter qmFlushStaRxQueues(%u)\n", u4StaRecIdx);
-
-	prSwRfbListHead = prSwRfbListTail = NULL;
 
 	prStaRec = &prAdapter->arStaRec[u4StaRecIdx];
 	ASSERT(prStaRec);
@@ -825,7 +823,9 @@ P_SW_RFB_T qmFlushStaRxQueue(IN P_ADAPTER_T prAdapter, IN UINT_32 u4StaRecIdx, I
 #endif
 
 	/* Obtain the RX BA Entry pointer */
-	prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[u4Tid]);
+	if (u4Tid < CFG_RX_MAX_BA_TID_NUM) {
+		prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[u4Tid]);
+	}
 
 	/* Note: For each queued packet, prCurrSwRfb->eDst equals RX_PKT_DESTINATION_HOST */
 	if (prReorderQueParm) {
@@ -2550,36 +2550,49 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 		}
 #endif /* CFG_SUPPORT_FAKE_EAPOL_DETECTION */
 
-		if (prCurrSwRfb->fgReorderBuffer && !fgIsBMC && fgIsHTran) {
-			/* If this packet should dropped or indicated to the host immediately,
-			 *  it should be enqueued into the rReturnedQue with specific flags. If
-			 *  this packet should be buffered for reordering, it should be enqueued
-			 *  into the reordering queue in the STA_REC rather than into the
-			 *  rReturnedQue.
-			 */
-			qmProcessPktWithReordering(prAdapter, prCurrSwRfb, prReturnedQue);
-
-		} else if (prCurrSwRfb->fgDataFrame) {
+		if (prCurrSwRfb->fgDataFrame) {
 			/* Check Class Error */
 			if (secCheckClassError(prAdapter, prCurrSwRfb, prCurrSwRfb->prStaRec) == TRUE) {
 				P_RX_BA_ENTRY_T prReorderQueParm = NULL;
+				P_HW_MAC_RX_DESC_T prRS = NULL;
 
 				/* Invalid BA aggrement */
-				if (fgIsHTran) {
+				if (fgIsHTran && !prCurrSwRfb->fgReorderBuffer) {
 					UINT_16 u2FrameCtrl = 0;
 
 					u2FrameCtrl = HAL_RX_STATUS_GET_FRAME_CTL_FIELD(prCurrSwRfb->prRxStatusGroup4);
 					/* Check FC type, if DATA, then no-reordering */
-					if ((u2FrameCtrl & MASK_FRAME_TYPE) == MAC_FRAME_DATA) {
+					if (((u2FrameCtrl & MASK_FRAME_TYPE)
+						== MAC_FRAME_DATA)
+						|| (prCurrSwRfb->ucTid
+						>= CFG_RX_MAX_BA_TID_NUM)) {
 						DBGLOG(QM, TRACE, "FC [0x%04X], no-reordering...\n", u2FrameCtrl);
 					} else {
+						/* Get TID for BA entry */
+						prRS = prCurrSwRfb->prRxStatus;
+						prCurrSwRfb->ucTid = HAL_RX_STATUS_GET_TID(prRS);
 						prReorderQueParm =
 						    ((prCurrSwRfb->prStaRec->
 						      aprRxReorderParamRefTbl)[prCurrSwRfb->ucTid]);
 					}
+				} else {
+					if (fgIsHTran &&
+						(prCurrSwRfb->ucTid
+						< CFG_RX_MAX_BA_TID_NUM)) {
+					/* Get TID for BA entry */
+					prRS = prCurrSwRfb->prRxStatus;
+					prCurrSwRfb->ucTid =
+						 HAL_RX_STATUS_GET_TID(prRS);
+					prReorderQueParm =
+						((prCurrSwRfb->prStaRec->
+						aprRxReorderParamRefTbl)
+						[prCurrSwRfb->ucTid]);
+					}
 				}
-
-				if (prReorderQueParm && prReorderQueParm->fgIsValid && !fgIsBMC)
+				/* Only UC with valid BA entry */
+				/* pass to reordering */
+				if (prReorderQueParm && !fgIsBMC &&
+					prReorderQueParm->fgIsValid)
 					qmProcessPktWithReordering(prAdapter, prCurrSwRfb, prReturnedQue);
 				else
 					qmHandleRxPackets_AOSP_1;
@@ -2867,7 +2880,7 @@ u_int8_t qmAmsduAttackDetection(IN P_ADAPTER_T prAdapter,
 	}
 
 	/* 802.11 header RA */
-	ucBssIndex = secGetBssIdxByWlanIdx(prAdapter, prSwRfb->ucWlanIdx);
+	ucBssIndex = prStaRec->ucBssIndex;
 	/* Handle if  out of bss index range*/
 	if (ucBssIndex > HW_BSSID_NUM) {
 		DBGLOG(QM, INFO,
@@ -3008,6 +3021,17 @@ VOID qmProcessPktWithReordering(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb,
 
 	RX_INC_CNT(&prAdapter->rRxCtrl, RX_DATA_REORDER_TOTAL_COUINT);
 
+	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
+		DBGLOG(QM, WARN, "TID from RXD = %d, out of range!!\n",
+			prSwRfb->ucTid);
+		DBGLOG_MEM8(QM, ERROR, prSwRfb->pucRecvBuff,
+			HAL_RX_STATUS_GET_RX_BYTE_CNT(prRxStatus));
+		prSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+		QUEUE_INSERT_TAIL(prReturnedQue,
+			(P_QUE_ENTRY_T) prSwRfb);
+		return;
+	}
+
 	/* Check whether the BA agreement exists */
 	prReorderQueParm = ((prStaRec->aprRxReorderParamRefTbl)[prSwRfb->ucTid]);
 	if (!prReorderQueParm || !(prReorderQueParm->fgIsValid)) {
@@ -3143,6 +3167,14 @@ VOID qmProcessBarFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb, OUT P_QU
 		return;
 	}
 #endif
+	/* Check index out of bound */
+	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
+		DBGLOG(QM, WARN,
+			"QM: (Warning) index out of bound: ucTid = %d\n",
+			prSwRfb->ucTid);
+		return;
+	}
+
 
 	/* Check whether the BA agreement exists */
 	prReorderQueParm = prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid];
@@ -4010,9 +4042,11 @@ qmAddRxBaEntry(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(ucStaRecIdx < CFG_STA_REC_NUM);
 
-	if (ucStaRecIdx >= CFG_STA_REC_NUM) {
+	if (ucStaRecIdx >= CFG_STA_REC_NUM || ucTid >= CFG_RX_MAX_BA_TID_NUM) {
 		/* Invalid STA_REC index, discard the event packet */
-		DBGLOG(QM, WARN, "QM: (WARNING) RX ADDBA Event for a invalid ucStaRecIdx = %d\n", ucStaRecIdx);
+		DBGLOG(QM, WARN,
+			"QM: (WARNING) RX ADDBA Event for a invalid ucStaRecIdx = %d, ucTID=%d\n",
+			ucStaRecIdx, ucTid);
 		return FALSE;
 	}
 
@@ -4083,7 +4117,7 @@ qmAddRxBaEntry(IN P_ADAPTER_T prAdapter,
 
 VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 ucTid, IN BOOLEAN fgFlushToHost)
 {
-	P_RX_BA_ENTRY_T prRxBaEntry;
+	P_RX_BA_ENTRY_T prRxBaEntry = NULL;
 	P_STA_RECORD_T prStaRec;
 	P_SW_RFB_T prFlushedPacketList = NULL;
 	P_QUE_MGT_T prQM = &prAdapter->rQM;
@@ -4101,7 +4135,9 @@ VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 u
 #endif
 
 	/* Remove the BA entry for the same (STA, TID) tuple if it exists */
-	prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
+	if (ucTid < CFG_RX_MAX_BA_TID_NUM) {
+		prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
+	}
 
 	if (prRxBaEntry) {
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -7342,6 +7342,12 @@ wlanoidSetSwCtrlWrite(IN struct ADAPTER *prAdapter,
 		ucChannelWidth = (uint8_t)((u4Data & BITS(8, 11)) >> 8);
 		ucBssIndex = (uint8_t) u2SubId;
 
+		if (!IS_BSS_INDEX_VALID(ucBssIndex)) {
+			DBGLOG(RLM, ERROR,
+				"Invalid bssidx:%d\n", ucBssIndex);
+			break;
+		}
+
 		if ((u2SubId & BITS(8, 15)) != 0) { /* Debug OP change
 						     * parameters
 						     */
@@ -14145,6 +14151,12 @@ wlanoidAdvCtrl(IN struct ADAPTER *prAdapter,
 		break;
 #endif
 #endif
+#if CONFIG_WIFI_ANTENNA_REPORT
+	case CMD_GET_ANTENNA_REPORT_TYPE:
+		*pu4QueryInfoLen = sizeof(struct CMD_ANTENNA_REPORT);
+		len = sizeof(struct CMD_ANTENNA_REPORT);
+		break;
+#endif
 	default:
 		return WLAN_STATUS_INVALID_LENGTH;
 	}
@@ -16037,6 +16049,7 @@ wlanoidAbortScan(IN struct ADAPTER *prAdapter,
 	if (prAisFsmInfo->eCurrentState == AIS_STATE_SCAN ||
 			prAisFsmInfo->eCurrentState == AIS_STATE_ONLINE_SCAN) {
 		DBGLOG(OID, INFO, "ucBssIndex = %d\n", ucBssIndex);
+		prAisFsmInfo->fgIsScanOidAborted = TRUE;
 		aisFsmStateAbort_SCAN(prAdapter, ucBssIndex);
 	}
 	return WLAN_STATUS_SUCCESS;
@@ -18246,3 +18259,51 @@ wlanoidLatchTSF(IN struct ADAPTER *prAdapter,
 
 }				/* end of wlanoidLatchTSF() */
 #endif
+
+/* fos_change begin */
+uint32_t
+wlanoidQueryBandWidth(IN struct ADAPTER *prAdapter,
+			  IN void *pvQueryBuffer, IN uint32_t u4QueryBufferLen,
+			  OUT uint32_t *pu4QueryInfoLen)
+{
+	uint32_t rResult = WLAN_STATUS_FAILURE;
+	uint8_t bandWidth = 20;
+	struct BSS_INFO *prAisBssInfo  = (struct BSS_INFO *) NULL;
+
+	do {
+		if (u4QueryBufferLen)
+			ASSERT(pvQueryBuffer);
+
+		if (!prAdapter || !pu4QueryInfoLen)
+			break;
+		prAisBssInfo = aisGetAisBssInfo(prAdapter, AIS_DEFAULT_INDEX);
+		if (!prAisBssInfo ||
+			prAisBssInfo->eConnectionState != MEDIA_STATE_CONNECTED)
+			break;
+
+		rResult = WLAN_STATUS_SUCCESS;
+
+		if (prAisBssInfo->ucVhtChannelWidth ==
+			VHT_OP_CHANNEL_WIDTH_20_40) {
+			if (prAisBssInfo->eBssSCO == CHNL_EXT_SCA ||
+				prAisBssInfo->eBssSCO == CHNL_EXT_SCB)
+				bandWidth = 40;
+			else
+				bandWidth = 20;
+		} else if (prAisBssInfo->ucVhtChannelWidth ==
+			VHT_OP_CHANNEL_WIDTH_80) {
+			bandWidth = 80;
+		} else if ((prAisBssInfo->ucVhtChannelWidth ==
+			VHT_OP_CHANNEL_WIDTH_160) ||
+			(prAisBssInfo->ucVhtChannelWidth ==
+			VHT_OP_CHANNEL_WIDTH_80P80)) {
+			bandWidth = 160;
+		} else {
+			rResult = WLAN_STATUS_FAILURE;
+		}
+		*(uint8_t *)pvQueryBuffer = bandWidth;
+	} while (FALSE);
+	return rResult;
+}
+/* fos_change end */
+

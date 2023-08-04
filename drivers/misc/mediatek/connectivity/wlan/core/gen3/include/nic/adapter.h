@@ -435,6 +435,7 @@ struct _BSS_INFO_T {
 	/* AP PMF */
 	struct AP_PMF_CFG rApPmfCfg;
 #endif
+	BOOLEAN fgEnableH2E;
 };
 
 struct ESS_CHNL_INFO {
@@ -802,7 +803,7 @@ typedef struct _WIFI_VAR_T {
 typedef struct {
 	LINK_T rLinkHead;
 	OS_SYSTIME rNextExpiredSysTime;
-	KAL_WAKE_LOCK_T rWakeLock;
+	KAL_WAKE_LOCK_T *rWakeLock;
 	BOOLEAN fgWakeLocked;
 	PUINT_8 pucFileAndLineFor1stNode;
 } ROOT_TIMER, *P_ROOT_TIMER;
@@ -1198,6 +1199,10 @@ struct _ADAPTER_T {
 
 #define IS_BSS_BOW(_prBssInfo) \
 	((_prBssInfo)->eNetworkType == NETWORK_TYPE_BOW)
+
+#define IS_BSS_APGO(_prBssInfo) \
+	(IS_BSS_P2P(_prBssInfo) && \
+	(_prBssInfo)->eCurrentOPMode == OP_MODE_ACCESS_POINT)
 
 #define SET_NET_ACTIVE(_prAdapter, _BssIndex) \
 	{(_prAdapter)->aprBssInfo[(_BssIndex)]->fgIsNetActive = TRUE; }

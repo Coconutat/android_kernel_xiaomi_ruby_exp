@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -469,7 +469,7 @@ authSendAuthFrame(IN struct ADAPTER *prAdapter,
 		    (struct WLAN_AUTH_FRAME *)prFalseAuthSwRfb->pvHeader;
 #if CFG_SUPPORT_WPA3_H2E
 		ASSERT((u2StatusCode != STATUS_CODE_SUCCESSFUL) &&
-			(u2StatusCode != WLAN_STATUS_SAE_HASH_TO_ELEMENT));
+			(u2StatusCode != STATUS_CODE_SAE_HASH_TO_ELEMENT));
 #else
 		ASSERT(u2StatusCode != STATUS_CODE_SUCCESSFUL);
 #endif
@@ -1441,6 +1441,7 @@ authProcessRxAuthFrame(IN struct ADAPTER *prAdapter,
 	struct WLAN_AUTH_FRAME *prAuthFrame;
 	uint16_t u2ReturnStatusCode = STATUS_CODE_SUCCESSFUL;
 	uint16_t u2RxTransactionSeqNum = 0;
+	uint16_t u2RxStatusCode;
 
 	if (!prBssInfo)
 		return WLAN_STATUS_FAILURE;
@@ -1464,6 +1465,17 @@ authProcessRxAuthFrame(IN struct ADAPTER *prAdapter,
 		DBGLOG(P2P, WARN,
 		       "Invalid STA MAC with MC/BC bit set: " MACSTR "\n",
 		       MAC2STR(prAuthFrame->aucSrcAddr));
+		return WLAN_STATUS_FAILURE;
+	}
+
+#if (CFG_SUPPORT_SUPPLICANT_SME == 1)
+	u2RxStatusCode = (prAuthFrame->aucAuthData[3] << 8) +
+				prAuthFrame->aucAuthData[2];
+#else
+	u2RxStatusCode = prAuthFrame->u2StatusCode;
+#endif
+	if (u2RxStatusCode != STATUS_CODE_RESERVED) {
+		DBGLOG(AAA, LOUD, "Invalid Status code %d\n", u2RxStatusCode);
 		return WLAN_STATUS_FAILURE;
 	}
 

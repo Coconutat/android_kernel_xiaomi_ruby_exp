@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1196,7 +1196,9 @@ void p2pRoleFsmRunEventBeaconTimeout(IN struct ADAPTER *prAdapter,
 					prP2pRoleFsmInfo,
 					P2P_ROLE_STATE_IDLE);
 
+#if (CFG_SUPPORT_SUPPLICANT_SME == 0)
 				p2pFuncStopComplete(prAdapter, prP2pBssInfo);
+#endif
 			}
 		}
 	} while (FALSE);
@@ -1808,12 +1810,10 @@ void p2pRoleFsmRunEventSetNewChannel(IN struct ADAPTER *prAdapter,
 void p2pRoleFsmRunEventCsaDone(IN struct ADAPTER *prAdapter,
 		IN struct MSG_HDR *prMsgHdr)
 {
-	struct GLUE_INFO *prGlueInfo;
 	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
 		(struct P2P_ROLE_FSM_INFO *) NULL;
 	struct BSS_INFO *prP2pBssInfo = (struct BSS_INFO *) NULL;
 	struct MSG_P2P_CSA_DONE *prMsgP2pCsaDoneMsg;
-	uint8_t role_idx = 0;
 	struct BSS_INFO *prAisBssInfo;
 	struct GL_P2P_INFO *prP2PInfo = (struct GL_P2P_INFO *) NULL;
 
@@ -1834,16 +1834,24 @@ void p2pRoleFsmRunEventCsaDone(IN struct ADAPTER *prAdapter,
 	if (prP2PInfo)
 		prP2PInfo->eChnlSwitchPolicy = CHNL_SWITCH_POLICY_NONE;
 
-	prGlueInfo = prAdapter->prGlueInfo;
-	role_idx = prP2pRoleFsmInfo->ucRoleIndex;
 	/* Skip channel request/abort for STA+SAP/MCC concurrent case */
-	if (prAisBssInfo &&
-		(prAisBssInfo->ucPrimaryChannel !=
-		prP2pBssInfo->ucPrimaryChannel)) {
-		p2pFuncDfsSwitchCh(prAdapter,
-			prP2pBssInfo,
-			prP2pRoleFsmInfo->rChnlReqInfo);
-	} else {
+	/* SAP */
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prP2pBssInfo->u4PrivateData])) {
+		if (prAisBssInfo &&
+			(prAisBssInfo->ucPrimaryChannel !=
+			prP2pBssInfo->ucPrimaryChannel)) {
+			p2pFuncDfsSwitchCh(prAdapter,
+				prP2pBssInfo,
+				prP2pRoleFsmInfo->rChnlReqInfo);
+		} else {
+			p2pRoleFsmStateTransition(prAdapter,
+				prP2pRoleFsmInfo,
+				P2P_ROLE_STATE_SWITCH_CHANNEL);
+		}
+	} else { /* GO */
+		DBGLOG(P2P, INFO, "GO CSA done: same band\n");
+
 		p2pRoleFsmStateTransition(prAdapter,
 			prP2pRoleFsmInfo,
 			P2P_ROLE_STATE_SWITCH_CHANNEL);
@@ -2725,9 +2733,64 @@ p2pRoleFsmRunEventScanDone(IN struct ADAPTER *prAdapter,
 						prAcsReqInfo);
 			}
 			eNextState = P2P_ROLE_STATE_IDLE;
-		} else {
-			eNextState = P2P_ROLE_STATE_IDLE;
 		}
+#if (CFG_SUPPORT_P2P_CSA_ACS == 1)
+		else if (prScanInfo->eScanReason == SCAN_REASON_CSA) {
+			uint32_t u4Ret;
+			uint8_t ucCh;
+			uint8_t ucNumOfChannel;
+			uint8_t i = 0;
+			struct RF_CHANNEL_INFO *aucChannelList;
+			struct ieee80211_channel *Channel = NULL;
+
+			prScanInfo->eScanReason = SCAN_REASON_UNKNOWN;
+			prScanReqInfo->fgIsScanRequest = FALSE;
+
+			aucChannelList = (struct RF_CHANNEL_INFO *)
+				kalMemAlloc(sizeof(struct RF_CHANNEL_INFO) *
+					MAX_5G_BAND_CHN_NUM,
+					VIR_MEM_TYPE);
+
+			/* calculate ACS result */
+			if (!aucChannelList) {
+				DBGLOG(P2P, ERROR, "aucChannelList NULL!\n");
+				break;
+			}
+			p2pFunGetAcsBestChList(prAdapter,
+					BIT(BAND_5G), MAX_BW_20MHZ,
+					BITS(0, 31), BITS(0, 31),
+					BITS(0, 31),
+					&ucNumOfChannel,
+					aucChannelList);
+			do {
+				ucCh = aucChannelList[i].ucChannelNum;
+				/* non-DFS channel check */
+				Channel = ieee80211_get_channel(
+						priv_to_wiphy(
+							prAdapter->prGlueInfo),
+						ieee80211_channel_to_frequency(
+							ucCh,
+							KAL_BAND_5GHZ));
+				i++;
+			} while ((Channel->flags & IEEE80211_CHAN_RADAR));
+
+			DBGLOG(P2P, INFO, "ACS done, best ch=%d\n",
+					ucCh);
+
+			/* transit to IDLE to make fsm correct
+			* when CSA on-going
+			*/
+			p2pRoleFsmStateTransition(prAdapter, prP2pRoleFsmInfo,
+				P2P_ROLE_STATE_IDLE);
+			/* CSA flow */
+			u4Ret = cnmIdcCsaReq(prAdapter, ucCh,
+				prP2pRoleFsmInfo->ucRoleIndex);
+			/* don't need transition again, return */
+			return;
+		}
+#endif
+		else
+			eNextState = P2P_ROLE_STATE_IDLE;
 		break;
 	case P2P_ROLE_STATE_AP_CHNL_DETECTION:
 		eNextState = P2P_ROLE_STATE_REQING_CHANNEL;
@@ -2760,6 +2823,10 @@ p2pRoleFsmRunEventChnlGrant(IN struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 	struct BSS_INFO *prP2pBssInfo = (struct BSS_INFO *) NULL;
 	uint32_t u4CacTimeMs;
+#if (CFG_SUPPORT_P2P_CSA == 1)
+	struct STA_RECORD *prStaRec = NULL;
+	uint8_t ucVhtChannelWidthAfterCsa = VHT_OP_CHANNEL_WIDTH_20_40;
+#endif /* CFG_SUPPORT_P2P_CSA */
 #endif
 	uint8_t ucTokenID = 0;
 
@@ -2846,9 +2913,72 @@ p2pRoleFsmRunEventChnlGrant(IN struct ADAPTER *prAdapter,
 				u4CacTimeMs/1000);
 			break;
 		case P2P_ROLE_STATE_SWITCH_CHANNEL:
-			p2pFuncDfsSwitchCh(prAdapter,
-				prP2pBssInfo,
-				prP2pRoleFsmInfo->rChnlReqInfo);
+#if (CFG_SUPPORT_P2P_CSA == 1)
+			prP2pBssInfo->fgIsSwitchingChnl = FALSE;
+
+			/* Restore connection state only for P2P CSA */
+			if (!p2pFuncIsAPMode(prAdapter->rWifiVar.
+				prP2PConnSettings[prP2pBssInfo
+					->u4PrivateData])) {
+				p2pChangeMediaState(prAdapter, prP2pBssInfo,
+					MEDIA_STATE_CONNECTED);
+			}
+
+			/* GC */
+			if (prP2pBssInfo->eIftype == IFTYPE_P2P_CLIENT) {
+				/* Renew NSS */
+				cnmOpModeGetTRxNss(prAdapter,
+					prP2pBssInfo->ucBssIndex,
+					&prP2pBssInfo->ucOpRxNss,
+					&prP2pBssInfo->ucOpTxNss);
+
+				nicUpdateBss(prAdapter,
+					prP2pBssInfo->ucBssIndex);
+
+				/* Update VHT op info of target AP */
+				prStaRec = prP2pBssInfo->prStaRecOfAP;
+
+				prStaRec->ucVhtOpChannelWidth =
+					prP2pBssInfo->ucVhtChannelWidth;
+				prStaRec->ucVhtOpChannelFrequencyS1 =
+					prP2pBssInfo->ucVhtChannelFrequencyS1;
+				prStaRec->ucVhtOpChannelFrequencyS2 =
+					prP2pBssInfo->ucVhtChannelFrequencyS2;
+
+				/* Indicate op mode change to update BW/NSS.
+				 * Note that we have to temporarily set VHT
+				 * channel width to the one before CSA.
+				 * Otherwise, op mode change will not work.
+				 */
+				ucVhtChannelWidthAfterCsa =
+					prP2pBssInfo->ucVhtChannelWidth;
+				prP2pBssInfo->ucVhtChannelWidth =
+					prP2pBssInfo
+					->ucVhtChannelWidthBeforeCsa;
+
+				rlmChangeOperationMode(
+					prAdapter, prP2pBssInfo->ucBssIndex,
+					rlmGetBssOpBwByOwnAndPeerCapability(
+						prAdapter, prP2pBssInfo),
+					prP2pBssInfo->ucOpRxNss,
+					prP2pBssInfo->ucOpTxNss,
+					rlmDummyChangeOpHandler);
+
+				/* Restore VHT channel width after CSA */
+				prP2pBssInfo->ucVhtChannelWidth =
+					ucVhtChannelWidthAfterCsa;
+
+				/* Indicate channel switch to kernel */
+				kalP2pIndicateChnlSwitch(prAdapter,
+					prP2pBssInfo);
+			} else
+#endif /* CFG_SUPPORT_P2P_CSA */
+			{ /* GO */
+				p2pFuncDfsSwitchCh(prAdapter,
+					prP2pBssInfo,
+					prP2pRoleFsmInfo->rChnlReqInfo);
+			}
+
 			p2pRoleFsmStateTransition(prAdapter,
 				prP2pRoleFsmInfo,
 				P2P_ROLE_STATE_IDLE);

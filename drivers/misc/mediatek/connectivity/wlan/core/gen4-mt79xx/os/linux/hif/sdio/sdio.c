@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -70,9 +70,15 @@
 #define HIF_SDIO_INTERRUPT_RESPONSE_TIMEOUT (15000)
 
 #if CFG_SUPPORT_WOW_EINT
-#define WAIT_POWERKEY_TIMEOUT		(5000)
 #define WIFI_COMPATIBLE_NODE_NAME	"mediatek,mediatek_wifi_ctrl"
 #define WIFI_INTERRUPT_NAME		"mediatek_wifi_ctrl-eint"
+#endif
+
+#if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
+#define WAIT_POWERKEY_TIMEOUT		(5000)
+#define WAIT_EINT_WAKEUP_TIMEOUT	WAIT_POWERKEY_TIMEOUT
+#else
+#define WAIT_EINT_WAKEUP_TIMEOUT	(500)
 #endif
 
 #if MTK_WCN_HIF_SDIO
@@ -224,17 +230,20 @@ void print_content(uint32_t cmd_len, uint8_t *buffer)
 #if CFG_SUPPORT_WOW_EINT
 static irqreturn_t wifi_wow_isr(int irq, void *dev)
 {
-#if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
 	struct ADAPTER *pAd = (struct ADAPTER *)dev;
+
+	if (pAd == NULL) {
+		DBGLOG(HAL, ERROR, "%s, pAd is NULL!\n", __func__);
+		return IRQ_HANDLED;
+	}
 
 	DBGLOG(HAL, INFO, "%s, received interrupt!\n", __func__);
 
+	KAL_WAKE_LOCK_TIMEOUT(pAd, pAd->rWowlanDevNode.pr_eint_wlock,
+		MSEC_TO_JIFFIES(WAIT_EINT_WAKEUP_TIMEOUT));
+#if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
 	disable_irq_nosync(pAd->rWowlanDevNode.wowlan_irq);
 	atomic_dec(&(pAd->rWowlanDevNode.irq_enable_count));
-
-	KAL_WAKE_LOCK_TIMEOUT(pAd, pAd->rWowlanDevNode.pr_eint_wlock,
-		MSEC_TO_JIFFIES(WAIT_POWERKEY_TIMEOUT));
-
 	input_report_key(pAd->prWowInputDev, KEY_POWER, 1);
 	input_sync(pAd->prWowInputDev);
 	input_report_key(pAd->prWowInputDev, KEY_POWER, 0);
@@ -299,11 +308,9 @@ static void mtk_sdio_eint_interrupt(struct sdio_func *func)
 
 	prGlueInfo->prAdapter->rWowlanDevNode.func = func;
 	wlan_register_irq(prGlueInfo->prAdapter);
-#if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
 	KAL_WAKE_LOCK_INIT(NULL,
 		prGlueInfo->prAdapter->rWowlanDevNode.pr_eint_wlock,
 		"wifievent_eint");
-#endif
 }
 
 #if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
@@ -349,15 +356,14 @@ static void mtk_sdio_eint_free_irq(struct sdio_func *func)
 		disable_irq_nosync(u4Irq);
 		free_irq(u4Irq, prGlueInfo->prAdapter);
 	}
-#if CFG_SUPPORT_WOW_EINT_KEYEVENT_WAKEUP
-	if (KAL_WAKE_LOCK_ACTIVE(NULL, prGlueInfo->prAdapter
-			->rWowlanDevNode.pr_eint_wlock))
+#if CFG_ENABLE_WAKE_LOCK
+	if (KAL_WAKE_LOCK_ACTIVE(NULL,
+		prGlueInfo->prAdapter->rWowlanDevNode.pr_eint_wlock))
 		KAL_WAKE_UNLOCK(NULL,
 			prGlueInfo->prAdapter->rWowlanDevNode.pr_eint_wlock);
+#endif
 	KAL_WAKE_LOCK_DESTROY(NULL,
 		prGlueInfo->prAdapter->rWowlanDevNode.pr_eint_wlock);
-#endif
-
 }
 
 #endif
@@ -671,6 +677,7 @@ static int mtk_sdio_pm_suspend(struct device *pDev)
 			"%s: cannot remain alive(0x%X)\n", func_id, pm_caps);
 	}
 
+#if 0
 	/* If wow enable, ask kernel accept SDIO IRQ in suspend mode */
 	if (prAdapter->rWifiVar.ucWow &&
 		prAdapter->rWowCtrl.fgWowEnable) {
@@ -682,6 +689,7 @@ static int mtk_sdio_pm_suspend(struct device *pDev)
 				"%s: cannot sdio wake-irq(0x%X)\n", func_id, pm_caps);
 		}
 	}
+#endif
 
 	glSdioSetState(&prGlueInfo->rHifInfo, SDIO_STATE_SUSPEND);
 
@@ -1846,6 +1854,9 @@ u_int8_t kalDevWriteData(IN struct GLUE_INFO *prGlueInfo, IN struct MSDU_INFO *p
 	uint8_t *pucBuf;
 	uint32_t u4Length, u4TotalLen;
 	uint8_t ucTC;
+#if (CFG_SUPPORT_TX_SG == 1)
+	uint8_t i;
+#endif /* CFG_SUPPORT_TX_SG */
 
 	SDIO_TIME_INTERVAL_DEC();
 
@@ -1879,13 +1890,23 @@ u_int8_t kalDevWriteData(IN struct GLUE_INFO *prGlueInfo, IN struct MSDU_INFO *p
 
 	SDIO_REC_TIME_START();
 	HAL_WRITE_HIF_TXD(prChipInfo, pucOutputBuf + prTxCtrl->u4WrIdx,
-				skb->len, TXD_PKT_FORMAT_TXD_PAYLOAD);
+				u4Length, TXD_PKT_FORMAT_TXD_PAYLOAD);
 	prTxCtrl->u4WrIdx += prChipInfo->u2HifTxdSize;
-	memcpy(pucOutputBuf + prTxCtrl->u4WrIdx, pucBuf, u4Length);
+	memcpy(pucOutputBuf + prTxCtrl->u4WrIdx, pucBuf,
+		u4Length - skb->data_len);
+	prTxCtrl->u4WrIdx += u4Length - skb->data_len;
+#if (CFG_SUPPORT_TX_SG == 1)
+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+
+		memcpy(pucOutputBuf + prTxCtrl->u4WrIdx,
+			skb_frag_address(frag),
+			skb_frag_size(frag));
+		prTxCtrl->u4WrIdx += skb_frag_size(frag);
+	}
+#endif /* CFG_SUPPORT_TX_SG */
 	SDIO_REC_TIME_END();
 	SDIO_ADD_TIME_INTERVAL(prHifInfo->rStatCounter.u4TxDataCpTime);
-
-	prTxCtrl->u4WrIdx += u4Length;
 
 	u4PaddingLength = (ALIGN_4(u4Length) - u4Length);
 	if (u4PaddingLength) {

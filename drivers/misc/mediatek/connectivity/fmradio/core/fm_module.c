@@ -1275,16 +1275,17 @@ static signed int fm_ops_flush(struct file *filp, fl_owner_t Id)
 
 static ssize_t fm_proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
+#define PROC_READ_BUF_SIZE 3
 	struct fm *fm = g_fm;
 	ssize_t length = 0;
-	char tmpbuf[3];
+	char tmpbuf[PROC_READ_BUF_SIZE];
 	unsigned long pos = *ppos;
 
 	WCN_DBG(FM_NTC | MAIN, "Enter fm_proc_read.\n");
 	/* WCN_DBG(FM_NTC | MAIN, "count = %d\n", count); */
 	/* WCN_DBG(FM_NTC | MAIN, "ppos = %d\n", pos); */
 
-	if (pos != 0)
+	if (pos != 0 || count < PROC_READ_BUF_SIZE)
 		return 0;
 
 	if (!fm) {
@@ -1313,6 +1314,7 @@ static ssize_t fm_proc_read(struct file *file, char __user *buf, size_t count, l
 	WCN_DBG(FM_NTC | MAIN, "Leave fm_proc_read. length = %zu\n", length);
 
 	return length;
+#undef PROC_READ_BUF_SIZE
 }
 
 static ssize_t fm_proc_write(struct file *file, const char *buffer, size_t count, loff_t *ppos)

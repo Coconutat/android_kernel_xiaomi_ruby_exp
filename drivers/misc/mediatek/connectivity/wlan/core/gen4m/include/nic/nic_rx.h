@@ -1047,11 +1047,6 @@ struct RX_CTRL {
 
 	/* Store SysTime of Last Rx */
 	uint32_t u4LastRxTime[MAX_BSSID_NUM];
-
-#if ARP_MONITER_ENABLE
-	/* Store SysTime of Last unicast Rx */
-	uint32_t u4LastUnicastRxTime[MAX_BSSID_NUM];
-#endif
 };
 
 struct RX_MAILBOX {

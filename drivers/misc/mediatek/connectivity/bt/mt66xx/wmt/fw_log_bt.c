@@ -25,7 +25,7 @@ static unsigned char g_log_on = OFF;
 static unsigned char g_log_level = DEFAULT_LEVEL;
 static unsigned char g_log_current = OFF;
 
-#define BT_LOG_BUFFER_SIZE  512
+#define BT_LOG_BUFFER_SIZE  256
 
 static struct cdev log_cdev;
 #if CREATE_NODE_DYNAMIC

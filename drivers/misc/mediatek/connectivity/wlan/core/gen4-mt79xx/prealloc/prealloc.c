@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2017 MediaTek Inc.
  */
@@ -192,6 +192,11 @@ static void preallocAddBlock(enum ENUM_MEM_ID memId,
 		MP_Err("memId %d != index %d\n", memId, blockCount);
 		return;
 	}
+	if (blockCount < 0) {
+		MP_Err("blockCount(%d) is negative\n", blockCount);
+		return;
+	}
+
 	arMemBlocks[blockCount].pucName = name;
 	arMemBlocks[blockCount].pItemArray = NULL;
 	arMemBlocks[blockCount].u4Count = count;

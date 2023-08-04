@@ -219,6 +219,15 @@ typedef struct _NL80211_DRIVER_WFD_PARAMS {
 	UINT_8 aucReserved4[64];
 } NL80211_DRIVER_WFD_PARAMS, *P_NL80211_DRIVER_WFD_PARAMS;
 #endif
+
+struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS {
+		NL80211_DRIVER_TEST_PARAMS hdr;
+		UINT_8 aucBssid[MAC_ADDR_LEN];
+		UINT_8 aucSta[MAC_ADDR_LEN];
+		UINT_8 aucPmkid[IW_PMKID_LEN];
+		UINT_8 ucAddRemove; /*1 - ADD, 0 - Remove*/
+};
+
 #endif
 
 /*******************************************************************************

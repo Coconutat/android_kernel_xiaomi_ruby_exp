@@ -453,6 +453,7 @@ struct STA_RECORD {
 
 	uint16_t u2StatusCode;	/* Status of Auth/Assoc Req */
 	uint16_t u2ReasonCode;	/* Reason that been Deauth/Disassoc */
+	u_int8_t fgIsLocallyGenerated;
 
 	/* Point to an allocated buffer for storing Challenge */
 	/* Text for Shared Key Authentication */
@@ -1107,6 +1108,10 @@ struct MEM_TRACK {
 		(uint8_t *)_prAdapter->rMgtBufInfo.pucBuf) && \
 	((uint8_t *)(pucInfoBuffer) < \
 		(uint8_t *)_prAdapter->rMgtBufInfo.pucBuf + MGT_BUFFER_SIZE))
+
+#define cnmPktAlloc(_prAdapter, u4Length) \
+	cnmPktAllocX(_prAdapter, u4Length, \
+		__FILE__ ":" STRLINE(__LINE__))
 #else
 #define cnmMgtPktAlloc cnmPktAlloc
 #define cnmMgtPktFree cnmPktFree
@@ -1123,9 +1128,13 @@ struct MSDU_INFO *cnmPktAllocWrapper(IN struct ADAPTER *prAdapter,
 void cnmPktFreeWrapper(IN struct ADAPTER *prAdapter,
 	IN struct MSDU_INFO *prMsduInfo, IN uint8_t *pucStr);
 
+#if CFG_DBG_MGT_BUF
+struct MSDU_INFO *cnmPktAllocX(IN struct ADAPTER *prAdapter,
+	IN uint32_t u4Length, uint8_t *fileAndLine);
+#else
 struct MSDU_INFO *cnmPktAlloc(IN struct ADAPTER *prAdapter,
 	IN uint32_t u4Length);
-
+#endif
 void cnmPktFree(IN struct ADAPTER *prAdapter, IN struct MSDU_INFO *prMsduInfo);
 
 void cnmMemInit(IN struct ADAPTER *prAdapter);
@@ -1155,6 +1164,10 @@ void cnmStaFreeAllStaByNetwork(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
 
 struct STA_RECORD *cnmGetStaRecByIndex(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucIndex);
+
+struct STA_RECORD *cnmGetStaRecByIndexWithoutInUseCheck(
+	struct ADAPTER *prAdapter,
+	uint8_t ucIndex);
 
 struct STA_RECORD *cnmGetStaRecByAddress(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, uint8_t aucPeerMACAddress[]);

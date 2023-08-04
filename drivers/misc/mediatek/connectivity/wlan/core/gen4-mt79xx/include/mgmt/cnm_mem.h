@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -353,10 +353,13 @@ struct STA_RECORD {
 	uint8_t ucHePhyCapInfo[HE_PHY_CAP_BYTE_NUM];
 
 	uint16_t u2HeRxMcsMapBW80;
+	uint16_t u2HeRxMcsMapBW80Assoc;
 	uint16_t u2HeTxMcsMapBW80;
 	uint16_t u2HeRxMcsMapBW160;
+	uint16_t u2HeRxMcsMapBW160Assoc;
 	uint16_t u2HeTxMcsMapBW160;
 	uint16_t u2HeRxMcsMapBW80P80;
+	uint16_t u2HeRxMcsMapBW80P80Assoc;
 	uint16_t u2HeTxMcsMapBW80P80;
 #endif
 
@@ -371,6 +374,7 @@ struct STA_RECORD {
 	 *----------------------------------------------------------------------
 	 */
 	uint8_t ucHtPeerOpInfo1; /* Backup peer HT OP Info */
+	uint16_t u2HtPeerOpInfo2; /* Backup peer HT OP Info */
 
 	/*----------------------------------------------------------------------
 	 * 802.11ac  VHT operation info when (prStaRec->ucPhyTypeSet &
@@ -741,6 +745,11 @@ struct STA_RECORD {
 	unsigned char fgNanSendTimeExpired;
 	atomic_t NanRefCount;
 #endif
+/* fos_change begin*/
+#if CFG_SUPPORT_STAT_STATISTICS
+	uint32_t u4LastPhyRate;
+	uint8_t ucNoise_avg;
+#endif /* fos_change end*/
 };
 
 #if 0

@@ -420,6 +420,10 @@ struct BSS_INFO {
 	u_int8_t fgIsQBSS;
 	u_int8_t fgIsNetAbsent;	/* TRUE: BSS is absent, FALSE: BSS is present */
 
+	/* Stop/Start Subqueue threshold */
+	uint32_t u4NetifStopTh;
+	uint32_t u4NetifStartTh;
+
 	uint32_t u4RsnSelectedGroupCipher;
 	uint32_t u4RsnSelectedPairwiseCipher;
 	uint32_t u4RsnSelectedAKMSuite;
@@ -1069,8 +1073,6 @@ struct WIFI_VAR {
 
 	uint32_t u4NetifStopTh;
 	uint32_t u4NetifStartTh;
-	uint32_t u4NetifStopThBackup;
-	uint32_t u4NetifStartThBackup;
 	struct PARAM_GET_CHN_INFO rChnLoadInfo;
 
 #if CFG_SUPPORT_MTK_SYNERGY
@@ -1251,7 +1253,6 @@ struct WIFI_VAR {
 #if ARP_MONITER_ENABLE
 	uint32_t uArpMonitorNumber;
 	uint32_t uArpMonitorRxPktNum;
-	uint8_t ucArpMonitorUseRule; 	/* 0:old rule, 1:new rule */
 #endif /* ARP_MONITER_ENABLE */
 
 #if CFG_SUPPORT_SCAN_NO_AP_RECOVERY
@@ -1269,6 +1270,7 @@ struct WIFI_VAR {
 	uint8_t ucDfsRegion;
 	uint32_t u4ByPassCacTime;
 	uint32_t u4CC2Region;
+	uint32_t u4ApChnlHoldTime;
 	uint8_t fgAllowSameBandDualSta;
 
 #if CFG_SUPPORT_NAN
@@ -1290,6 +1292,7 @@ struct WIFI_VAR {
 	uint8_t ucNanDiscBcnInterval;
 	uint8_t ucNanCommittedDw;
 	unsigned char fgNoPmf;
+	uint8_t fgNanIsSigma;
 #endif
 
 #if CFG_SUPPORT_TPENHANCE_MODE
@@ -1340,14 +1343,23 @@ struct WIFI_VAR {
 #endif /* CFG_SUPPORT_BAR_DELAY_INDICATION */
 	uint32_t u4MultiStaPrimaryQuoteTime;
 	uint32_t u4MultiStaSecondaryQuoteTime;
-
+#if CFG_SUPPORT_LIMITED_PKT_PID
+	uint32_t u4PktPIDTimeout;
+#endif /* CFG_SUPPORT_LIMITED_PKT_PID */
 #if (CFG_SUPPORT_WIFI_6G == 1)
 	/* Only scan all 6g channels, including PSC and non-PSC */
 	u_int8_t fgEnOnlyScan6g;
 #endif
-#if CFG_SUPPORT_LIMITED_PKT_PID
-	uint32_t u4PktPIDTimeout;
-#endif /* CFG_SUPPORT_LIMITED_PKT_PID */
+#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
+	uint8_t fgAggressiveLoadBanalancing;
+	uint16_t u2DisallowBtmTimeout;
+	uint16_t u2ConsecutiveBtmReqTimeout;
+	uint8_t ucConsecutiveBtmReqNum;
+	uint16_t u2DisallowPerTimeout;
+	uint16_t u2ConsecutivePerReqTimeout;
+	uint8_t ucConsecutivePerReqNum;
+	uint8_t ucBTMOffloadEnabled;
+#endif
 };
 
 /* cnm_timer module */
@@ -1575,19 +1587,7 @@ struct TX_LATENCY_REPORT_STATS {
 	uint32_t u4ContinuousTxFail;
 	u_int8_t fgTxLatencyEnabled;
 };
-#if ARP_BRUST_OPTIMIZE
-struct arp_burst_stat {
-	uint32_t brust;
-	uint32_t brust_signify;
-	uint32_t interval;
-	uint32_t pass_count;
-	uint32_t pass_signify_count;
-	uint32_t drop_count;
-	uint32_t begin;
-	uint32_t apIp;
-	uint32_t gatewayIp;
-};
-#endif
+
 /*
  * Major ADAPTER structure
  * Major data structure for driver operation
@@ -1658,6 +1658,9 @@ struct ADAPTER {
 
 	/* Element for RX PATH */
 	struct RX_CTRL rRxCtrl;
+
+	/* bitmap for hif adjust control */
+	uint32_t u4AdjustCtrlBitmap;
 
 	/* Timer for restarting RFB setup procedure */
 	struct TIMER rPacketDelaySetupTimer;
@@ -1743,6 +1746,8 @@ struct ADAPTER {
 	unsigned char fgIsNANfromHAL;
 	bool fgIsNanSendRequestToCnm;
 	uint8_t ucNanReqTokenId;
+	uint8_t ucNanPubNum;
+	uint8_t ucNanSubNum;
 
 	/* Container for Data Engine */
 	struct _NAN_DATA_PATH_INFO_T rDataPathInfo;
@@ -1757,6 +1762,7 @@ struct ADAPTER {
 	/* flag to report all networks in p2p scan */
 	u_int8_t p2p_scan_report_all_bss;
 	enum ENUM_NET_REG_STATE rP2PNetRegState;
+	enum ENUM_P2P_REG_STATE rP2PRegState;
 	/* BOOLEAN             fgIsWlanLaunched; */
 	struct P2P_INFO *prP2pInfo;
 #if CFG_SUPPORT_P2P_RSSI_QUERY
@@ -1985,6 +1991,7 @@ struct ADAPTER {
 
 	uint32_t u4HifDbgFlag;
 	uint32_t u4HifChkFlag;
+	uint32_t u4HifDbgParam;
 	uint32_t u4HifTxHangDumpBitmap;
 	uint32_t u4HifTxHangDumpIdx;
 	uint32_t u4HifTxHangDumpNum;
@@ -2006,6 +2013,7 @@ struct ADAPTER {
 #endif
 
 	bool fgMddpActivated;
+	uint8_t ucMddpBssIndex;
 
 	struct WLAN_DEBUG_INFO rDebugInfo;
 #if CFG_SUPPORT_IOT_AP_BLACKLIST
@@ -2110,10 +2118,6 @@ struct ADAPTER {
 
 #if (CFG_SUPPORT_AVOID_DESENSE == 1)
 	bool fgIsNeedAvoidDesenseFreq;
-#endif
-
-#if ARP_BRUST_OPTIMIZE
-	struct arp_burst_stat arp_b_stat;
 #endif
 	bool fgForceDualStaInMCCMode;
 	uint8_t ucIsMultiStaConnected;

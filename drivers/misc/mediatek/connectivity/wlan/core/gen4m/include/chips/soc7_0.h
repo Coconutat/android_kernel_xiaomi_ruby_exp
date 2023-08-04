@@ -125,6 +125,10 @@
 		(((_prRxVector) & SOC7_0_RX_VT_TXMODE_MASK)	\
 			 >> SOC7_0_RX_VT_TXMODE_OFFSET)
 
+#define RXV_GET_MUMIMO(_prRxVector)				\
+		(((_prRxVector) & SOC7_0_RX_VT_MUMIMO_MASK)	\
+			 >> SOC7_0_RX_VT_MUMIMO_OFFSET)
+
 extern struct PLE_TOP_CR rSoc7_0_PleTopCr;
 extern struct PSE_TOP_CR rSoc7_0_PseTopCr;
 extern struct PP_TOP_CR rSoc7_0_PpTopCr;
@@ -182,6 +186,7 @@ void soc7_0_show_wfdma_wrapper_info(IN struct ADAPTER *prAdapter,
 int soc7_0_Trigger_fw_assert(void);
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int soc7_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIdx,
 		OUT uint32_t *pu4Rate, OUT uint32_t *pu4Nss,
 		OUT uint32_t *pu4RxMode, OUT uint32_t *pu4FrMode,
 		OUT uint32_t *pu4Sgi);

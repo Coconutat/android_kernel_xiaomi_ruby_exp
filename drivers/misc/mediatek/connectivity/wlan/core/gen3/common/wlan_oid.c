@@ -719,6 +719,7 @@ wlanoidSetBssidListScanAdv(IN P_ADAPTER_T prAdapter,
 	UINT_8 ucSsidNum;
 	UINT_32 i, u4IeLength;
 
+	kalMemZero(&rSsid, sizeof(rSsid));
 	DEBUGFUNC("wlanoidSetBssidListScanAdv()");
 
 	if (prAdapter->rAcpiState == ACPI_STATE_D3) {
@@ -2304,6 +2305,11 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 			return WLAN_STATUS_SUCCESS;
 		}
 	}
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	/* clear fragment cache when rekey */
+	nicRxClearFrag(prAdapter, prStaRec);
+#endif
 
 	prWlanTable = prAdapter->rWifiVar.arWtbl;
 
@@ -4585,6 +4591,7 @@ wlanoidQueryRxStatistics(IN P_ADAPTER_T prAdapter,
 	UINT_32 u4SeqNum = 0;
 	UINT_32 u4TotalNum = 0;
 
+	kalMemZero(&rCmdAccessRxStat, sizeof(rCmdAccessRxStat));
 	prCmdAccessRxStat = &rCmdAccessRxStat;
 
 	DEBUGFUNC("wlanoidQueryRxStatistics");
@@ -5516,6 +5523,7 @@ wlanoidQuerySwCtrlRead(IN P_ADAPTER_T prAdapter,
 	ASSERT(pu4QueryInfoLen);
 	if (u4QueryBufferLen)
 		ASSERT(pvQueryBuffer);
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	*pu4QueryInfoLen = sizeof(PARAM_CUSTOM_SW_CTRL_STRUCT_T);
 
@@ -5632,6 +5640,7 @@ wlanoidSetSwCtrlWrite(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+	kalMemZero(&rCmdSwCtrl, sizeof(rCmdSwCtrl));
 
 	*pu4SetInfoLen = sizeof(PARAM_CUSTOM_SW_CTRL_STRUCT_T);
 
@@ -5772,6 +5781,7 @@ wlanoidSetSwCtrlWrite(IN P_ADAPTER_T prAdapter,
 		{
 			CMD_TX_AMPDU_T rTxAmpdu;
 			WLAN_STATUS rStatus;
+			kalMemZero(&rTxAmpdu, sizeof(rTxAmpdu));
 
 			rTxAmpdu.fgEnable = !!u4Data;
 
@@ -7999,6 +8009,7 @@ wlanoidRftestSetTestMode(IN P_ADAPTER_T prAdapter,
 	ASSERT(pu4SetInfoLen);
 
 	*pu4SetInfoLen = 0;
+	kalMemZero(&rCmdTestCtrl, sizeof(rCmdTestCtrl));
 
 	if (u4SetBufferLen == 0) {
 		if ((prAdapter->fgTestMode == FALSE)
@@ -8059,6 +8070,7 @@ wlanoidRftestSetTestIcapMode(IN P_ADAPTER_T prAdapter,
 	ASSERT(pu4SetInfoLen);
 
 	*pu4SetInfoLen = 0;
+	kalMemZero(&rCmdTestCtrl, sizeof(rCmdTestCtrl));
 
 	if (u4SetBufferLen == 0) {
 		if (prAdapter->fgIcapMode == FALSE) {
@@ -8118,6 +8130,7 @@ wlanoidRftestSetAbortTestMode(IN P_ADAPTER_T prAdapter,
 	ASSERT(pu4SetInfoLen);
 
 	*pu4SetInfoLen = 0;
+	kalMemZero(&rCmdTestCtrl, sizeof(rCmdTestCtrl));
 
 	if (u4SetBufferLen == 0) {
 		if (prAdapter->fgTestMode == TRUE) {
@@ -8326,7 +8339,7 @@ rftestQueryATInfo(IN P_ADAPTER_T prAdapter,
 
 		prTestStatus->rATInfo.u4FuncData =
 		    (prAdapter->rVerInfo.u2FwProductID << 16) | (prAdapter->rVerInfo.u2FwOwnVersion);
-		prTestStatus->rATInfo.u4FuncData2 = prAdapter->rVerInfo.u4FwOwnVersionExtend;
+		/* prTestStatus->rATInfo.u4FuncData2 = prAdapter->rVerInfo.u4FwOwnVersionExtend;*/
 		u4QueryBufferLen = sizeof(EVENT_TEST_STATUS);
 
 	} else if (u4FuncIndex == RF_AT_FUNCID_DRV_INFO) {
@@ -8400,6 +8413,7 @@ WLAN_STATUS rftestSetFrequency(IN P_ADAPTER_T prAdapter, IN UINT_32 u4FreqInKHz,
 
 	ASSERT(prAdapter);
 
+	kalMemZero(&rCmdTestCtrl, sizeof(rCmdTestCtrl));
 	rCmdTestCtrl.ucAction = 5;	/* Set Channel Frequency */
 	rCmdTestCtrl.u.u4ChannelFreq = u4FreqInKHz;
 
@@ -10050,6 +10064,9 @@ wlanoidSetTxPower(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4S
 	DBGLOG(OID, LOUD, "\r\n");
 
 	prCmd = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, sizeof(SET_TXPWR_CTRL_T));
+	if (!prCmd)
+		return WLAN_STATUS_FAILURE;
+
 	kalMemZero(prCmd, sizeof(SET_TXPWR_CTRL_T));
 	prCmd->c2GLegacyStaPwrOffset = pTxPwr->c2GLegacyStaPwrOffset;
 	prCmd->c2GHotspotPwrOffset = pTxPwr->c2GHotspotPwrOffset;
@@ -10806,6 +10823,7 @@ batchGetCmd(IN P_ADAPTER_T prAdapter,
 
 	*pu4QueryInfoLen = sizeof(EVENT_BATCH_RESULT_T);
 
+	kalMemZero(&rCmdBatchReq, sizeof(rCmdBatchReq));
 	rCmdBatchReq.ucSeqNum = 2;
 	rCmdBatchReq.ucCmd = SCAN_BATCH_REQ_RESULT;
 	rCmdBatchReq.ucMScan = prEventBatchResult->ucScanCount;	/* Get which round result */
@@ -11320,6 +11338,7 @@ wlanoidSetMonitor(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4S
 	CMD_MONITOR_SET_INFO_T rCmdMonitorSetInfo;
 	WLAN_STATUS rWlanStatus = WLAN_STATUS_SUCCESS;
 
+	kalMemZero(&rCmdMonitorSetInfo, sizeof(rCmdMonitorSetInfo));
 	DEBUGFUNC("wlanoidSetMonitor");
 
 	ASSERT(prAdapter);
@@ -11603,6 +11622,7 @@ wlanoidDisableTdlsPs(IN P_ADAPTER_T prAdapter,
 	if (!prAdapter || !pvSetBuffer)
 		return WLAN_STATUS_INVALID_DATA;
 
+	kalMemZero(&rTdlsPs, sizeof(rTdlsPs));
 	rTdlsPs.ucIsEnablePs = *(PUINT_8)pvSetBuffer - '0';
 	DBGLOG(OID, INFO, "enable tdls ps %d\n", rTdlsPs.ucIsEnablePs);
 	wlanSendSetQueryCmd(prAdapter,
@@ -12307,9 +12327,6 @@ wlanoidDumpUapsdSetting(P_ADAPTER_T prAdapter, PVOID pvBuffer, UINT_32 u4BufferL
 	*pu4InfoLen = kalSnprintf(pucCmd, u4BufferLen,
 		"\nStatic Uapsd Setting:0x%02x\nFinal Uapsd Setting:0x%02x", ucStaticSetting, ucFinalSetting);
 
-	if (*pu4InfoLen < 0)
-		return WLAN_STATUS_FAILURE;
-
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -12344,6 +12361,7 @@ WLAN_STATUS wlanoidSetLowLatencyMode(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuf
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+	kalMemZero(&rLowLatencyModeHeader, sizeof(rLowLatencyModeHeader));
 
 	if (u4SetBufferLen < sizeof(UINT_32))
 		return WLAN_STATUS_INVALID_LENGTH;

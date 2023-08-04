@@ -328,6 +328,27 @@ enum ENUM_WLAN_DRV_BUF_TYPE_T {
 	ENUM_BUF_TYPE_NUM
 };
 
+/* WMM ACI (AC index) */
+enum ENUM_WMM_ACI_T {
+	WMM_AC_BE_INDEX = 0,
+	WMM_AC_BK_INDEX,
+	WMM_AC_VI_INDEX,
+	WMM_AC_VO_INDEX,
+	WMM_AC_INDEX_NUM
+};
+
+/* WMM QOS user priority from 802.1D/802.11e */
+enum ENUM_WMM_UP_T {
+	WMM_UP_BE_INDEX = 0,
+	WMM_UP_BK_INDEX,
+	WMM_UP_RESV_INDEX,
+	WMM_UP_EE_INDEX,
+	WMM_UP_CL_INDEX,
+	WMM_UP_VI_INDEX,
+	WMM_UP_VO_INDEX,
+	WMM_UP_NC_INDEX,
+	WMM_UP_INDEX_NUM
+};
 
 typedef struct _GL_IO_REQ_T {
 	QUE_ENTRY_T rQueEntry;
@@ -574,8 +595,8 @@ struct _GLUE_INFO_T {
 	UINT_8 aucDADipv6[16];
 #endif				/* CFG_SUPPORT_PASSPOINT */
 
-	KAL_WAKE_LOCK_T rIntrWakeLock;
-	KAL_WAKE_LOCK_T rTimeoutWakeLock;
+	KAL_WAKE_LOCK_T *rIntrWakeLock;
+	KAL_WAKE_LOCK_T *rTimeoutWakeLock;
 
 #if CFG_MET_PACKET_TRACE_SUPPORT
 	BOOLEAN fgMetProfilingEn;
@@ -932,6 +953,57 @@ static __KAL_INLINE__ VOID glPacketDataTypeCheck(VOID)
 
 }
 
+static bool is_critical_packet(struct sk_buff *skb)
+{
+#if CFG_CHANGE_CRITICAL_PACKET_PRIORITY
+	uint8_t *pucPkt;
+	uint16_t u2EtherType;
+	bool is_critical = false;
+
+	if (!skb)
+		return false;
+
+	pucPkt = skb->data;
+	u2EtherType = (pucPkt[ETH_TYPE_LEN_OFFSET] << 8)
+			| (pucPkt[ETH_TYPE_LEN_OFFSET + 1]);
+
+	switch (u2EtherType) {
+	case ETH_P_ARP:
+	case ETH_P_1X:
+	case ETH_P_PRE_1X:
+#if CFG_SUPPORT_WAPI
+	case ETH_WPI_1X:
+#endif
+		is_critical = true;
+		break;
+	default:
+		is_critical = false;
+		break;
+	}
+	return is_critical;
+#else
+	return false;
+#endif
+}
+
+static inline UINT_16 mtk_wlan_ndev_select_queue(
+	struct sk_buff *skb)
+{
+	static UINT_16 ieee8021d_to_queue[8] = { 1, 0, 0, 1, 2, 2, 3, 3 };
+
+	if (is_critical_packet(skb)) {
+		skb->priority = WMM_UP_VO_INDEX;
+	} else {
+		/* cfg80211_classify8021d returns 0~7 */
+#if KERNEL_VERSION(3, 14, 0) > CFG80211_VERSION_CODE
+		skb->priority = cfg80211_classify8021d(skb);
+#else
+		skb->priority = cfg80211_classify8021d(skb, NULL);
+#endif
+	}
+	return ieee8021d_to_queue[skb->priority];
+}
+
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
@@ -952,8 +1024,27 @@ BOOLEAN glUnregisterAmpc(P_GLUE_INFO_T prGlueInfo);
 
 P_GLUE_INFO_T wlanGetGlueInfo(VOID);
 
-UINT_16 wlanSelectQueue(struct net_device *dev, struct sk_buff *skb,
-			void *accel_priv, select_queue_fallback_t fallback);
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    struct net_device *sb_dev);
+#elif KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		struct sk_buff *skb,
+		struct net_device *sb_dev, select_queue_fallback_t fallback);
+#elif KERNEL_VERSION(3, 14, 0) <= CFG80211_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    void *accel_priv, select_queue_fallback_t fallback);
+#elif KERNEL_VERSION(3, 13, 0) <= LINUX_VERSION_CODE
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb,
+		    void *accel_priv);
+#else
+UINT_16 wlanSelectQueue(struct net_device *dev,
+		    struct sk_buff *skb);
+#endif
+
 
 VOID wlanDebugInit(VOID);
 

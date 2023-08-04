@@ -161,6 +161,7 @@
 #endif
 
 #if (CFG_SUPPORT_DFS == 1)	/* Add by Enlai */
+#define CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT	1  /* If CSA new channel is DFS channel, link down directly*/
 #define CFG_SUPPORT_QUIET           0	/* Quiet (802.11h) */
 #define CFG_SUPPORT_SPEC_MGMT       1	/* Spectrum Management (802.11h): TPC and DFS */
 #else
@@ -391,6 +392,20 @@
 
 #ifndef CFG_CHIP_RESET_SUPPORT
 #define CFG_CHIP_RESET_SUPPORT          0
+#endif
+
+#define CFG_CHIP_RESET_HANG		0
+
+#ifndef CFG_CHIP_RESET_USE_DTS_GPIO_NUM
+#define CFG_CHIP_RESET_USE_DTS_GPIO_NUM 0
+#endif
+
+#ifndef CFG_CHIP_RESET_USE_LINUX_GPIO_API
+#define CFG_CHIP_RESET_USE_LINUX_GPIO_API 0
+#endif
+
+#ifndef CFG_CHIP_RESET_USE_MSTAR_GPIO_API
+#define CFG_CHIP_RESET_USE_MSTAR_GPIO_API 0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -787,6 +802,10 @@
 
 #define CFG_SHOW_MACADDR_SOURCE     1
 
+#ifndef CFG_SUPPORT_802_11R
+#define CFG_SUPPORT_802_11R                    0
+#endif
+
 #define CFG_SUPPORT_802_11V                    0	/* Support 802.11v Wireless Network Management */
 #define CFG_SUPPORT_802_11V_TIMING_MEASUREMENT 0
 #if (CFG_SUPPORT_802_11V_TIMING_MEASUREMENT == 1) && (CFG_SUPPORT_802_11V == 0)
@@ -800,7 +819,7 @@
 #define CFG_SUPPORT_802_11AC                1
 #define CFG_STRICT_CHECK_CAPINFO_PRIVACY    0
 
-#define CFG_SUPPORT_DPP                     1
+#define CFG_SUPPORT_DPP                     0
 
 #define CFG_SUPPORT_WFD                     1
 #define CFG_SUPPORT_WFD_COMPOSE_IE          1
@@ -849,7 +868,7 @@
  * Flags of SDIO test pattern support
  *------------------------------------------------------------------------------
  */
-#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 1
+#define CFG_SUPPORT_SDIO_READ_WRITE_PATTERN 0
 
 /*------------------------------------------------------------------------------
  * Flags of AIS passive scan support
@@ -1121,10 +1140,6 @@
 #ifndef CFG_THERMAL_API_SUPPORT
 #define CFG_THERMAL_API_SUPPORT 0
 #endif
-/*
-*   For Ref project -> Default : 0
-*/
-#define CFG_DC_WOW_CALLBACK 0
 
 /* Multi 7668 driver support */
 #ifndef CFG_SUPPORT_DUAL_CARD_DUAL_DRIVER_A
@@ -1143,16 +1158,40 @@
 
 /*------------------------------------------------------------------------------
  * Support platform power off control scenario
+ * DC off for Mstar DTV
  *------------------------------------------------------------------------------
  */
 #ifndef CFG_POWER_OFF_CTRL_SUPPORT
 #define CFG_POWER_OFF_CTRL_SUPPORT	0
 #endif
 
+/*
+*   Add callback for DC off low power settings for MTK DTV
+*/
+#ifndef CFG_DC_USB_WOW_CALLBACK
+#define CFG_DC_USB_WOW_CALLBACK 0
+#endif
+
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
 */
+
+/*------------------------------------------------------------------------------
+ * Flag of GKI project requirement
+ *------------------------------------------------------------------------------
+ */
+/* 1: filp_open/filp_close/kernel_read/kernel_write can't be used
+ * 0(default): can be used
+ */
+#ifndef CFG_ENABLE_GKI_SUPPORT
+#define CFG_ENABLE_GKI_SUPPORT          0
+#endif
+
+#ifndef CFG_DROP_NOT_MY_BSSID
+#define CFG_DROP_NOT_MY_BSSID 0
+#endif
 
 /*******************************************************************************
 *                            P U B L I C   D A T A

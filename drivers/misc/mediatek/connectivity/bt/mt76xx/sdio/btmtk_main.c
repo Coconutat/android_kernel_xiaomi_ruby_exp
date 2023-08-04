@@ -84,7 +84,7 @@ static void btmtk_init_adapter(struct btmtk_private *priv)
 {
 	int buf_size;
 
-	buf_size = ALIGN_SZ(SDIO_BLOCK_SIZE, BTSDIO_DMA_ALIGN);
+	buf_size = ALIGN_SZ(MTK_SDIO_SIZE, BTSDIO_DMA_ALIGN);
 	priv->adapter->hw_regs_buf = kzalloc(buf_size, GFP_KERNEL);
 	if (!priv->adapter->hw_regs_buf) {
 		priv->adapter->hw_regs = NULL;
@@ -123,14 +123,16 @@ static int btmtk_service_main_thread(void *data)
 	int ret = 0;
 	int i = 0;
 	ulong flags;
+#if (KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE)
 	struct sched_param param = { .sched_priority = 90 };/*RR 90 is the same as audio*/
+#endif
 	int reset_flag = 0;
 
+#if (KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE)
 	sched_setscheduler(current, SCHED_RR, &param);
-
-	BTMTK_INFO("main_thread begin 50");
-	/* mdelay(50); */
-
+#else
+	sched_set_fifo(current);
+#endif
 	for (i = 0; i <= 1000; i++) {
 		if (kthread_should_stop()) {
 			BTMTK_INFO("main_thread: break from main thread for probe_ready");
@@ -193,22 +195,12 @@ static int btmtk_service_main_thread(void *data)
 
 		if (priv->btmtk_dev.reset_dongle) {
 			ret = priv->hw_sdio_reset_dongle();
-			if (is_mt7663(card)) {
-				if (ret) {
-					BTMTK_ERR(L0_RESET_TAG "hw reset dongle error <%d>", ret);
-				} else {
-					BTMTK_INFO(L0_RESET_TAG "hw reset dongle done");
-					reset_flag = 1;
-					break;
-				}
+			if (ret) {
+				BTMTK_ERR(L0_RESET_TAG "hw reset dongle error <%d>", ret);
 			} else {
-				if (ret) {
-					BTMTK_ERR("btmtk_sdio_reset_dongle return %d, error", ret);
-					break;
-				} else {
-					BTMTK_INFO("hw reset dongle done");
-					break;
-				}
+				BTMTK_INFO(L0_RESET_TAG "hw reset dongle done");
+				reset_flag = 1;
+				break;
 			}
 		}
 
@@ -222,18 +214,18 @@ static int btmtk_service_main_thread(void *data)
 			continue;
 		}
 
-		spin_lock_irqsave(&priv->driver_lock, flags);
+		spin_lock_irqsave(&priv->lock, flags);
 		if (adapter->int_count) {
 			BTMTK_DBG("go int");
 			adapter->int_count = 0;
-			spin_unlock_irqrestore(&priv->driver_lock, flags);
+			spin_unlock_irqrestore(&priv->lock, flags);
 			if (priv->hw_process_int_status(priv)) {
 				priv->start_reset_dongle_progress();
 				continue;
 			}
 		} else {
 			BTMTK_DBG("go tx");
-			spin_unlock_irqrestore(&priv->driver_lock, flags);
+			spin_unlock_irqrestore(&priv->lock, flags);
 		}
 
 		if (!priv->btmtk_dev.tx_dnld_rdy) {
@@ -241,9 +233,9 @@ static int btmtk_service_main_thread(void *data)
 			continue;
 		}
 
-		spin_lock_irqsave(&priv->driver_lock, flags);
+		spin_lock_irqsave(&priv->lock, flags);
 		skb = skb_dequeue(&card->tx_queue);
-		spin_unlock_irqrestore(&priv->driver_lock, flags);
+		spin_unlock_irqrestore(&priv->lock, flags);
 
 		if (skb) {
 			if (skb->len < 16)
@@ -274,9 +266,6 @@ static int btmtk_service_main_thread(void *data)
 	BTMTK_WARN("end");
 	thread->thread_status = 0;
 
-	if (is_mt7663(card) && reset_flag == 1)
-		btmtk_remove_card(priv);
-
 	return 0;
 }
 
@@ -293,7 +282,7 @@ struct btmtk_private *btmtk_add_card(void *data)
 
 	BTMTK_INFO("Starting kthread...");
 	priv->main_thread.priv = priv;
-	spin_lock_init(&priv->driver_lock);
+	spin_lock_init(&priv->lock);
 
 	init_waitqueue_head(&priv->main_thread.wait_q);
 	priv->main_thread.task = kthread_run(btmtk_service_main_thread,

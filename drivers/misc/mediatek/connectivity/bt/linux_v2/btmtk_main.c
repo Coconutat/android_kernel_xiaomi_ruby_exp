@@ -65,6 +65,173 @@ static const struct btmtk_cif_state g_cif_state[] = {
 	{BTMTK_STATE_FW_DUMP, BTMTK_STATE_FW_DUMP, BTMTK_STATE_FW_DUMP},
 };
 
+#if CFG_SUPPORT_BMR_RX_CLK
+void btmtk_bmr_getrawtime(struct timeval *tv)
+{
+	struct timespec64 ts;
+
+#if (KERNEL_VERSION(4, 18, 0) > LINUX_VERSION_CODE)
+	getrawmonotonic64(&ts);
+#else
+	ktime_get_raw_ts64(&ts);
+#endif
+	tv->tv_sec = ts.tv_sec;
+	tv->tv_usec = ts.tv_nsec/1000;
+}
+
+#if ENABLE_DEINT_IRQ
+static int btmtk_bmr_rxclk_irq_handler(int irq, void *dev)
+{
+	/* Get sys clk */
+	struct timeval tv;
+
+	if (main_info.bmr_sysclk == 0 || main_info.bmr_irq_cnt == 0) {
+		btmtk_bmr_getrawtime(&tv);
+		main_info.bmr_sysclk = (u64)tv.tv_sec * 1000000L + tv.tv_usec;
+	}
+	main_info.bmr_irq_cnt++;
+	mtk_deint_ack(irq);
+	return 0;
+}
+#endif
+static int btmtk_bmr_rxclk_enable(struct btmtk_dev *bdev, u8 irq_en, u8 trigger_type)
+{
+#define BMR_CLK_EN_CMD_LEN 8
+#define BMR_CLK_EN_EVT_LEN 7
+#define BMR_CLK_EN_OFFSET_METHOD 5
+#define BMR_CLK_EN_OFFSET_GPIO_NUM 6
+#define BMR_CLK_EN_OFFSET_TRIGGER_TYPE 7
+	int ret = 0;
+	u8 cmd[BMR_CLK_EN_CMD_LEN] = { 0x01, 0x03, 0xFD, 0x04, 0x00, 0x00, 0x00, 0x00 };
+	u8 event[BMR_CLK_EN_EVT_LEN] = { 0x04, 0x0E, 0x04, 0x01, 0x03, 0xFD, 0x00 };
+
+	BTMTK_INFO("%s enter", __func__);
+
+	if (irq_en)
+		cmd[BMR_CLK_EN_OFFSET_METHOD] = 0x01;
+	else
+		cmd[BMR_CLK_EN_OFFSET_METHOD] = 0x03;
+	cmd[BMR_CLK_EN_OFFSET_GPIO_NUM] = 0x03;
+	if (trigger_type == IRQF_TRIGGER_RISING || trigger_type == IRQF_TRIGGER_HIGH)
+		cmd[BMR_CLK_EN_OFFSET_TRIGGER_TYPE] = 0x01; /* default low, active high */
+	else
+		cmd[BMR_CLK_EN_OFFSET_TRIGGER_TYPE] = 0x00; /* default high, active low */
+
+	BTMTK_INFO_RAW(cmd, BMR_CLK_EN_CMD_LEN, "%s: enable clk, ", __func__);
+	ret = btmtk_main_send_cmd(bdev, cmd, BMR_CLK_EN_CMD_LEN,
+			event, BMR_CLK_EN_EVT_LEN, 0, 0, BTMTK_TX_PKT_FROM_HOST);
+	if (ret < 0)
+		BTMTK_ERR("%s: failed(%d)", __func__, ret);
+
+	BTMTK_INFO("%s exit", __func__);
+	return ret;
+}
+
+static int btmtk_bmr_rxclk_init(struct btmtk_dev *bdev)
+{
+	int ret = 0;
+	struct device_node *node;
+	int interrupts[3];
+	int deint[3];
+
+	/* Get irq info from dts */
+	BTMTK_INFO("%s: enter", __func__);
+	if (main_info.bmr_irq <= 0) {
+		node = of_find_compatible_node(NULL, NULL, "mediatek,connectivity-combo");
+		if (node) {
+			main_info.bmr_irq = irq_of_parse_and_map(node, 0);
+			BTMTK_INFO("%s: bmr_irq %d", __func__, main_info.bmr_irq);
+			if (main_info.bmr_irq > 0) {
+				of_property_read_u32_array(node, "interrupts",
+							interrupts, ARRAY_SIZE(interrupts));
+#if ENABLE_DEINT_IRQ
+				ret = request_irq(main_info.bmr_irq, (irq_handler_t)btmtk_bmr_rxclk_irq_handler,
+								IRQF_TRIGGER_NONE, "BTRX_CLK_ISR_Handler", bdev);
+				if (ret) {
+					BTMTK_ERR("%s: request_irq fail(%d)!!! irq_number=%d",
+								__func__, ret, main_info.bmr_irq);
+					main_info.bmr_irq = -1;
+				}
+#else
+				ret = mt_secure_call(MTK_SIP_BT_FIQ_REG, interrupts[1], interrupts[2], 0, 0);
+				BTMTK_INFO("%s: SMC call ret(%d), num(%d), type(%d)",
+							__func__, ret, interrupts[1], interrupts[2]);
+#endif
+				of_property_read_u32_array(node, "deint",
+							   deint, ARRAY_SIZE(deint));
+				mtk_deint_enable(deint[0], deint[1], deint[2]);
+			} else {
+				BTMTK_INFO("%s: can't find bmr_irq irq_number=%d", __func__, main_info.bmr_irq);
+				main_info.bmr_irq = -1;
+			}
+		} else {
+			BTMTK_INFO("%s: of_find_compatible_node fail!!!", __func__);
+			main_info.bmr_irq = -1;
+		}
+	}
+	btmtk_bmr_rxclk_enable(bdev, main_info.bmr_irq > 0 ? true : false, deint[2]);
+	main_info.bmr_irq_cnt = 0;
+	main_info.bmr_sysclk = 0;
+	main_info.bmr_irq_flag = 1;
+	return main_info.bmr_irq;
+}
+
+static void btmtk_bmr_rxclk_deinit(struct btmtk_dev *bdev)
+{
+	BTMTK_INFO("%s: enter", __func__);
+#if ENABLE_DEINT_IRQ
+	if (main_info.bmr_irq != -1) {
+		free_irq(main_info.bmr_irq, bdev);
+		main_info.bmr_irq = -1;
+	}
+#endif
+}
+
+static void btmtk_bmr_rxclk_evt_handler(struct btmtk_dev *bdev, struct sk_buff *skb)
+{
+#define RXCLK_SYS_TIME_POS 14
+	if ((bt_cb(skb)->pkt_type == HCI_EVENT_PKT) &&
+			skb->data[0] == 0x0E &&
+			skb->data[1] == 0x0C &&
+			skb->data[3] == 0x03 &&
+			skb->data[4] == 0xFD) {
+		if (main_info.bmr_irq_flag != 0 &&
+			main_info.bmr_irq > 0 &&
+			main_info.bmr_sysclk != 0 &&
+			main_info.bmr_irq_cnt == 1) {
+#if ENABLE_DEINT_IRQ
+#else
+			main_info.bmr_sysclk =
+				mt_secure_call(MTK_SIP_BT_GET_CLK, 0, 0, 0, 0);
+			BTMTK_INFO("%s: sysclk(%llu)", __func__, main_info.bmr_sysclk);
+			mtk_deint_ack(main_info.bmr_irq);
+#endif
+		} else {
+			struct timeval tv;
+
+			btmtk_bmr_getrawtime(&tv);
+			main_info.bmr_sysclk = (u64)tv.tv_sec * 1000000L + tv.tv_usec;
+		}
+		/* Add SYS_CLOCK to tail
+		 * OLD format: 0E LEN(1) 01 03 FD 00 HANDLE(2) BITCNT(2) BTCLK(4)
+		 * NEW format: 0E LEN(1) 01 03 FD 00 HANDLE(2) BITCNT(2) BTCLK(4) SYSCLK(4)
+		 */
+		skb_put(skb, 4);
+		skb->data[1] += 4;
+		skb->data[RXCLK_SYS_TIME_POS] = main_info.bmr_sysclk & 0xFF;
+		skb->data[RXCLK_SYS_TIME_POS + 1] = (main_info.bmr_sysclk >> 8) & 0xFF;
+		skb->data[RXCLK_SYS_TIME_POS + 2] = (main_info.bmr_sysclk >> 16) & 0xFF;
+		skb->data[RXCLK_SYS_TIME_POS + 3] = (main_info.bmr_sysclk >> 24) & 0xFF;
+		main_info.bmr_sysclk = 0;
+#if ENABLE_DEINT_IRQ
+		if (main_info.bmr_irq_cnt != 1)
+			BTMTK_ERR("%s: bmr_irq_cnt(%d)", __func__, main_info.bmr_irq_cnt);
+		main_info.bmr_irq_cnt = 0;
+#endif
+	}
+}
+#endif
+
 __weak int btmtk_cif_register(void)
 {
 	BTMTK_WARN("weak function %s not implement", __func__);
@@ -94,6 +261,24 @@ __weak int btmtk_send_apcf_reserved(struct btmtk_dev *bdev)
 	BTMTK_WARN("weak function %s not implement", __func__);
 	return -1;
 }
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+void btmtk_reset_ko_register(void)
+{
+#ifdef CHIP_IF_SDIO
+	struct BT_NOTIFY_DESC bt_notify_desc;
+
+	bt_notify_desc.WifiNotifyBtSubResetStep1 = btmtk_sdio_set_driver_own_for_subsys_reset;
+	bt_notify_desc.WifiNotifyReadBtMcuPc = btmtk_sdio_read_bt_mcu_pc;
+	bt_notify_desc.WifiNotifyReadWifiMcuPc = btmtk_sdio_read_wifi_mcu_pc;
+	register_bt_notify_callback(&bt_notify_desc);
+#elif defined(CHIP_IF_USB)
+
+#endif
+	BTMTK_INFO(" %s done", __func__);
+
+}
+#endif
 
 #if 0
 void btmtk_do_gettimeofday(struct timeval *tv)
@@ -233,6 +418,7 @@ int btmtk_efuse_read(struct btmtk_dev *bdev, u16 addr, u8 *value)
 
 	return ret;
 }
+
 void btmtk_free_fw_cfg_struct(struct fw_cfg_struct *fw_cfg, int count)
 {
 	int i = 0;
@@ -299,9 +485,20 @@ static void btmtk_initialize_cfg_items(struct btmtk_dev *bdev)
 	BTMTK_INFO("%s end", __func__);
 }
 
+static void btmtk_init_memory(struct btmtk_dev *bdev)
+{
+	bdev->suspend_count = 0;
+	bdev->tx_in_flight = 0;
+	bdev->get_hci_reset = 0;
+	bdev->iso_threshold = 0;
+	bdev->sco_num = 0;
+	bdev->isoc_altsetting = 0;
+	bdev->tx_state = 0;
+}
+
 u8 btmtk_get_chip_state(struct btmtk_dev *bdev)
 {
-	u8 state = BTMTK_STATE_INIT;
+	u8 state = 0;
 
 	CHIP_STATE_MUTEX_LOCK();
 	state = bdev->interface_state;
@@ -332,7 +529,7 @@ void btmtk_set_chip_state(struct btmtk_dev *bdev, u8 new_state)
 
 u8 btmtk_fops_get_state(struct btmtk_dev *bdev)
 {
-	u8 state = BTMTK_FOPS_STATE_INIT;
+	u8 state = 0;
 
 	FOPS_MUTEX_LOCK();
 	state = bdev->fops_state;
@@ -361,6 +558,7 @@ static void btmtk_fops_set_state(struct btmtk_dev *bdev, u8 new_state)
 
 void *btmtk_kallsyms_lookup_name(const char *name)
 {
+#ifndef CONFIG_DISABLE_SYMBOL_GET_SET
 	void *addr = __symbol_get(name);
 
 	if (addr) {
@@ -373,6 +571,8 @@ void *btmtk_kallsyms_lookup_name(const char *name)
 		__symbol_put(name);
 	}
 	return addr;
+#endif
+	return NULL;
 }
 
 static void btmtk_main_info_initialize(void)
@@ -533,8 +733,9 @@ int btmtk_load_register(char *block_name, struct debug_reg_struct *save_reg,
 		memcpy(regnum, search_result + 1, search_end - search_result - 1);
 		regnum[search_end - search_result - 1] = '\0';
 		ret = kstrtoul(regnum, 0, &parsing_result);
+		kfree(regnum);
 		if (ret != 0) {
-			BTMTK_ERR("%s: %s kstrtoul fail: %d", __func__, regnum, ret);
+			BTMTK_ERR("%s: kstrtoul fail: %d", __func__, ret);
 			return -ENOMEM;
 		}
 
@@ -1452,7 +1653,7 @@ int btmtk_main_send_cmd(struct btmtk_dev *bdev, const uint8_t *cmd,
 {
 	struct sk_buff *skb = NULL;
 	int ret = 0;
-	int state = BTMTK_STATE_INIT;
+	int state = 0;
 
 	if (bdev == NULL || bdev->hdev == NULL ||
 		cmd == NULL || cmd_len <= 0) {
@@ -1508,10 +1709,8 @@ int btmtk_main_send_cmd(struct btmtk_dev *bdev, const uint8_t *cmd,
 		 * but wait related event failed, in this case, we don't need to free skb here,
 		 * otherwise, it will be double free.
 		 */
-		if (ret != -ERRNUM) {
+		if (ret != -ERRNUM)
 			kfree_skb(skb);
-			skb = NULL;
-		}
 	}
 
 exit:
@@ -2120,6 +2319,9 @@ int btmtk_load_rom_patch_66xx(struct btmtk_dev *bdev)
 int btmtk_load_rom_patch(struct btmtk_dev *bdev)
 {
 	int err = -1;
+#if CFG_SUPPORT_BT_DL_ZB_PATCH
+	unsigned int zb_enbale = 0;
+#endif
 
 	if (!bdev || !bdev->hdev) {
 		BTMTK_ERR("%s: invalid parameters!", __func__);
@@ -2136,10 +2338,17 @@ int btmtk_load_rom_patch(struct btmtk_dev *bdev)
 
 #if CFG_SUPPORT_BT_DL_ZB_PATCH
 		if (is_mt7902(bdev->chip_id)) {
-			err = btmtk_load_rom_patch_79xx(bdev, ZB_DOWNLOAD);
+			err = main_info.hif_hook.reg_read(bdev, ZB_ENABLE, &zb_enbale);
+			BTMTK_INFO("%s: ZB_ENABLE is %d", __func__, zb_enbale);
 			if (err < 0) {
-				BTMTK_WARN("%s: btmtk_load_rom_patch_79xx ZB patch failed!", __func__);
+				BTMTK_ERR("read ZB enbale failed");
 				err = 0;
+			} else if ((zb_enbale & (1 << 0)) == 0) {
+				err = btmtk_load_rom_patch_79xx(bdev, ZB_DOWNLOAD);
+				if (err < 0) {
+					BTMTK_WARN("%s: btmtk_load_rom_patch_79xx ZB patch failed!", __func__);
+					err = 0;
+				}
 			}
 		}
 #endif
@@ -2212,8 +2421,6 @@ void btmtk_release_dev(struct btmtk_dev *bdev)
 				 * disconnected before probe, can't do chip reset
 				 */
 				bdev->bt_cfg.dongle_reset_gpio_pin = -1;
-
-				tmp_bdev = NULL;
 				break;
 			}
 		}
@@ -2317,7 +2524,7 @@ int btmtk_send_wmt_power_off_cmd(struct btmtk_dev *bdev)
 	u8 cmd[WMT_POWER_OFF_CMD_LEN] = { 0x01, 0x6F, 0xFC, 0x06, 0x01, 0x06, 0x02, 0x00, 0x00, 0x00 };
 	/* To-Do, for event check */
 	u8 event[WMT_POWER_OFF_EVT_HDR_LEN] = { 0x04, 0xE4, 0x05, 0x02, 0x06, 0x01, 0x00 };
-	int ret = -1;
+	int ret = 0;
 
 	if (!bdev) {
 		BTMTK_ERR("%s: bdev is NULL !", __func__);
@@ -2600,7 +2807,7 @@ end:
 static bool btmtk_parse_bt_cfg_file(char *item_name,
 		char *text, u8 *searchcontent)
 {
-	bool ret = true;
+	bool ret = 0;
 	int temp_len = 0;
 	char search[SEARCH_LEN];
 	char *ptr = NULL, *p = NULL;
@@ -2649,6 +2856,7 @@ static bool btmtk_parse_bt_cfg_file(char *item_name,
 textdone:
 	temp_len = p - ptr;
 	*temp = '\0';
+	ret = true;
 
 out:
 	return ret;
@@ -2676,7 +2884,7 @@ static void btmtk_bt_cfg_item_value_to_bool(char *item_value, bool *value)
 static void btmtk_load_bt_cfg_item(struct bt_cfg_struct *bt_cfg_content,
 		u8 *searchcontent, struct btmtk_dev *bdev)
 {
-	bool ret = true;
+	bool ret = 0;
 	char text[TEXT_LEN]; /* save for search text */
 	unsigned long text_value = 0;
 
@@ -3644,8 +3852,8 @@ static int bt_flush(struct hci_dev *hdev)
 static int bt_close(struct hci_dev *hdev)
 {
 	int ret = -1;
-	int state = BTMTK_STATE_INIT;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	int state = 0;
+	unsigned char fstate = 0;
 	struct btmtk_dev *bdev = NULL;
 
 	if (!hdev) {
@@ -3728,15 +3936,18 @@ err:
 	main_info.reset_stack_flag = HW_ERR_NONE;
 	bdev->get_hci_reset = 0;
 
+#if CFG_SUPPORT_BMR_RX_CLK
+	btmtk_bmr_rxclk_deinit(bdev);
+#endif
 	BTMTK_INFO("%s: end, reset_stack_flag = %d", __func__, main_info.reset_stack_flag);
 	return 0;
 }
 
 static int bt_open(struct hci_dev *hdev)
 {
-	int ret = -1;
-	int state = BTMTK_STATE_INIT;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	int ret = 0;
+	int state = 0;
+	unsigned char fstate = 0;
 	struct btmtk_dev *bdev = NULL;
 	void (*rlm_get_alpha2)(char *);
 	const char *wifi_func_name = "rlm_get_alpha2";
@@ -3838,6 +4049,9 @@ static int bt_open(struct hci_dev *hdev)
 			btmtk_load_country_table(bdev);
 	}
 
+#if CFG_SUPPORT_BMR_RX_CLK
+	btmtk_bmr_rxclk_init(bdev);
+#endif
 	DUMP_TIME_STAMP("open_end");
 	return 0;
 
@@ -3865,9 +4079,9 @@ static int bt_setup(struct hci_dev *hdev)
 
 static int bt_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
-	int ret = -1;
-	int state = BTMTK_STATE_INIT;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	int ret = 0;
+	int state = 0;
+	unsigned char fstate = 0;
 	/* parsing commands */
 	u8 fw_coredump_cmd[FW_COREDUMP_CMD_LEN] = { 0x01, 0x5B, 0xFD, 0x00 };
 	u8 fw_coredump_flag = 0;
@@ -4001,7 +4215,7 @@ static void btmtk_rx_work(struct work_struct *work)
 	int err = 0, skip_pkt = 0;
 	struct btmtk_dev *bdev = container_of(work, struct btmtk_dev, rx_work);
 	struct sk_buff *skb;
-	unsigned char fstate = BTMTK_FOPS_STATE_INIT;
+	unsigned char fstate = 0;
 	int state = 0;
 
 	BTMTK_DBG("%s enter", __func__);
@@ -4015,6 +4229,9 @@ static void btmtk_rx_work(struct work_struct *work)
 				kfree_skb(skb);
 				continue;
 			}
+#if CFG_SUPPORT_BMR_RX_CLK
+			btmtk_bmr_rxclk_evt_handler(bdev, skb);
+#endif
 		}
 
 		if (hci_skb_pkt_type(skb) == HCI_EVENT_PKT) {
@@ -4176,6 +4393,10 @@ int btmtk_register_hci_device(struct btmtk_dev *bdev)
 
 	hdev = bdev->hdev;
 
+#if (KERNEL_VERSION(5, 10, 20) < LINUX_VERSION_CODE)
+	set_bit(HCI_QUIRK_NO_SUSPEND_NOTIFIER, &hdev->quirks);
+#endif
+
 	err = hci_register_dev(hdev);
 	/* After hci_register_dev completed
 	 * It will set dev_flags to HCI_SETUP
@@ -4312,6 +4533,7 @@ int btmtk_main_cif_initialize(struct btmtk_dev *bdev, int hci_bus)
 	}
 
 	btmtk_initialize_cfg_items(bdev);
+	btmtk_init_memory(bdev);
 
 	err = btmtk_allocate_hci_device(bdev, hci_bus);
 	if (err < 0) {
@@ -4359,6 +4581,7 @@ end:
 
 void btmtk_main_cif_uninitialize(struct btmtk_dev *bdev, int hci_bus)
 {
+	btmtk_init_memory(bdev);
 	btmtk_free_setting_file(bdev);
 	btmtk_free_hci_device(bdev, hci_bus);
 	btmtk_main_free_memory(bdev);
@@ -4574,8 +4797,17 @@ int __init main_driver_init(void)
 		return ret;
 	}
 
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	btmtk_reset_ko_register();
+#endif
+
 	if (main_info.hif_hook.init)
 		ret = main_info.hif_hook.init();
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	/* notify reset ko module BT insmod ok */
+	rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_KO_INSMOD, NULL);
+#endif
 
 	BTMTK_INFO("%s: Done", __func__);
 	return ret;
@@ -4592,6 +4824,17 @@ void __exit main_driver_exit(void)
 	btmtk_cif_deregister();
 
 	main_exit();
+
+#ifdef CFG_CHIP_RESET_KO_SUPPORT
+	/* notify reset ko module BT rmmod */
+	rstNotifyWholeChipRstStatus(RST_MODULE_BT, RST_MODULE_STATE_KO_RMMOD, NULL);
+#ifdef CHIP_IF_SDIO
+	unregister_bt_notify_callback();
+#elif defined(CHIP_IF_USB)
+
+#endif
+
+#endif
 }
 
 module_init(main_driver_init);

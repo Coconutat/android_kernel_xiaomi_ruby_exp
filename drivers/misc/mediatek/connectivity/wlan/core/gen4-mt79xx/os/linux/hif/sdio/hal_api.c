@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -1167,7 +1167,7 @@ uint32_t halTxPollingResource(IN struct ADAPTER *prAdapter, IN uint8_t ucTC)
 {
 	struct TX_CTRL *prTxCtrl;
 	uint32_t u4Status = WLAN_STATUS_RESOURCES;
-	uint32_t au4WTSR[SDIO_TX_RESOURCE_REG_NUM];
+	struct TX_RES_INFO_STRUCT ResInfo;
 	struct GL_HIF_INFO *prHifInfo;
 
 	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
@@ -1176,17 +1176,18 @@ uint32_t halTxPollingResource(IN struct ADAPTER *prAdapter, IN uint8_t ucTC)
 
 	if (prHifInfo->fgIsPendingInt && (prHifInfo->prSDIOCtrl->u4WHISR & WHISR_TX_DONE_INT)) {
 		/* Get Tx done resource from pending interrupt status */
-		kalMemCopy(au4WTSR, &prHifInfo->prSDIOCtrl->rTxInfo,
+		kalMemCopy(&ResInfo.rTxResInfo, &prHifInfo->prSDIOCtrl->rTxInfo,
 			sizeof(uint32_t) * SDIO_TX_RESOURCE_REG_NUM);
 
 		/* Clear pending Tx done interrupt */
 		prHifInfo->prSDIOCtrl->u4WHISR &= ~WHISR_TX_DONE_INT;
 	} else
-		HAL_READ_TX_RELEASED_COUNT(prAdapter, au4WTSR);
+		HAL_READ_TX_RELEASED_COUNT(prAdapter, &ResInfo.rTxResInfo);
 
 	if (kalIsCardRemoved(prAdapter->prGlueInfo) == TRUE || fgIsBusAccessFailed == TRUE) {
 		u4Status = WLAN_STATUS_FAILURE;
-	} else if (halTxReleaseResource(prAdapter, (uint16_t *) au4WTSR)) {
+	} else if (halTxReleaseResource(prAdapter,
+		(uint16_t *) &ResInfo.rTxResInfo)) {
 		if (prTxCtrl->rTc.au4FreeBufferCount[ucTC] > 0)
 			u4Status = WLAN_STATUS_SUCCESS;
 	}
@@ -3116,7 +3117,7 @@ u_int8_t halIsTxResourceControlEn(IN struct ADAPTER *prAdapter)
 void halTxResourceResetHwTQCounter(IN struct ADAPTER *prAdapter)
 {
 	uint32_t *pu4WHISR = NULL;
-	uint32_t au4TxCount[SDIO_TX_RESOURCE_REG_NUM] = { 0 };
+	uint32_t au4WTSR[SDIO_TX_RESOURCE_REG_NUM] = {0};
 
 	pu4WHISR = (uint32_t *)kalMemAlloc(sizeof(uint32_t), PHY_MEM_TYPE);
 	if (!pu4WHISR) {
@@ -3127,7 +3128,7 @@ void halTxResourceResetHwTQCounter(IN struct ADAPTER *prAdapter)
 	HAL_READ_INTR_STATUS(prAdapter, sizeof(uint32_t), (uint8_t *)pu4WHISR);
 	/* TXQ count CR access type is read clear. */
 	if (HAL_IS_TX_DONE_INTR(*pu4WHISR))
-		HAL_READ_TX_RELEASED_COUNT(prAdapter, au4TxCount);
+		HAL_READ_TX_RELEASED_COUNT(prAdapter, au4WTSR);
 
 	if (pu4WHISR)
 		kalMemFree(pu4WHISR, PHY_MEM_TYPE, sizeof(uint32_t));

@@ -179,7 +179,7 @@ kalP2PSetState(IN P_GLUE_INFO_T prGlueInfo,
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -516,7 +516,7 @@ VOID kalP2PIndicateConnReq(IN P_GLUE_INFO_T prGlueInfo, IN PUINT_8 pucDevName,
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -563,7 +563,7 @@ kalP2PInvitationIndication(IN P_GLUE_INFO_T prGlueInfo,
 #if 1
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -668,7 +668,7 @@ VOID kalP2PInvitationStatus(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4InvStatus)
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -703,7 +703,7 @@ VOID kalP2PIndicateSDRequest(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS r
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -735,17 +735,17 @@ void kalP2PIndicateSDResponse(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS 
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 i4Ret = 0;
 
 	ASSERT(prGlueInfo);
 
 	memset(&evt, 0, sizeof(evt));
 
-	ret = snprintf(aucBuffer, IW_CUSTOM_MAX - 1, "P2P_SD_RESP %d", ucSeqNum);
-	if ((ret < 0) || (ret > IW_CUSTOM_MAX - 1))
+	i4Ret = snprintf(aucBuffer, IW_CUSTOM_MAX - 1, "P2P_SD_RESP %d", ucSeqNum);
+	if ((i4Ret < 0) || (i4Ret > IW_CUSTOM_MAX - 1))
 		DBGLOG(P2P, ERROR,
 			"[%u] snprintf failed, ret: %d\n",
-				__LINE__, ret);
+				__LINE__, i4Ret);
 	evt.data.length = strlen(aucBuffer);
 
 	/* indicate IWEVP2PSDREQ event */
@@ -769,7 +769,7 @@ VOID kalP2PIndicateTXDone(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucSeqNum, IN UI
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 
@@ -808,7 +808,7 @@ VOID kalP2PIndicateSecCheckRsp(IN P_GLUE_INFO_T prGlueInfo, IN PUINT_8 pucRsp, I
 {
 	union iwreq_data evt;
 	UINT_8 aucBuffer[IW_CUSTOM_MAX];
-	UINT_32 ret = 0;
+	INT_32 ret = 0;
 
 	ASSERT(prGlueInfo);
 

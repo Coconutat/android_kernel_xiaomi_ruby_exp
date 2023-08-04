@@ -840,7 +840,9 @@ _wpabuf_alloc(size_t len) {
 
 void *
 wpabuf_put(struct wpabuf *buf, size_t len) {
-	return NULL;
+	buf->size = len;
+	buf->used = 1;
+	return buf->buf;
 }
 
 int

@@ -199,6 +199,33 @@ static RX_EVENT_HANDLER_T arEventTable[] = {
 
 };
 
+static const struct ACTION_FRAME_SIZE_MAP arActionFrameReservedLen[] = {
+	{(uint16_t)(CATEGORY_PUBLIC_ACTION | ACTION_PUBLIC_20_40_COEXIST << 8),
+	 OFFSET_OF(ACTION_20_40_COEXIST_FRAME, rChnlReport)},
+	{(uint16_t)(CATEGORY_HT_ACTION | ACTION_HT_NOTIFY_CHANNEL_WIDTH << 8),
+	 sizeof(ACTION_NOTIFY_CHNL_WIDTH_FRAME)},
+	{(uint16_t)(CATEGORY_HT_ACTION | ACTION_HT_SM_POWER_SAVE << 8),
+	 sizeof(ACTION_SM_POWER_SAVE_FRAME)},
+	{(uint16_t)(CATEGORY_SA_QUERY_ACTION | ACTION_SA_QUERY_REQUEST << 8),
+	 sizeof(ACTION_SA_QUERY_FRAME)},
+	{(uint16_t)
+	 (CATEGORY_WNM_ACTION | ACTION_WNM_TIMING_MEASUREMENT_REQUEST << 8),
+	 sizeof(ACTION_WNM_TIMING_MEAS_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_MEASUREMENT_REQ << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_MEASUREMENT_REPORT << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_TPC_REQ << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_TPC_REPORT << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_CHNL_SWITCH << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)
+	 (CATEGORY_VHT_ACTION | ACTION_OPERATING_MODE_NOTIFICATION << 8),
+	 sizeof(ACTION_OP_MODE_NOTIFICATION_FRAME)},
+};
+
 /*******************************************************************************
 *                                 M A C R O S
 ********************************************************************************
@@ -893,7 +920,9 @@ BOOLEAN nicRxIsDuplicateFrame(IN OUT P_SW_RFB_T prSwRfb)
 
 	/* Case 1: Unicast QoS data */
 	if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl)) {	/* WLAN header shall exist when doing duplicate detection */
-		if (prSwRfb->prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
+		if (prSwRfb->ucTid < CFG_RX_MAX_BA_TID_NUM &&
+			prSwRfb->prStaRec->
+			aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
 
 			/* QoS data with an RX BA agreement
 			 *  Case 1: The packet is not an AMPDU subframe, so the RetryBit may be set to 1 (TBC).
@@ -1580,7 +1609,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 	prSwRfb->fgFragFrame = FALSE;
 	prSwRfb->fgReorderBuffer = FALSE;
 
-	DBGLOG(RSN, INFO, "StatusFlag:0x%x\n", prRxStatus->u2StatusFlag);
+	DBGLOG(RSN, TRACE, "StatusFlag:0x%x\n", prRxStatus->u2StatusFlag);
 
 	/* Get RXD in the beginning */
 	nicRxFillRFB(prAdapter, prSwRfb);
@@ -2078,9 +2107,6 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 			if (ucBssIndex >= BSS_INFO_NUM)
 				ucBssIndex = 1;	/* No hit(bss1 for default ais network) */
-			/* printk("=======> rssi with bss%d ,%d\n",ucBssIndex,
-			 * ((P_EVENT_LINK_QUALITY_V2)(prEvent->aucBuffer))->rLq[ucBssIndex].cRssi);
-			 */
 			nicUpdateLinkQuality(prAdapter, ucBssIndex, (P_EVENT_LINK_QUALITY_V2) (prEvent->aucBuffer));
 		}
 
@@ -3513,6 +3539,40 @@ WLAN_STATUS nicRxFlush(IN P_ADAPTER_T prAdapter)
 	return WLAN_STATUS_SUCCESS;
 }
 
+uint8_t nicIsActionFrameValid(IN P_SW_RFB_T prSwRfb)
+{
+	P_WLAN_ACTION_FRAME prActFrame;
+	uint16_t u2ActionIndex = 0, u2ExpectedLen = 0;
+	uint32_t u4Idx, u4Size;
+
+	if (prSwRfb->u2PacketLen < sizeof(WLAN_ACTION_FRAME) - 1)
+		return FALSE;
+	prActFrame = (P_WLAN_ACTION_FRAME) prSwRfb->pvHeader;
+
+	DBGLOG(RSN, TRACE, "Action frame category=%d action=%d\n",
+	       prActFrame->ucCategory, prActFrame->ucAction);
+
+	u2ActionIndex = prActFrame->ucCategory | prActFrame->ucAction << 8;
+	u4Size = sizeof(arActionFrameReservedLen) /
+		 sizeof(struct ACTION_FRAME_SIZE_MAP);
+	for (u4Idx = 0; u4Idx < u4Size; u4Idx++) {
+		if (u2ActionIndex == arActionFrameReservedLen[u4Idx].u2Index) {
+			u2ExpectedLen = (uint16_t)
+				arActionFrameReservedLen[u4Idx].len;
+			DBGLOG(RSN, LOUD,
+				"Found expected len of incoming action frame:%d\n",
+				u2ExpectedLen);
+			break;
+		}
+	}
+	if (u2ExpectedLen != 0 && prSwRfb->u2PacketLen < u2ExpectedLen) {
+		DBGLOG(RSN, INFO,
+			"Received an abnormal action frame: packet len/expected len:%d/%d\n",
+			prSwRfb->u2PacketLen, u2ExpectedLen);
+		return FALSE;
+	}
+	return TRUE;
+}
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief
@@ -3536,11 +3596,9 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 
 	DBGLOG(RSN, TRACE, "[Rx] nicRxProcessActionFrame\n");
 
-	if (prSwRfb->u2PacketLen < sizeof(WLAN_ACTION_FRAME) - 1)
+	if (!nicIsActionFrameValid(prSwRfb))
 		return WLAN_STATUS_INVALID_PACKET;
 	prActFrame = (P_WLAN_ACTION_FRAME) prSwRfb->pvHeader;
-
-	DBGLOG(RSN, INFO, "Action frame category=%d\n", prActFrame->ucCategory);
 
 #if CFG_SUPPORT_802_11W
 	if ((prActFrame->ucCategory <= CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION &&

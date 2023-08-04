@@ -158,6 +158,14 @@ VOID cnmInit(P_ADAPTER_T prAdapter)
 /*----------------------------------------------------------------------------*/
 VOID cnmUninit(P_ADAPTER_T prAdapter)
 {
+#if CFG_SUPPORT_DBDC
+	cnmTimerStopTimer(prAdapter,
+		&prAdapter->rWifiVar.rDBDCSwitchGuardTimer);
+
+	cnmTimerStopTimer(prAdapter,
+		&prAdapter->rWifiVar.rDBDCDisableCountdownTimer);
+#endif /*CFG_SUPPORT_DBDC*/
+
 }				/* end of cnmUninit()*/
 
 /*----------------------------------------------------------------------------*/
@@ -1385,7 +1393,9 @@ VOID cnmDbdcEnableDecision(
 		if (!prBssInfo->fgIsInUse ||
 			!prBssInfo->fgIsNetActive ||
 			(prBssInfo->eConnectionState != PARAM_MEDIA_STATE_CONNECTED &&
-			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT))
+			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT) ||
+			(prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT &&
+			!IS_NET_PWR_STATE_ACTIVE(prAdapter, prBssInfo->ucBssIndex)))
 			continue;
 
 		if (prBssInfo->eBand != BAND_2G4 && prBssInfo->eBand != BAND_5G)
@@ -1450,7 +1460,9 @@ VOID cnmDbdcDisableDecision(IN P_ADAPTER_T prAdapter,	IN UINT_8 ucChangedBssInde
 		if (!prBssInfo->fgIsInUse ||
 			!prBssInfo->fgIsNetActive ||
 			(prBssInfo->eConnectionState != PARAM_MEDIA_STATE_CONNECTED &&
-			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT))
+			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT) ||
+			(prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT &&
+			!IS_NET_PWR_STATE_ACTIVE(prAdapter, prBssInfo->ucBssIndex)))
 			continue;
 
 		if (prBssInfo->eBand != BAND_2G4 && prBssInfo->eBand != BAND_5G)
@@ -1467,10 +1479,12 @@ VOID cnmDbdcDisableDecision(IN P_ADAPTER_T prAdapter,	IN UINT_8 ucChangedBssInde
 		}
 	}
 
-	/* start DBDC disable countdown timer */
-	cnmTimerStartTimer(prAdapter,
-						&prAdapter->rWifiVar.rDBDCDisableCountdownTimer,
-						DBDC_DISABLE_COUNTDOWN_TIME);
+	if (prAdapter->rWifiVar.fgDbDcModeEn) {
+		/* DBDC Disable */
+		cnmUpdateDbdcSetting(prAdapter, FALSE);
+		cnmTimerStartTimer(prAdapter, &prAdapter->rWifiVar.rDBDCSwitchGuardTimer, DBDC_SWITCH_GUARD_TIME);
+		return;
+	}
 }
 
 
@@ -1503,7 +1517,9 @@ VOID cnmDbdcDecision(IN P_ADAPTER_T prAdapter, IN ULONG plParamPtr)
 		if (!prBssInfo->fgIsInUse ||
 			!prBssInfo->fgIsNetActive ||
 			(prBssInfo->eConnectionState != PARAM_MEDIA_STATE_CONNECTED &&
-			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT))
+			prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT) ||
+			(prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT &&
+			!IS_NET_PWR_STATE_ACTIVE(prAdapter, prBssInfo->ucBssIndex)))
 			continue;
 
 		if (prBssInfo->eBand != BAND_2G4 && prBssInfo->eBand != BAND_5G)

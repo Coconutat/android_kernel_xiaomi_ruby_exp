@@ -92,7 +92,7 @@ static loff_t rd_offset;
 
 static int32_t ftrace_print(const uint8_t *str, ...)
 {
-#ifdef CONFIG_TRACING
+#ifdef BT_CONFIG_TRACING
 	va_list args;
 	uint8_t temp_string[FTRACE_STR_LOG_SIZE];
 

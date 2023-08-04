@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -309,6 +309,7 @@
 #endif
 #define CMD_ADMINCTRL_CONFIG_TYPE (0x6)
 #define CMD_EXT_PTA_CONFIG_TYPE (0x7)
+#define CMD_GET_ANTENNA_REPORT_TYPE (0x9)
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -2541,10 +2542,20 @@ struct HW_MIB2_COUNTER {
 	uint32_t u4Tx160MHzCnt;
 };
 
+struct HW_MIB3_COUNTER {
+	/*unit: us*/
+	uint32_t u4Mac2PHYTxTime;
+	uint32_t u4OfdmLGMixedVhtMdrdyTime;
+	uint32_t u4CckMdrdyTime;
+	uint32_t u4OfdmGreenMdrdyTime;
+	uint32_t u4BeaconRxCnt;
+};
+
 struct PARAM_HW_MIB_INFO {
 	uint32_t			u4Index;
 	struct HW_MIB_COUNTER	rHwMibCnt;
 	struct HW_MIB2_COUNTER	rHwMib2Cnt;
+	struct HW_MIB3_COUNTER	rHwMib3Cnt;
 	struct HW_TX_AMPDU_METRICS	rHwTxAmpduMts;
 };
 #endif
@@ -3282,6 +3293,16 @@ struct PARAM_GET_DPD_CACHE {
 };
 #endif
 
+#if CFG_WIFI_SUPPORT_WIFI_ON_STATISTICS
+struct WIFI_ON_TIME_STATISTICS {
+	/*record total wifi on time (unit: ms) during screen on stage*/
+	uint32_t u4WifiOnTimeDuringScreenOn;
+	/*record total wifi on time (unit: ms) during screen off stage*/
+	uint32_t u4WifiOnTimeDuringScreenOff;
+	/*record the last update time*/
+	OS_SYSTIME lastUpdateTime;
+};
+#endif
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -4996,5 +5017,13 @@ wlanoidLatchTSF(IN struct ADAPTER *prAdapter,
 		    IN void *pvQueryBuffer, IN uint32_t u4QueryBufferLen,
 		    OUT uint32_t *pu4QueryInfoLen);
 #endif
+
+/* fos_change begin */
+uint32_t
+wlanoidQueryBandWidth(IN struct ADAPTER *prAdapter,
+			  IN void *pvQueryBuffer,
+			  IN uint32_t u4QueryBufferLen,
+			  OUT uint32_t *pu4QueryInfoLen);
+/*fos_change end*/
 
 #endif /* _WLAN_OID_H */

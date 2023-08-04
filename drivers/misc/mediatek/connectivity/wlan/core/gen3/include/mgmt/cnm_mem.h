@@ -168,7 +168,13 @@ typedef struct _SEC_INFO_T {
 
 /* Fragment information structure */
 typedef struct _FRAG_INFO_T {
-	UINT_16 u2NextFragSeqCtrl;
+	UINT_16 u2SeqNo;
+	UINT_8 ucNextFragNo;
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	UINT_8 ucSecMode;
+	UINT_64 u8NextPN;
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
+
 	PUINT_8 pucNextFragStart;
 	P_SW_RFB_T pr1stFrag;
 	OS_SYSTIME rReceiveLifetimeLimit;	/* The receive time of 1st fragment */
@@ -367,6 +373,11 @@ struct _STA_RECORD_T {
 							 */
 
 	BOOLEAN afgIsIgnoreAmsduDuplicate[TID_NUM + 1];
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	UINT_16 au2AmsduInvalidSN[TID_NUM + 1]; /*0 ~ TID-1 for TID, TID_NUM for non-qos data.*/
+	UINT_8 afgIsAmsduInvalid[TID_NUM + 1];
+#endif
 
 #if 0
 	/* RXM */

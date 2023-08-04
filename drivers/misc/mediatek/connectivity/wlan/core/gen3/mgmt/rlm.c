@@ -1416,6 +1416,7 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 	if (prCsaParam->fgReadyToSwitch) {
 		P_BSS_DESC_T prBssDesc;
 		PARAM_SSID_T rSsid;
+		kalMemZero(&rSsid, sizeof(rSsid));
 
 		prBssInfo->ucPrimaryChannel = prCsaParam->ucNewChannel;
 		if (prCsaParam->fgHasWideBandIE) {
@@ -2588,6 +2589,7 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 		if (prCsaParam->fgReadyToSwitch) {
 			P_BSS_DESC_T prBssDesc;
 			PARAM_SSID_T rSsid;
+			kalMemZero(&rSsid, sizeof(rSsid));
 
 			prBssInfo->ucPrimaryChannel = prCsaParam->ucNewChannel;
 			if (prCsaParam->fgHasWideBandIE) {

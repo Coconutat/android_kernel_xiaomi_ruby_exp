@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
  * Copyright (c) 2016 MediaTek Inc.
  */
@@ -90,6 +90,7 @@ const struct nla_policy nla_parse_wifi_attribute[
 #endif
 	[WIFI_ATTRIBUTE_ROAMING_STATE] = {.type = NLA_U32},
 	[WIFI_ATTRIBUTE_TX_POWER_SCENARIO] = {.type = NLA_U32},
+	[WIFI_ATTRIBUTE_LOW_LATENCY_MODE] = {.type = NLA_U32},
 };
 
 #if !CFG_SUPPORT_OLD_VENDOR_HAL
@@ -640,6 +641,8 @@ int mtk_cfg80211_vendor_enable_roaming(struct wiphy *wiphy,
 
 	ASSERT(wiphy);	/* change to if (wiphy == NULL) then return? */
 	ASSERT(wdev);	/* change to if (wiphy == NULL) then return? */
+	if ((data == NULL) || (data_len == 0))
+		return -EINVAL;
 
 	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
 	if (!prGlueInfo)
@@ -708,9 +711,33 @@ int mtk_cfg80211_vendor_llstats_get_info(
 	struct WIFI_RADIO_STAT *pRadioStat = NULL;
 	struct sk_buff *skb = NULL;
 	uint32_t u4BufLen = 0;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct WIFI_IFACE_STAT *pIfaceStat = NULL;
+	struct PARAM_802_11_STATISTICS_STRUCT rStatistics;
+	struct PARAM_HW_MIB_INFO rHwMibInfo;
+	struct SCAN_INFO *prScanInfo = NULL;
+	OS_SYSTIME currentTime;
+	uint32_t tmpLen = 0;
+	uint8_t ucBssIndex = 0;
+	int32_t i4Rssi = 0;
 
 	ASSERT(wiphy);
 	ASSERT(wdev);
+
+#if CFG_ENABLE_UNIFY_WIPHY
+	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
+#else	/* CFG_ENABLE_UNIFY_WIPHY */
+	if (wdev == gprWdev)	/* wlan0 */
+		prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
+	else
+		prGlueInfo = *((struct GLUE_INFO **) wiphy_priv(wiphy));
+#endif	/* CFG_ENABLE_UNIFY_WIPHY */
+	if (!prGlueInfo)
+		return -EFAULT;
+
+	ucBssIndex = wlanGetBssIdx(wdev->netdev);
+	if (!IS_BSS_INDEX_AIS(prGlueInfo->prAdapter, ucBssIndex))
+		return -EINVAL;
 
 	u4BufLen = sizeof(struct WIFI_RADIO_STAT) + sizeof(
 			   struct WIFI_IFACE_STAT);
@@ -722,6 +749,10 @@ int mtk_cfg80211_vendor_llstats_get_info(
 		goto nla_put_failure;
 	}
 	kalMemZero(pRadioStat, u4BufLen);
+	kalMemZero(&rHwMibInfo, sizeof(rHwMibInfo));
+	kalMemZero(&rStatistics, sizeof(rStatistics));
+	pIfaceStat = (struct WIFI_IFACE_STAT *)
+		((uint8_t *)pRadioStat + sizeof(struct WIFI_RADIO_STAT));
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, u4BufLen);
 	if (!skb) {
@@ -731,22 +762,99 @@ int mtk_cfg80211_vendor_llstats_get_info(
 		goto nla_put_failure;
 	}
 
-#if 0
-	rStatus = kalIoctl(prGlueInfo,
-			   wlanoidQueryStatistics,
-			   &rRadioStat,
-			   sizeof(rRadioStat),
-			   TRUE,
-			   TRUE,
-			   TRUE,
-			   TRUE,
-			   &u4BufLen);
-#endif
-	/* only for test */
-	pRadioStat->radio = 10;
-	pRadioStat->on_time = 11;
-	pRadioStat->tx_time = 12;
-	pRadioStat->num_channels = 4;
+	/*get scan time*/
+	prScanInfo = &(prGlueInfo->prAdapter->rWifiVar.rScanInfo);
+	pRadioStat->on_time_scan = prScanInfo->u4TotalScanTime;
+
+	/*get wifi on time*/
+	GET_CURRENT_SYSTIME(&currentTime);
+	pRadioStat->on_time = currentTime - lastWifiOnTime;
+
+	/*CMD_ID_MIB_INFO*/
+	i4Status = kalIoctl(prGlueInfo,
+			wlanoidQueryMibInfo,
+			&rHwMibInfo,
+			sizeof(struct PARAM_HW_MIB_INFO),
+			TRUE,
+			TRUE,
+			TRUE,
+			&tmpLen);
+	if (i4Status != WLAN_STATUS_SUCCESS)
+		DBGLOG(REQ, WARN, "unable to get mib infor\n");
+
+	pRadioStat->tx_time =
+		rHwMibInfo.rHwMib3Cnt.u4Mac2PHYTxTime / USEC_PER_MSEC;
+	pRadioStat->rx_time =
+		rHwMibInfo.rHwMibCnt.u4PCcaTime / USEC_PER_MSEC;
+	pIfaceStat->beacon_rx = rHwMibInfo.rHwMib3Cnt.u4BeaconRxCnt;
+	/*CMD_ID_GET_STATISTICS*/
+	i4Status = kalIoctl(prGlueInfo,
+			wlanoidQueryStatistics,
+			&rStatistics,
+			sizeof(struct PARAM_802_11_STATISTICS_STRUCT),
+			TRUE,
+			TRUE,
+			TRUE,
+			&tmpLen);
+	if (i4Status != WLAN_STATUS_SUCCESS)
+		DBGLOG(REQ, WARN, "unable to get statistics\n");
+
+	pIfaceStat->ac[WIFI_AC_BE].rx_mpdu =
+		rStatistics.rReceivedFragmentCount.u.LowPart;
+	pIfaceStat->ac[WIFI_AC_BE].tx_mpdu =
+		rStatistics.rTransmittedFragmentCount.u.LowPart;
+	pIfaceStat->ac[WIFI_AC_BE].mpdu_lost =
+		rStatistics.rFailedCount.u.LowPart;
+	pIfaceStat->ac[WIFI_AC_BE].retries =
+		rStatistics.rRetryCount.u.LowPart;
+
+	/*CMD_ID_GET_LINK_QUALITY*/
+	i4Status = kalIoctlByBssIdx(prGlueInfo,
+				wlanoidQueryRssi,
+				&i4Rssi, sizeof(i4Rssi),
+				TRUE, FALSE, TRUE,
+				&tmpLen, ucBssIndex);
+
+	if (i4Status != WLAN_STATUS_SUCCESS) {
+		DBGLOG(REQ, WARN,
+			"Query RSSI failed, use last RSSI %d\n",
+			prGlueInfo->i4RssiCache);
+		pIfaceStat->rssi_mgmt = prGlueInfo->i4RssiCache ?
+			prGlueInfo->i4RssiCache :
+			PARAM_WHQL_RSSI_INITIAL_DBM;
+	} else if (i4Rssi == PARAM_WHQL_RSSI_MIN_DBM ||
+			i4Rssi == PARAM_WHQL_RSSI_MAX_DBM) {
+		DBGLOG(REQ, WARN,
+			"RSSI abnormal, use last RSSI %d\n",
+			prGlueInfo->i4RssiCache);
+		pIfaceStat->rssi_mgmt = prGlueInfo->i4RssiCache ?
+			prGlueInfo->i4RssiCache : i4Rssi;
+	} else {
+		pIfaceStat->rssi_mgmt = i4Rssi;	/* dBm */
+		prGlueInfo->i4RssiCache = i4Rssi;
+	}
+
+	/*print stats information*/
+	DBGLOG(REQ, TRACE,
+		"Numbers of beacons received: %d\n", pIfaceStat->beacon_rx);
+	DBGLOG(REQ, TRACE,
+		"RSSI of management frames: %d\n", pIfaceStat->rssi_mgmt);
+	DBGLOG(REQ, TRACE,
+		"Received mpdu: %d\n", pIfaceStat->ac[WIFI_AC_BE].rx_mpdu);
+	DBGLOG(REQ, TRACE,
+		"Transmitted mpdu: %d\n", pIfaceStat->ac[WIFI_AC_BE].tx_mpdu);
+	DBGLOG(REQ, TRACE,
+		"lost mpdu: %d\n", pIfaceStat->ac[WIFI_AC_BE].mpdu_lost);
+	DBGLOG(REQ, TRACE,
+		"Retry mpdu: %d\n", pIfaceStat->ac[WIFI_AC_BE].retries);
+	DBGLOG(REQ, TRACE,
+		"wifi radio on time(unit ms): %d\n", pRadioStat->on_time);
+	DBGLOG(REQ, TRACE,
+		"active transmission time(unit ms): %d\n", pRadioStat->tx_time);
+	DBGLOG(REQ, TRACE,
+		"active receive time(unit ms): %d\n", pRadioStat->rx_time);
+	DBGLOG(REQ, TRACE,
+		"scan time(unit ms): %d\n", pRadioStat->on_time_scan);
 
 	/*NLA_PUT(skb, LSTATS_ATTRIBUTE_STATS, u4BufLen, pRadioStat);*/
 	if (unlikely(nla_put(skb, LSTATS_ATTRIBUTE_STATS, u4BufLen,
@@ -1415,6 +1523,8 @@ int mtk_cfg80211_vendor_set_tx_power_scenario(struct wiphy *wiphy,
 
 	ASSERT(wiphy);
 	ASSERT(wdev);
+	if ((data == NULL) || (data_len == 0))
+		return -EINVAL;
 
 #if CFG_ENABLE_UNIFY_WIPHY
 	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
@@ -1918,7 +2028,6 @@ int mtk_cfg80211_vendor_driver_memory_dump(struct wiphy *wiphy,
 	uint32_t u4BufLen;
 #endif
 	struct sk_buff *skb = NULL;
-	uint32_t *puBuffer = NULL;
 	int32_t i4Status;
 	uint16_t u2CopySize = 0;
 
@@ -1970,7 +2079,6 @@ int mtk_cfg80211_vendor_driver_memory_dump(struct wiphy *wiphy,
 	);
 
 	u2CopySize = sizeof(struct LINK_QUALITY_INFO_OUTPUT_DATA);
-	puBuffer = (uint32_t *)&outputData;
 #endif
 
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, u2CopySize);
@@ -1980,9 +2088,9 @@ int mtk_cfg80211_vendor_driver_memory_dump(struct wiphy *wiphy,
 		return i4Status;
 	}
 
-	if (unlikely(nla_put_nohdr(skb, u2CopySize, puBuffer) < 0)) {
+	if (unlikely(nla_put_nohdr(skb, u2CopySize, &outputData) < 0)) {
 		DBGLOG(REQ, ERROR, "nla_put_nohdr failed: len=%u, ptr=%p\n",
-		       u2CopySize, puBuffer);
+		       u2CopySize, &outputData);
 		i4Status = -EINVAL;
 		goto err_handle_label;
 	}
@@ -2036,6 +2144,66 @@ nla_put_failure:
 	kfree_skb(skb);
 	DBGLOG(REQ, INFO, "%s nla_put_fail!\n", __func__);
 	return -ENOMEM;
+}
+#endif
+
+#if CFG_SUPPORT_LOWLATENCY_MODE
+int mtk_cfg80211_vendor_set_wifi_low_latency_mode(struct wiphy *wiphy,
+		struct wireless_dev *wdev, const void *data, int data_len)
+{
+	struct GLUE_INFO *prGlueInfo;
+	uint32_t rStatus;
+	uint32_t u4BufLen;
+	struct nlattr *attr;
+	uint32_t u4LowLatencyMode;
+	uint32_t u4Events = 0;
+
+	ASSERT(wiphy && wdev);
+	if ((data == NULL) || (data_len == 0))
+		return -EINVAL;
+
+#if CFG_ENABLE_UNIFY_WIPHY
+	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
+#else	/* CFG_ENABLE_UNIFY_WIPHY */
+	if (wdev == gprWdev)	/* wlan0 */
+		prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
+	else
+		prGlueInfo = *((struct GLUE_INFO **) wiphy_priv(wiphy));
+#endif	/* CFG_ENABLE_UNIFY_WIPHY */
+
+	if (!prGlueInfo)
+		return -EFAULT;
+
+	DBGLOG(REQ, INFO,
+	       "vendor command: data_len=%d, iftype=%d\n", data_len,
+	       wdev->iftype);
+
+	attr = (struct nlattr *)data;
+	if (attr->nla_type == WIFI_ATTRIBUTE_LOW_LATENCY_MODE)
+		u4LowLatencyMode = nla_get_u32(attr);
+	else
+		return -EINVAL;
+
+	if (u4LowLatencyMode == 1)
+		u4Events = (GED_EVENT_GAS | GED_EVENT_NETWORK);
+	else if (u4LowLatencyMode == 0)
+		u4Events = GED_EVENT_DOPT_WIFI_SCAN;
+	else {
+		DBGLOG(REQ, ERROR,
+			"set unkonw type: %x\n", u4LowLatencyMode);
+		return -EFAULT;
+	}
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidSetLowLatencyMode,
+			   &u4Events, sizeof(uint32_t),
+			   FALSE, FALSE, TRUE, &u4BufLen);
+	if (rStatus != WLAN_STATUS_SUCCESS) {
+		DBGLOG(REQ, ERROR, "set low latency mode %d failure : %x\n",
+			u4LowLatencyMode, rStatus);
+		return -EFAULT;
+	}
+
+	return 0;
 }
 #endif
 

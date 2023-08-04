@@ -2299,6 +2299,7 @@ s_int32 mt_op_get_tx_pwr(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
 	struct param_mtk_wifi_test_struct rf_at_info;
+	struct test_ru_info *ru_sta = &configs->ru_info_list[0];
 	u_int32 buf_len = 0;
 
 	if (pr_oid_funcptr == NULL)
@@ -2306,6 +2307,65 @@ s_int32 mt_op_get_tx_pwr(
 
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_DBDC_BAND_IDX, band_idx);
+
+	/* Trans preamble and rate for get correct default txpwr*/
+	if (configs->tx_mode == TEST_MODE_OFDM) {
+		configs->tx_mode = TEST_MODE_CCK;
+		configs->mcs += 4;
+	} else if ((configs->tx_mode == TEST_MODE_CCK)
+	&& ((configs->mcs == 9)
+		|| (configs->mcs == 10) || (configs->mcs == 11)))
+		configs->tx_mode = TEST_MODE_OFDM;
+
+	tm_rftest_set_auto_test(winfos,
+		RF_AT_FUNCID_PREAMBLE, configs->tx_mode);
+
+	if (configs->tx_mode == TEST_MODE_CCK) {
+		configs->mcs |= 0x00000000;
+		tm_rftest_set_auto_test(winfos,
+			RF_AT_FUNCID_RATE, configs->mcs);
+	} else if (configs->tx_mode == TEST_MODE_OFDM) {
+		if (configs->mcs == 9)
+			configs->mcs = 1;
+		else if (configs->mcs == 10)
+			configs->mcs = 2;
+		else if (configs->mcs == 11)
+			configs->mcs = 3;
+		configs->mcs |= 0x00000000;
+
+		tm_rftest_set_auto_test(winfos,
+			RF_AT_FUNCID_RATE, configs->mcs);
+	} else if (configs->tx_mode >= TEST_MODE_HTMIX &&
+	configs->tx_mode <= TEST_MODE_HE_TB) {
+
+		if (configs->tx_mode == TEST_MODE_HE_TB) {
+			/*do ru operation*/
+			if (ru_sta->valid) {
+				/*Calculate HE TB PHY Info*/
+				mt_engine_calc_phy(ru_sta,
+						ru_sta->mpdu_length+13,
+						configs->stbc,
+						configs->sgi,
+						configs->max_pkt_ext);
+
+				configs->dmnt_ru_idx = 0;
+
+				/*Replace the mcs/nss/ldpc/mpdu_len setting*/
+				configs->mcs = ru_sta->rate;
+				configs->nss = ru_sta->nss;
+				configs->ldpc = ru_sta->ldpc;
+				tm_rftest_set_auto_test(winfos,
+				RF_AT_FUNCID_PKTLEN, ru_sta->mpdu_length);
+
+				/*Do Calc Manual HE TB TX*/
+				mt_op_set_manual_he_tb_value(winfos,
+				ru_sta, configs);
+			}
+		}
+		configs->mcs |= 0x80000000;
+		tm_rftest_set_auto_test(winfos,
+			RF_AT_FUNCID_RATE, configs->mcs);
+	}
 
 	rf_at_info.func_idx = RF_AT_FUNCID_GET_CH_TX_PWR_OFFSET;
 	rf_at_info.func_data = 0;

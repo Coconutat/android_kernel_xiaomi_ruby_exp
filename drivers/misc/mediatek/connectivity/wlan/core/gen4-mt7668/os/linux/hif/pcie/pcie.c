@@ -352,9 +352,6 @@ WLAN_STATUS glRegisterBus(probe_card pfProbe, remove_card pfRemove)
 	ASSERT(pfProbe);
 	ASSERT(pfRemove);
 
-	/* printk(KERN_INFO "mtk_pci: MediaTek PCIE WLAN driver\n"); */
-	/* printk(KERN_INFO "mtk_pci: Copyright MediaTek Inc.\n"); */
-
 	pfWlanProbe = pfProbe;
 	pfWlanRemove = pfRemove;
 
@@ -1163,3 +1160,9 @@ void glGetHifDev(P_GL_HIF_INFO_T prHif, struct device **dev)
 {
 	*dev = &(prHif->pdev->dev);
 }
+
+void kalRemoveProbe(IN P_GLUE_INFO_T prGlueInfo)
+{
+	DBGLOG(INIT, WARN, "[SER][L0] not support...\n");
+}
+
