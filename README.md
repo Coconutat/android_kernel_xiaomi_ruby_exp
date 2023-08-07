@@ -3,6 +3,10 @@
 Language:  
 **English** | [简体中文](README_CN.md)
 ***
+![GitHub all releases](https://img.shields.io/github/downloads/Coconutat/android_kernel_xiaomi_ruby_exp/total?style=plastic&logo=Linux&logoColor=%23FFFFFF&labelColor=%23000000&color=%23FFF0F5)  
+***
+Kernel Releases(Download):[Releases](https://github.com/Coconutat/android_kernel_xiaomi_ruby_exp/releases)  
+***
 Detail:[Gsmarena](https://www.gsmarena.com/xiaomi_redmi_note_12_pro-11955.php)  
 Kernel Version:4.19.191  
 ***  

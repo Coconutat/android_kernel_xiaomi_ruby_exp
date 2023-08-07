@@ -3,6 +3,10 @@
 语言:   
 [English](README.md) | **简体中文**  
 ***
+![GitHub all releases](https://img.shields.io/github/downloads/Coconutat/android_kernel_xiaomi_ruby_exp/total?style=plastic&logo=Linux&logoColor=%23FFFFFF&labelColor=%23000000&color=%23FFF0F5)  
+***
+内核发布(下载):[Releases](https://github.com/Coconutat/android_kernel_xiaomi_ruby_exp/releases)  
+***
 详细配置:[Gsmarena](https://www.gsmarena.com/xiaomi_redmi_note_12_pro-11955.php)  
 内核版本:4.19.191  
 ***  
