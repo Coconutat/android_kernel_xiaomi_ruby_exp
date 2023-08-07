@@ -1,4 +1,8 @@
 # Xiaomi Redmi Note 12 Pro Kernel  
+***
+Language:  
+**English** | [简体中文](README_CN.md)
+***
 Detail:[Gsmarena](https://www.gsmarena.com/xiaomi_redmi_note_12_pro-11955.php)  
 Kernel Version:4.19.191  
 ***  
@@ -11,3 +15,6 @@ MTK kernel modules port from(Because Xiaomi's official source is not fully open)
 Compiler:[Proton-Clang](https://github.com/kdrag0n/proton-clang)  
 ***
 This branch is for support [KernelSU](https://github.com/tiann/KernelSU). 
+***
+Currently, the kernel cannot be automatically compiled through Github Action.  
+***
