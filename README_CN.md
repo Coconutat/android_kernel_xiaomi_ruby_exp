@@ -9,6 +9,7 @@
 ***
 详细配置:[Gsmarena](https://www.gsmarena.com/xiaomi_redmi_note_12_pro-11955.php)  
 内核版本:4.19.191  
+**警告：由于未知原因，仅支持MIUI14 安卓13的设备。**    
 ***  
 MTK模块来源：[Xiaomi MTK Modules:Ruby-s-oss](https://github.com/MiCode/MTK_kernel_modules/tree/ruby-s-oss)  
 移植的MTK模块来源(因为小米官方并未完全开源):  

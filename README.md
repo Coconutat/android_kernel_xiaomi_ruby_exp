@@ -9,6 +9,7 @@ Kernel Releases(Download):[Releases](https://github.com/Coconutat/android_kernel
 ***
 Detail:[Gsmarena](https://www.gsmarena.com/xiaomi_redmi_note_12_pro-11955.php)  
 Kernel Version:4.19.191  
+**Warning:Due to unknown reasons, only devices with MIUI14 and Android 13 are supported.**  
 ***  
 MTK kernel modules from:[Xiaomi MTK Modules:Ruby-s-oss](https://github.com/MiCode/MTK_kernel_modules/tree/ruby-s-oss)  
 MTK kernel modules port from(Because Xiaomi's official source is not fully open):  
